@@ -1,0 +1,68 @@
+import type { Category } from "@/types/category";
+
+export const mockCategories: Category[] = [
+  {
+    id: "CAT-001",
+    name: "Feeds",
+    description: "Animal and livestock feeds including poultry, hog, and cattle.",
+    productCount: 12,
+    status: "active",
+    createdAt: "2024-01-15T08:00:00Z",
+  },
+  {
+    id: "CAT-002",
+    name: "Fertilizers",
+    description: "Organic and inorganic fertilizers for crops and soil.",
+    productCount: 8,
+    status: "active",
+    createdAt: "2024-01-15T08:00:00Z",
+  },
+  {
+    id: "CAT-003",
+    name: "Pesticides",
+    description: "Insecticides and pest control products.",
+    productCount: 6,
+    status: "active",
+    createdAt: "2024-02-01T08:00:00Z",
+  },
+  {
+    id: "CAT-004",
+    name: "Veterinary Products",
+    description: "Medicines, vitamins, and supplements for animals.",
+    productCount: 10,
+    status: "active",
+    createdAt: "2024-02-01T08:00:00Z",
+  },
+  {
+    id: "CAT-005",
+    name: "Seeds",
+    description: "Quality seeds for rice, corn, vegetables, and other crops.",
+    productCount: 9,
+    status: "active",
+    createdAt: "2024-03-12T08:00:00Z",
+  },
+  {
+    id: "CAT-006",
+    name: "Tools",
+    description: "Hand tools and small farm implements.",
+    productCount: 7,
+    status: "active",
+    createdAt: "2024-03-12T08:00:00Z",
+  },
+  {
+    id: "CAT-007",
+    name: "Equipment",
+    description: "Farm equipment and machinery.",
+    productCount: 5,
+    status: "active",
+    createdAt: "2024-04-02T08:00:00Z",
+  },
+  {
+    id: "CAT-008",
+    name: "Farm Supplies",
+    description: "General farm supplies, accessories, and consumables.",
+    productCount: 4,
+    status: "inactive",
+    createdAt: "2024-04-02T08:00:00Z",
+  },
+];

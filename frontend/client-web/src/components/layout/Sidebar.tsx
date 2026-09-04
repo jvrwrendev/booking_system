@@ -1,0 +1,70 @@
+import { NavLink } from "react-router-dom";
+import { usePermissions } from "@/hooks/usePermissions";
+import { brandIcon, navGroups } from "./nav-config";
+import { cn } from "@/lib/utils";
+
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ onNavigate }: SidebarProps) {
+  const { can } = usePermissions();
+
+  return (
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r bg-card">
+      <div className="flex h-14 items-center gap-2 border-b px-5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+          {(() => {
+            const Icon = brandIcon;
+            return <Icon className="h-4 w-4" />;
+          })()}
+        </div>
+        <div className="flex flex-col leading-tight">
+          <span className="text-sm font-semibold">Agrivet Admin</span>
+          <span className="text-[11px] text-muted-foreground">
+            Booking & Inventory
+          </span>
+        </div>
+      </div>
+      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4 scrollbar-thin">
+        {navGroups.map((group) => {
+          const visibleItems = group.items.filter((item) =>
+            can(item.permission)
+          );
+          if (visibleItems.length === 0) return null;
+          return (
+            <div key={group.label} className="space-y-1">
+              <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {group.label}
+              </div>
+              {visibleItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.href}
+                    to={item.href}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                        isActive
+                          ? "bg-primary/10 font-medium text-primary"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                      )
+                    }
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.title}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          );
+        })}
+      </nav>
+      <div className="border-t px-4 py-3 text-[11px] text-muted-foreground">
+        v1.0.0 • {new Date().getFullYear()}
+      </div>
+    </aside>
+  );
+}
