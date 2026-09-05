@@ -17,6 +17,8 @@ export type Permission =
   | "bookings.update"
   | "bookings.delete"
   | "bookings.approve"
+  | "bookings.assign"
+  | "bookings.history"
   | "customers.view"
   | "customers.manage"
   | "agents.view"
@@ -49,6 +51,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "bookings.update",
     "bookings.delete",
     "bookings.approve",
+    "bookings.assign",
+    "bookings.history",
     "customers.view",
     "customers.manage",
     "agents.view",
@@ -80,6 +84,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "bookings.update",
     "bookings.delete",
     "bookings.approve",
+    "bookings.history",
     "customers.view",
     "customers.manage",
     "agents.view",

@@ -17,6 +17,7 @@ import { InventoryPage } from "@/features/inventory/pages/InventoryPage";
 
 import { BookingsListPage } from "@/features/bookings/pages/BookingsListPage";
 import { BookingDetailPage } from "@/features/bookings/pages/BookingDetailPage";
+import { BookingHistoryPage } from "@/features/bookings/pages/BookingHistoryPage";
 import { BookingsProvider } from "@/features/bookings/hooks/useBookingsStore";
 
 import { CustomersListPage } from "@/features/customers/pages/CustomersListPage";
@@ -132,6 +133,14 @@ export const router = createBrowserRouter([
         element: (
           <PermissionRoute permission="bookings.view">
             <BookingsListPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "bookings/history",
+        element: (
+          <PermissionRoute permission="bookings.history">
+            <BookingHistoryPage />
           </PermissionRoute>
         ),
       },

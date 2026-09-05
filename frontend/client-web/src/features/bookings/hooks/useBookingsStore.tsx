@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useMemo,
   useState,
@@ -7,12 +8,24 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { mockBookings } from "@/data/mock-bookings";
+import type { AuthUser } from "@/types/auth";
 import type { Booking, BookingStatus } from "@/types/booking";
 
 interface BookingsContextValue {
   bookings: Booking[];
   getBooking: (id: string) => Booking | undefined;
   setStatus: (id: string, status: BookingStatus) => void;
+  assignBooking: (
+    id: string,
+    admin: Pick<AuthUser, "id" | "fullName">,
+    by: Pick<AuthUser, "id" | "fullName">
+  ) => void;
+  reassignBooking: (
+    id: string,
+    admin: Pick<AuthUser, "id" | "fullName">,
+    by: Pick<AuthUser, "id" | "fullName">
+  ) => void;
+  unassignBooking: (id: string) => void;
 }
 
 const BookingsContext = createContext<BookingsContextValue | null>(null);
@@ -20,22 +33,100 @@ const BookingsContext = createContext<BookingsContextValue | null>(null);
 export function BookingsProvider({ children }: { children: ReactNode }) {
   const [bookings, setBookings] = useState<Booking[]>(mockBookings);
 
+  const setStatus = useCallback((id: string, status: BookingStatus) => {
+    setBookings((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, status } : b))
+    );
+    toast.success("Booking status updated", {
+      description: `Booking marked as ${status}.`,
+    });
+  }, []);
+
+  const assignBooking = useCallback(
+    (
+      id: string,
+      admin: Pick<AuthUser, "id" | "fullName">,
+      by: Pick<AuthUser, "id" | "fullName">
+    ) => {
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === id
+            ? {
+                ...b,
+                assignedAdminId: admin.id,
+                assignedAdminName: admin.fullName,
+                assignedById: by.id,
+                assignedByName: by.fullName,
+                assignmentDate: new Date().toISOString(),
+                status: b.status === "pending" ? "assigned" : b.status,
+              }
+            : b
+        )
+      );
+      toast.success("Booking assigned", {
+        description: `Booking assigned to ${admin.fullName}.`,
+      });
+    },
+    []
+  );
+
+  const reassignBooking = useCallback(
+    (
+      id: string,
+      admin: Pick<AuthUser, "id" | "fullName">,
+      by: Pick<AuthUser, "id" | "fullName">
+    ) => {
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === id
+            ? {
+                ...b,
+                assignedAdminId: admin.id,
+                assignedAdminName: admin.fullName,
+                assignedById: by.id,
+                assignedByName: by.fullName,
+                assignmentDate: new Date().toISOString(),
+              }
+            : b
+        )
+      );
+      toast.success("Booking reassigned", {
+        description: `Booking reassigned to ${admin.fullName}.`,
+      });
+    },
+    []
+  );
+
+  const unassignBooking = useCallback((id: string) => {
+    setBookings((prev) =>
+      prev.map((b) =>
+        b.id === id
+          ? {
+              ...b,
+              assignedAdminId: null,
+              assignedAdminName: null,
+              assignedById: null,
+              assignedByName: null,
+              assignmentDate: null,
+            }
+          : b
+      )
+    );
+    toast.success("Assignment removed", {
+      description: "Booking is now unassigned.",
+    });
+  }, []);
+
   const value = useMemo<BookingsContextValue>(
     () => ({
       bookings,
       getBooking: (id) => bookings.find((b) => b.id === id),
-      setStatus: (id, status) => {
-        setBookings((prev) =>
-          prev.map((b) =>
-            b.id === id ? { ...b, status } : b
-          )
-        );
-        toast.success("Booking status updated", {
-          description: `Booking marked as ${status}.`,
-        });
-      },
+      setStatus,
+      assignBooking,
+      reassignBooking,
+      unassignBooking,
     }),
-    [bookings]
+    [bookings, setStatus, assignBooking, reassignBooking, unassignBooking]
   );
 
   return (

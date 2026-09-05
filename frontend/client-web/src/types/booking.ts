@@ -1,4 +1,5 @@
 export type BookingStatus =
+  | "assigned"
   | "pending"
   | "confirmed"
   | "processing"
@@ -35,6 +36,11 @@ export interface Booking {
   status: BookingStatus;
   createdAt: string;
   notes?: string;
+  assignedAdminId?: string | null;
+  assignedAdminName?: string | null;
+  assignedById?: string | null;
+  assignedByName?: string | null;
+  assignmentDate?: string | null;
 }
 
 export interface BookingTimelineEvent {
@@ -46,9 +52,20 @@ export interface BookingTimelineEvent {
 }
 
 export const BOOKING_STATUS_FLOW: BookingStatus[] = [
+  "assigned",
   "pending",
   "confirmed",
   "processing",
   "ready",
   "completed",
 ];
+
+export const TERMINAL_STATUSES: BookingStatus[] = [
+  "completed",
+  "cancelled",
+  "rejected",
+];
+
+export function isTerminalStatus(status: BookingStatus): boolean {
+  return TERMINAL_STATUSES.includes(status);
+}

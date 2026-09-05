@@ -25,6 +25,8 @@ export function getBookingStatusVariant(
   switch (status) {
     case "completed":
       return "success";
+    case "assigned":
+      return "warning";
     case "pending":
       return "warning";
     case "confirmed":

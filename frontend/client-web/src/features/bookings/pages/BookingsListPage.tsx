@@ -1,6 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, Filter, ShoppingCart } from "lucide-react";
+import {
+  Eye,
+  Filter,
+  MoreHorizontal,
+  ShoppingCart,
+  UserCheck,
+  UserPlus,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
@@ -17,27 +24,65 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 
 import { useBookingsStore } from "../hooks/useBookingsStore";
+import { AssignmentDialog } from "../components/AssignmentDialog";
 import type { Booking, BookingStatus } from "@/types/booking";
 import { mockBranches } from "@/data/mock-branches";
 import { mockAgents } from "@/data/mock-agents";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { mockUsers } from "@/data/mock-users";
+import { formatCurrency, formatDate, initials } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export function BookingsListPage() {
-  const { bookings } = useBookingsStore();
+  const { user } = useAuth();
+  const { bookings, assignBooking, reassignBooking } = useBookingsStore();
+  const { can } = usePermissions();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
+  const [assignedFilter, setAssignedFilter] = useState<string>("all");
+  const [assignTarget, setAssignTarget] = useState<Booking | null>(null);
+
+  const canAssign = can("bookings.assign");
+  const isSuperAdmin = canAssign;
 
   const filtered = useMemo(() => {
-    return bookings.filter((b) => {
+    const scoped = isSuperAdmin
+      ? bookings
+      : bookings.filter(
+          (b) =>
+            b.assignedAdminId &&
+            user?.id &&
+            b.assignedAdminId === user.id
+        );
+
+    return scoped.filter((b) => {
       if (statusFilter !== "all" && b.status !== statusFilter) return false;
       if (branchFilter !== "all" && b.branchId !== branchFilter) return false;
       if (agentFilter !== "all" && b.agentId !== agentFilter) return false;
+      if (assignedFilter === "assigned" && !b.assignedAdminId) return false;
+      if (assignedFilter === "unassigned" && b.assignedAdminId) return false;
       return true;
     });
-  }, [bookings, statusFilter, branchFilter, agentFilter]);
+  }, [
+    bookings,
+    statusFilter,
+    branchFilter,
+    agentFilter,
+    assignedFilter,
+    isSuperAdmin,
+    user?.id,
+  ]);
 
   const columns: DataTableColumn<Booking>[] = [
     {
@@ -83,6 +128,39 @@ export function BookingsListPage() {
       className: "hidden lg:table-cell",
     },
     {
+      id: "assigned",
+      header: "Assigned To",
+      cell: (b) => {
+        if (b.assignedAdminId && b.assignedAdminName) {
+          return (
+            <div className="flex items-center gap-2">
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="text-[10px]">
+                  {initials(b.assignedAdminName)}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="text-sm font-medium">
+                  {b.assignedAdminName}
+                </div>
+                {b.assignmentDate && (
+                  <div className="text-[10px] text-muted-foreground">
+                    {formatDate(b.assignmentDate)}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <Badge variant="muted" className="text-[10px]">
+            Unassigned
+          </Badge>
+        );
+      },
+      className: "hidden md:table-cell",
+    },
+    {
       id: "date",
       header: "Booking Date",
       cell: (b) => (
@@ -121,11 +199,36 @@ export function BookingsListPage() {
       header: "",
       className: "w-12",
       cell: (b) => (
-        <Button asChild variant="ghost" size="icon" className="h-7 w-7">
-          <Link to={`/bookings/${b.id}`} aria-label="View booking">
-            <Eye className="h-4 w-4" />
-          </Link>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link to={`/bookings/${b.id}`}>
+                <Eye className="h-4 w-4" />
+                View details
+              </Link>
+            </DropdownMenuItem>
+            {canAssign && (
+              <DropdownMenuItem onSelect={() => setAssignTarget(b)}>
+                {b.assignedAdminId ? (
+                  <>
+                    <UserCheck className="h-4 w-4" />
+                    Reassign admin
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4" />
+                    Assign to admin
+                  </>
+                )}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     },
   ];
@@ -134,12 +237,24 @@ export function BookingsListPage() {
     <div className="space-y-6">
       <PageHeader
         title="Bookings"
-        description="Manage and track customer bookings across all branches."
+        description={
+          isSuperAdmin
+            ? "Manage, assign, and track customer bookings across all branches."
+            : "Review and process your assigned bookings."
+        }
         breadcrumbs={[{ label: "Operations" }, { label: "Bookings" }]}
         actions={
-          <Button asChild variant="outline">
-            <Link to="/bookings/new">New booking</Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline">
+              <Link to="/bookings/history">
+                <ShoppingCart className="h-4 w-4" />
+                Booking history
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/bookings/new">New booking</Link>
+            </Button>
+          </div>
         }
       />
 
@@ -147,7 +262,13 @@ export function BookingsListPage() {
         data={filtered}
         columns={columns}
         searchPlaceholder="Search by reference, customer..."
-        searchKeys={["reference", "customerName", "agentName", "branchName"]}
+        searchKeys={[
+          "reference",
+          "customerName",
+          "agentName",
+          "branchName",
+          "assignedAdminName",
+        ]}
         rowKey={(b) => b.id}
         toolbar={
           <>
@@ -160,6 +281,7 @@ export function BookingsListPage() {
                 <SelectItem value="all">All statuses</SelectItem>
                 {(
                   [
+                    "assigned",
                     "pending",
                     "confirmed",
                     "processing",
@@ -201,9 +323,41 @@ export function BookingsListPage() {
                 ))}
               </SelectContent>
             </Select>
+            {isSuperAdmin && (
+              <Select
+                value={assignedFilter}
+                onValueChange={setAssignedFilter}
+              >
+                <SelectTrigger className="h-9 w-[160px]">
+                  <SelectValue placeholder="Assignment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All assignments</SelectItem>
+                  <SelectItem value="assigned">Assigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </>
         }
       />
+
+      {assignTarget && user && (
+        <AssignmentDialog
+          open={!!assignTarget}
+          onOpenChange={(o) => !o && setAssignTarget(null)}
+          booking={assignTarget}
+          admins={mockUsers}
+          currentUser={user}
+          onAssign={(admin, by) => {
+            if (assignTarget.assignedAdminId) {
+              reassignBooking(assignTarget.id, admin, by);
+            } else {
+              assignBooking(assignTarget.id, admin, by);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

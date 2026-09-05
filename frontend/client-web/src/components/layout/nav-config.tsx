@@ -50,6 +50,12 @@ export const navGroups: NavGroup[] = [
         permission: "bookings.view",
       },
       {
+        title: "Booking History",
+        href: "/bookings/history",
+        icon: History,
+        permission: "bookings.history",
+      },
+      {
         title: "Inventory",
         href: "/inventory",
         icon: Boxes,

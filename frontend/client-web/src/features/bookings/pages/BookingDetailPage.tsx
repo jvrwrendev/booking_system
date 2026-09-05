@@ -1,21 +1,28 @@
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Building2,
   CalendarDays,
   CheckCircle2,
+  History,
   Mail,
   MapPin,
   Package,
   Phone,
+  RefreshCw,
+  ShieldAlert,
   Truck,
   User,
+  UserCheck,
+  UserPlus,
   XCircle,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { ActivityTimeline } from "@/components/common/ActivityTimeline";
 import {
@@ -23,22 +30,38 @@ import {
   getBookingStatusVariant,
   humanize,
 } from "@/components/common/StatusBadge";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 import { useBookingsStore } from "../hooks/useBookingsStore";
+import { AssignmentDialog } from "../components/AssignmentDialog";
 import { mockCustomers } from "@/data/mock-customers";
 import { mockAgents } from "@/data/mock-agents";
 import { mockBranches } from "@/data/mock-branches";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { mockUsers } from "@/data/mock-users";
+import { formatCurrency, formatDate, formatDateTime, initials } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
-import type { BookingStatus } from "@/types/booking";
+import { useAuth } from "@/hooks/useAuth";
+import type { Booking, BookingStatus } from "@/types/booking";
+
+interface ActionButton {
+  label: string;
+  onClick: () => void;
+  variant?: "default" | "outline" | "destructive";
+  icon?: React.ComponentType<{ className?: string }>;
+}
 
 export function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getBooking, setStatus } = useBookingsStore();
+  const { getBooking, setStatus, assignBooking, reassignBooking } =
+    useBookingsStore();
   const { can } = usePermissions();
+  const { user } = useAuth();
 
   const booking = id ? getBooking(id) : undefined;
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const [confirmAction, setConfirmAction] =
+    useState<{ kind: "reject" | "cancel" } | null>(null);
 
   if (!booking) {
     return (
@@ -65,6 +88,53 @@ export function BookingDetailPage() {
   const timeline = buildTimeline(booking);
   const canApprove = can("bookings.approve");
   const canUpdate = can("bookings.update");
+  const canAssign = can("bookings.assign");
+  const isSuperAdmin = canAssign;
+  const isAssignedToMe =
+    !!user?.id && booking.assignedAdminId === user.id;
+  const canActOnBooking = isSuperAdmin || isAssignedToMe;
+
+  const actionButtons = buildActionButtons(
+    booking,
+    {
+      canApprove: canApprove && canActOnBooking,
+      canUpdate: canUpdate && canActOnBooking,
+    },
+    {
+      onConfirm: () => setStatus(booking.id, "confirmed"),
+      onReject: () => setConfirmAction({ kind: "reject" }),
+      onCancel: () => setConfirmAction({ kind: "cancel" }),
+      onProcessing: () => setStatus(booking.id, "processing"),
+      onReady: () => setStatus(booking.id, "ready"),
+      onComplete: () => setStatus(booking.id, "completed"),
+    }
+  );
+
+  const handleConfirmAction = () => {
+    if (!confirmAction) return;
+    if (confirmAction.kind === "reject") {
+      setStatus(booking.id, "rejected");
+    } else if (confirmAction.kind === "cancel") {
+      setStatus(booking.id, "cancelled");
+    }
+    setConfirmAction(null);
+  };
+
+  const headerActions = (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {actionButtons.map((btn) => (
+        <Button
+          key={btn.label}
+          size="sm"
+          variant={btn.variant ?? "default"}
+          onClick={btn.onClick}
+        >
+          {btn.icon ? <btn.icon className="h-4 w-4" /> : null}
+          {btn.label}
+        </Button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -87,12 +157,31 @@ export function BookingDetailPage() {
           { label: booking.reference },
         ]}
         actions={
-          <StatusBadge
-            variant={getBookingStatusVariant(booking.status)}
-            label={humanize(booking.status)}
-          />
+          <div className="flex flex-col items-end gap-2">
+            <StatusBadge
+              variant={getBookingStatusVariant(booking.status)}
+              label={humanize(booking.status)}
+            />
+            {headerActions}
+          </div>
         }
       />
+
+      {!isSuperAdmin &&
+        booking.assignedAdminId &&
+        !isAssignedToMe &&
+        !["completed", "cancelled", "rejected"].includes(booking.status) && (
+          <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              This booking is assigned to{" "}
+              <span className="font-medium text-foreground">
+                {booking.assignedAdminName}
+              </span>
+              . You can view its details but cannot process it.
+            </div>
+          </div>
+        )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -161,10 +250,83 @@ export function BookingDetailPage() {
               <CardTitle>Customer</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <InfoLine icon={User} label={customer?.fullName ?? booking.customerName} />
+              <InfoLine
+                icon={User}
+                label={customer?.fullName ?? booking.customerName}
+              />
               <InfoLine icon={Phone} label={customer?.contactNumber ?? "—"} />
               <InfoLine icon={Mail} label={customer?.email ?? "—"} />
               <InfoLine icon={MapPin} label={customer?.address ?? "—"} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Assignment</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {booking.assignedAdminName ? (
+                <>
+                  <div className="flex items-start gap-2">
+                    <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="flex-1">
+                      <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Assigned To
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-[10px]">
+                            {initials(booking.assignedAdminName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">
+                          {booking.assignedAdminName}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <InfoLine
+                    icon={User}
+                    label={`Assigned By: ${booking.assignedByName ?? "—"}`}
+                  />
+                  <InfoLine
+                    icon={CalendarDays}
+                    label={`Assigned: ${
+                      booking.assignmentDate
+                        ? formatDateTime(booking.assignmentDate)
+                        : "—"
+                    }`}
+                  />
+                </>
+              ) : (
+                <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  This booking has not been assigned yet.
+                  {canAssign ? (
+                    <> Use “Assign” to assign it to an admin.</>
+                  ) : (
+                    <> Awaiting assignment from a Super Admin.</>
+                  )}
+                </div>
+              )}
+              {canAssign && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setAssignmentOpen(true)}
+                >
+                  {booking.assignedAdminName ? (
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      Reassign booking
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4" />
+                      Assign to admin
+                    </>
+                  )}
+                </Button>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -176,7 +338,10 @@ export function BookingDetailPage() {
                 icon={Building2}
                 label={branch?.name ?? booking.branchName}
               />
-              <InfoLine icon={User} label={`Agent: ${agent?.fullName ?? booking.agentName}`} />
+              <InfoLine
+                icon={User}
+                label={`Agent: ${agent?.fullName ?? booking.agentName}`}
+              />
               <InfoLine
                 icon={CalendarDays}
                 label={`Booked: ${formatDate(booking.bookingDate)}`}
@@ -211,79 +376,168 @@ export function BookingDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Actions</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>Booking Summary</CardTitle>
+            <History className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="space-y-2">
-            {canApprove && booking.status === "pending" && (
-              <>
-                <Button
-                  className="w-full"
-                  onClick={() => setStatus(booking.id, "confirmed")}
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  Confirm booking
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setStatus(booking.id, "rejected")}
-                >
-                  <XCircle className="h-4 w-4" />
-                  Reject booking
-                </Button>
-              </>
+          <CardContent className="space-y-3">
+            <SummaryLine label="Reference" value={booking.reference} />
+            <SummaryLine label="Status" value={humanize(booking.status)} />
+            <SummaryLine
+              label="Created"
+              value={formatDateTime(booking.createdAt)}
+            />
+            {booking.assignmentDate && (
+              <SummaryLine
+                label="Last Updated"
+                value={formatDateTime(booking.assignmentDate)}
+              />
             )}
-            {canUpdate && booking.status === "confirmed" && (
-              <Button
-                className="w-full"
-                onClick={() => setStatus(booking.id, "processing")}
-              >
-                Mark as processing
-              </Button>
-            )}
-            {canUpdate && booking.status === "processing" && (
-              <Button
-                className="w-full"
-                onClick={() => setStatus(booking.id, "ready")}
-              >
-                Mark as ready
-              </Button>
-            )}
-            {canUpdate && booking.status === "ready" && (
-              <Button
-                className="w-full"
-                onClick={() => setStatus(booking.id, "completed")}
-              >
-                Complete booking
-              </Button>
-            )}
-            {canUpdate &&
-              !["completed", "cancelled", "rejected"].includes(booking.status) && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setStatus(booking.id, "cancelled")}
-                >
-                  <XCircle className="h-4 w-4" />
-                  Cancel booking
-                </Button>
-              )}
-            {["completed", "cancelled", "rejected"].includes(booking.status) && (
-              <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                This booking is closed ({humanize(booking.status)}). No further
-                actions are available.
-              </div>
-            )}
+            <Separator />
+            <Button asChild variant="outline" className="w-full" size="sm">
+              <Link to="/bookings/history">View full history</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(o) => !o && setConfirmAction(null)}
+        title={
+          confirmAction?.kind === "reject"
+            ? "Reject this booking?"
+            : "Cancel this booking?"
+        }
+        description={
+          confirmAction?.kind === "reject"
+            ? `This will reject booking ${booking.reference}. This action cannot be undone.`
+            : `This will cancel booking ${booking.reference}. This action cannot be undone.`
+        }
+        confirmText={
+          confirmAction?.kind === "reject" ? "Reject" : "Cancel booking"
+        }
+        destructive
+        onConfirm={handleConfirmAction}
+      />
+
+      {user && (
+        <AssignmentDialog
+          open={assignmentOpen}
+          onOpenChange={setAssignmentOpen}
+          booking={booking}
+          admins={mockUsers}
+          currentUser={user}
+          onAssign={(admin, by) => {
+            if (booking.assignedAdminId) {
+              reassignBooking(booking.id, admin, by);
+            } else {
+              assignBooking(booking.id, admin, by);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function buildTimeline(booking: { id: string; reference: string; status: BookingStatus; createdAt: string }) {
+function buildActionButtons(
+  booking: Booking,
+  perms: { canApprove: boolean; canUpdate: boolean },
+  handlers: {
+    onConfirm: () => void;
+    onReject: () => void;
+    onCancel: () => void;
+    onProcessing: () => void;
+    onReady: () => void;
+    onComplete: () => void;
+  }
+): ActionButton[] {
+  const buttons: ActionButton[] = [];
+  const { status } = booking;
+  const { canApprove, canUpdate } = perms;
+
+  switch (status) {
+    case "assigned":
+    case "pending":
+      if (canApprove) {
+        buttons.push({
+          label: "Confirm",
+          icon: CheckCircle2,
+          onClick: handlers.onConfirm,
+        });
+        buttons.push({
+          label: "Reject",
+          variant: "destructive",
+          icon: XCircle,
+          onClick: handlers.onReject,
+        });
+      }
+      if (canUpdate) {
+        buttons.push({
+          label: "Cancel",
+          variant: "outline",
+          icon: XCircle,
+          onClick: handlers.onCancel,
+        });
+      }
+      break;
+
+    case "confirmed":
+      if (canUpdate) {
+        buttons.push({
+          label: "Mark as Processing",
+          icon: CheckCircle2,
+          onClick: handlers.onProcessing,
+        });
+        buttons.push({
+          label: "Cancel",
+          variant: "outline",
+          icon: XCircle,
+          onClick: handlers.onCancel,
+        });
+      }
+      break;
+
+    case "processing":
+      if (canUpdate) {
+        buttons.push({
+          label: "Mark as Ready",
+          icon: CheckCircle2,
+          onClick: handlers.onReady,
+        });
+        buttons.push({
+          label: "Cancel",
+          variant: "outline",
+          icon: XCircle,
+          onClick: handlers.onCancel,
+        });
+      }
+      break;
+
+    case "ready":
+      if (canUpdate) {
+        buttons.push({
+          label: "Complete Booking",
+          icon: CheckCircle2,
+          onClick: handlers.onComplete,
+        });
+      }
+      break;
+
+    case "completed":
+    case "cancelled":
+    case "rejected":
+    default:
+      break;
+  }
+
+  return buttons;
+}
+
+function buildTimeline(booking: Booking) {
   const sequence: BookingStatus[] = [
+    "assigned",
     "pending",
     "confirmed",
     "processing",
@@ -307,6 +561,21 @@ function buildTimeline(booking: { id: string; reference: string; status: Booking
     timestamp: formatDateTime(booking.createdAt),
     by: "System",
   });
+
+  if (booking.assignmentDate || booking.assignedAdminName) {
+    events.push({
+      id: `${booking.id}-assigned`,
+      title: `Assigned to ${booking.assignedAdminName ?? "Admin"}`,
+      description: booking.assignedByName
+        ? `Assigned by ${booking.assignedByName} for review and processing.`
+        : "Booking was assigned to an admin for processing.",
+      timestamp: booking.assignmentDate
+        ? formatDateTime(booking.assignmentDate)
+        : "",
+      by: booking.assignedByName ?? "Super Admin",
+      active: booking.status === "assigned",
+    });
+  }
 
   sequence.slice(1).forEach((status, idx) => {
     if (currentIdx < idx + 1 && status !== booking.status) return;
@@ -357,6 +626,15 @@ function InfoLine({
     <div className="flex items-start gap-2 text-sm">
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
       <span>{label}</span>
+    </div>
+  );
+}
+
+function SummaryLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
     </div>
   );
 }
