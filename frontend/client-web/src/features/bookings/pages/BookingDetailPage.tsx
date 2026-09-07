@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  Building2,
   CalendarDays,
   CheckCircle2,
   History,
@@ -34,7 +33,6 @@ import { useBookingsStore } from "../hooks/useBookingsStore";
 import { AssignmentDialog } from "../components/AssignmentDialog";
 import { mockCustomers } from "@/data/mock-customers";
 import { mockAgents } from "@/data/mock-agents";
-import { mockBranches } from "@/data/mock-branches";
 import { mockUsers } from "@/data/mock-users";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -58,8 +56,7 @@ export function BookingDetailPage() {
 
   const booking = id ? getBooking(id) : undefined;
   const [assignmentOpen, setAssignmentOpen] = useState(false);
-  const [confirmAction, setConfirmAction] =
-    useState<{ kind: "reject" | "cancel" } | null>(null);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
   if (!booking) {
     return (
@@ -81,10 +78,8 @@ export function BookingDetailPage() {
 
   const customer = mockCustomers.find((c) => c.id === booking.customerId);
   const agent = mockAgents.find((a) => a.id === booking.agentId);
-  const branch = mockBranches.find((b) => b.id === booking.branchId);
 
   const timeline = buildTimeline(booking);
-  const canApprove = can("bookings.approve");
   const canUpdate = can("bookings.update");
   const isAssignedToMe =
     !!user?.id && booking.assignedAdminId === user.id;
@@ -96,28 +91,15 @@ export function BookingDetailPage() {
   const actionButtons = buildActionButtons(
     booking,
     {
-      canApprove: canApprove && canProcessBooking,
-      canUpdate: canUpdate && canProcessBooking,
+      canProcess: canUpdate && canProcessBooking,
     },
     {
-      onConfirm: () => setStatus(booking.id, "confirmed"),
-      onReject: () => setConfirmAction({ kind: "reject" }),
-      onCancel: () => setConfirmAction({ kind: "cancel" }),
-      onProcessing: () => setStatus(booking.id, "processing"),
+      onAccept: () => setStatus(booking.id, "accepted"),
+      onProcess: () => setStatus(booking.id, "processing"),
       onReady: () => setStatus(booking.id, "ready"),
       onComplete: () => setStatus(booking.id, "completed"),
     }
   );
-
-  const handleConfirmAction = () => {
-    if (!confirmAction) return;
-    if (confirmAction.kind === "reject") {
-      setStatus(booking.id, "rejected");
-    } else if (confirmAction.kind === "cancel") {
-      setStatus(booking.id, "cancelled");
-    }
-    setConfirmAction(null);
-  };
 
   const headerActions = (
     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -143,7 +125,7 @@ export function BookingDetailPage() {
             <Button
               size="sm"
               variant="destructive"
-              onClick={() => setConfirmAction({ kind: "reject" })}
+              onClick={() => setRejectOpen(true)}
             >
               <XCircle className="h-4 w-4" />
               Reject
@@ -152,7 +134,8 @@ export function BookingDetailPage() {
         )}
       {isSuperAdmin &&
         !isTerminal &&
-        booking.status === "accepted" && (
+        booking.status === "accepted" &&
+        !booking.assignedAdminId && (
           <Button size="sm" onClick={() => setAssignmentOpen(true)}>
             <UserCheck className="h-4 w-4" />
             Assign Booking
@@ -234,9 +217,8 @@ export function BookingDetailPage() {
                 <thead className="text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="py-2 text-left font-medium">Product</th>
-                    <th className="py-2 text-left font-medium">SKU</th>
-                    <th className="py-2 text-right font-medium">Qty</th>
-                    <th className="py-2 text-right font-medium">Unit</th>
+                    <th className="py-2 text-right font-medium">Quantity</th>
+                    <th className="py-2 text-right font-medium">Unit Price</th>
                     <th className="py-2 text-right font-medium">Subtotal</th>
                   </tr>
                 </thead>
@@ -248,9 +230,6 @@ export function BookingDetailPage() {
                           <Package className="h-4 w-4 text-muted-foreground" />
                           <span className="font-medium">{item.productName}</span>
                         </div>
-                      </td>
-                      <td className="py-2.5 font-mono text-xs text-muted-foreground">
-                        {item.sku}
                       </td>
                       <td className="py-2.5 text-right">{item.quantity}</td>
                       <td className="py-2.5 text-right">
@@ -298,17 +277,23 @@ export function BookingDetailPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Booking</CardTitle>
+              <CardTitle>Agent</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <InfoLine
-                icon={Building2}
-                label={branch?.name ?? booking.branchName}
-              />
-              <InfoLine
                 icon={User}
-                label={`Agent: ${agent?.fullName ?? booking.agentName}`}
+                label={agent?.fullName ?? booking.agentName}
               />
+              <InfoLine icon={Phone} label={agent?.contactNumber ?? "—"} />
+              <InfoLine icon={Mail} label={agent?.email ?? "—"} />
+              <InfoLine icon={MapPin} label={agent?.address ?? "—"} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Booking</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
               <InfoLine
                 icon={CalendarDays}
                 label={`Booked: ${formatDate(booking.bookingDate)}`}
@@ -316,6 +301,14 @@ export function BookingDetailPage() {
               <InfoLine
                 icon={Truck}
                 label={`Pickup: ${formatDate(booking.pickupDate)}`}
+              />
+              <InfoLine
+                icon={UserCheck}
+                label={
+                  booking.assignedAdminName
+                    ? `Assigned Admin: ${booking.assignedAdminName}`
+                    : "Assigned Admin: —"
+                }
               />
               {booking.notes && (
                 <>
@@ -351,6 +344,10 @@ export function BookingDetailPage() {
             <SummaryLine label="Reference" value={booking.reference} />
             <SummaryLine label="Status" value={humanize(booking.status)} />
             <SummaryLine
+              label="Assigned Admin"
+              value={booking.assignedAdminName ?? "—"}
+            />
+            <SummaryLine
               label="Created"
               value={formatDateTime(booking.createdAt)}
             />
@@ -366,23 +363,16 @@ export function BookingDetailPage() {
       </div>
 
       <ConfirmDialog
-        open={confirmAction !== null}
-        onOpenChange={(o) => !o && setConfirmAction(null)}
-        title={
-          confirmAction?.kind === "reject"
-            ? "Reject this booking?"
-            : "Cancel this booking?"
-        }
-        description={
-          confirmAction?.kind === "reject"
-            ? `This will reject booking ${booking.reference}. This action cannot be undone.`
-            : `This will cancel booking ${booking.reference}. This action cannot be undone.`
-        }
-        confirmText={
-          confirmAction?.kind === "reject" ? "Reject" : "Cancel booking"
-        }
+        open={rejectOpen}
+        onOpenChange={setRejectOpen}
+        title="Reject this booking?"
+        description={`This will reject booking ${booking.reference}. This action cannot be undone.`}
+        confirmText="Reject"
         destructive
-        onConfirm={handleConfirmAction}
+        onConfirm={() => {
+          setStatus(booking.id, "rejected");
+          setRejectOpen(false);
+        }}
       />
 
       {user &&
@@ -410,87 +400,53 @@ export function BookingDetailPage() {
 
 function buildActionButtons(
   booking: Booking,
-  perms: { canApprove: boolean; canUpdate: boolean },
+  perms: { canProcess: boolean },
   handlers: {
-    onConfirm: () => void;
-    onReject: () => void;
-    onCancel: () => void;
-    onProcessing: () => void;
+    onAccept: () => void;
+    onProcess: () => void;
     onReady: () => void;
     onComplete: () => void;
   }
 ): ActionButton[] {
   const buttons: ActionButton[] = [];
   const { status } = booking;
-  const { canApprove, canUpdate } = perms;
+  if (!perms.canProcess) return buttons;
 
   switch (status) {
     case "assigned":
-      if (canApprove) {
-        buttons.push({
-          label: "Accept Booking",
-          icon: CheckCircle2,
-          onClick: handlers.onConfirm,
-        });
-        buttons.push({
-          label: "Reject",
-          variant: "destructive",
-          icon: XCircle,
-          onClick: handlers.onReject,
-        });
-      }
-      if (canUpdate) {
-        buttons.push({
-          label: "Cancel",
-          variant: "outline",
-          icon: XCircle,
-          onClick: handlers.onCancel,
-        });
-      }
+      buttons.push({
+        label: "Accept Order",
+        icon: CheckCircle2,
+        onClick: handlers.onAccept,
+      });
       break;
 
+    case "accepted":
     case "confirmed":
-      if (canUpdate) {
-        buttons.push({
-          label: "Process",
-          icon: CheckCircle2,
-          onClick: handlers.onProcessing,
-        });
-        buttons.push({
-          label: "Cancel",
-          variant: "outline",
-          icon: XCircle,
-          onClick: handlers.onCancel,
-        });
-      }
+      buttons.push({
+        label: "Process Order",
+        icon: CheckCircle2,
+        onClick: handlers.onProcess,
+      });
       break;
 
     case "processing":
-      if (canUpdate) {
-        buttons.push({
-          label: "Ready",
-          icon: CheckCircle2,
-          onClick: handlers.onReady,
-        });
-        buttons.push({
-          label: "Cancel",
-          variant: "outline",
-          icon: XCircle,
-          onClick: handlers.onCancel,
-        });
-      }
+      buttons.push({
+        label: "Mark as Ready",
+        icon: CheckCircle2,
+        onClick: handlers.onReady,
+      });
       break;
 
     case "ready":
-      if (canUpdate) {
-        buttons.push({
-          label: "Completed",
-          icon: CheckCircle2,
-          onClick: handlers.onComplete,
-        });
-      }
+      buttons.push({
+        label: "Complete Order",
+        icon: CheckCircle2,
+        onClick: handlers.onComplete,
+      });
       break;
 
+    case "pending":
     case "completed":
     case "cancelled":
     case "rejected":

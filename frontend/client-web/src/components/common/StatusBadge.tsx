@@ -44,6 +44,24 @@ export function getBookingStatusVariant(
   }
 }
 
+export function getBranchOrderStatusVariant(status: string): StatusVariant {
+  switch (status) {
+    case "completed":
+      return "success";
+    case "accepted":
+    case "processing":
+    case "ready":
+      return "info";
+    case "pending":
+    case "assigned":
+      return "warning";
+    case "rejected":
+      return "destructive";
+    default:
+      return "muted";
+  }
+}
+
 export function getStockStatusVariant(
   status: string
 ): StatusVariant {

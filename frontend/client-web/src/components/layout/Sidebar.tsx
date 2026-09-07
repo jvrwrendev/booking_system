@@ -1,9 +1,8 @@
-import { useMemo } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/hooks/useAuth";
-import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
+import { useMyOrders } from "@/features/orders/hooks/useMyOrders";
 import { brandIcon, navGroups } from "./nav-config";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,23 +11,11 @@ interface SidebarProps {
   onNavigate?: () => void;
 }
 
-const ACTIVE_BOOKING_STATUSES = ["assigned", "confirmed", "processing", "ready"];
-
 export function Sidebar({ onNavigate }: SidebarProps) {
   const { can } = usePermissions();
   const { user, logout } = useAuth();
-  const { bookings } = useBookingsStore();
+  const { activeCount } = useMyOrders();
   const navigate = useNavigate();
-
-  const assignedCount = useMemo(
-    () =>
-      bookings.filter(
-        (b) =>
-          b.assignedAdminId === user?.id &&
-          ACTIVE_BOOKING_STATUSES.includes(b.status)
-      ).length,
-    [bookings, user?.id]
-  );
 
   const handleLogout = () => {
     onNavigate?.();
@@ -84,10 +71,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   >
                     <Icon className="h-4 w-4" />
                     <span>{item.title}</span>
-                    {item.href === "/my-assigned-bookings" &&
-                      assignedCount > 0 && (
+                    {item.href === "/orders" && activeCount > 0 && (
                         <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-                          {assignedCount}
+                          {activeCount}
                         </span>
                       )}
                   </NavLink>

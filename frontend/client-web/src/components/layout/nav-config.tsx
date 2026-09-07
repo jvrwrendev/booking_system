@@ -14,6 +14,7 @@ import {
   Leaf,
   UserCheck,
   ClipboardList,
+  Store,
 } from "lucide-react";
 
 import type { Permission } from "@/lib/permissions";
@@ -54,10 +55,18 @@ export const navGroups: NavGroup[] = [
         end: true,
       },
       {
-        title: "My Assigned Bookings",
-        href: "/my-assigned-bookings",
+        title: "Orders",
+        href: "/orders",
         icon: ClipboardList,
         permission: "bookings.process",
+        end: true,
+      },
+      {
+        title: "Branch Orders",
+        href: "/branch-orders",
+        icon: Store,
+        permission: "branch_orders.view",
+        end: true,
       },
       {
         title: "Assign Booking",

@@ -68,7 +68,7 @@ export function BookingsListPage() {
   const columns: DataTableColumn<Booking>[] = [
     {
       id: "reference",
-      header: "Reference",
+      header: "Booking No.",
       cell: (b) => (
         <Link
           to={`/bookings/${b.id}`}
@@ -84,81 +84,27 @@ export function BookingsListPage() {
       id: "customer",
       header: "Customer",
       cell: (b) => (
-        <div>
-          <div className="text-sm font-medium">{b.customerName}</div>
-          <div className="text-xs text-muted-foreground">
-            {b.items.length} item{b.items.length > 1 ? "s" : ""}
-          </div>
-        </div>
+        <div className="text-sm font-medium">{b.customerName}</div>
       ),
       sortable: true,
       sortKey: "customerName",
     },
     {
-      id: "branch",
-      header: "Branch",
-      cell: (b) => (
-        <span className="text-sm">{b.branchName.replace(" Branch", "")}</span>
-      ),
-      className: "hidden md:table-cell",
-    },
-    {
       id: "agent",
       header: "Agent",
       cell: (b) => <span className="text-sm">{b.agentName}</span>,
-      className: "hidden lg:table-cell",
-    },
-    {
-      id: "assigned",
-      header: "Assigned To",
-      cell: (b) => {
-        if (b.assignedAdminId && b.assignedAdminName) {
-          return (
-            <div className="flex items-center gap-2">
-              <Avatar className="h-6 w-6">
-                <AvatarFallback className="text-[10px]">
-                  {initials(b.assignedAdminName)}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <div className="text-sm font-medium">
-                  {b.assignedAdminName}
-                </div>
-                {b.assignmentDate && (
-                  <div className="text-[10px] text-muted-foreground">
-                    {formatDate(b.assignmentDate)}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        }
-        return (
-          <Badge variant="muted" className="text-[10px]">
-            Unassigned
-          </Badge>
-        );
-      },
-      className: "hidden md:table-cell",
-    },
-    {
-      id: "date",
-      header: "Booking Date",
-      cell: (b) => (
-        <div className="text-sm">
-          <div>{formatDate(b.bookingDate)}</div>
-          <div className="text-[11px] text-muted-foreground">
-            Pickup {formatDate(b.pickupDate)}
-          </div>
-        </div>
-      ),
       sortable: true,
-      sortKey: "bookingDate",
-      className: "hidden md:table-cell",
+      sortKey: "agentName",
+    },
+    {
+      id: "items",
+      header: "Items",
+      cell: (b) => <span className="text-sm font-medium">{b.items.length}</span>,
+      className: "text-right",
     },
     {
       id: "amount",
-      header: "Amount",
+      header: "Total Amount",
       cell: (b) => (
         <span className="font-medium">{formatCurrency(b.totalAmount)}</span>
       ),
@@ -176,9 +122,50 @@ export function BookingsListPage() {
       ),
     },
     {
+      id: "date",
+      header: "Booking Date",
+      cell: (b) => (
+        <div className="text-sm">
+          <div>{formatDate(b.bookingDate)}</div>
+          <div className="text-[11px] text-muted-foreground">
+            Pickup {formatDate(b.pickupDate)}
+          </div>
+        </div>
+      ),
+      sortable: true,
+      sortKey: "bookingDate",
+      className: "hidden md:table-cell",
+    },
+    {
+      id: "assigned",
+      header: "Assigned Admin",
+      cell: (b) => {
+        if (b.assignedAdminId && b.assignedAdminName) {
+          return (
+            <div className="flex items-center gap-2">
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="text-[10px]">
+                  {initials(b.assignedAdminName)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium">
+                {b.assignedAdminName}
+              </span>
+            </div>
+          );
+        }
+        return (
+          <Badge variant="muted" className="text-[10px]">
+            Unassigned
+          </Badge>
+        );
+      },
+      className: "hidden md:table-cell",
+    },
+    {
       id: "actions",
-      header: "",
-      className: "w-12",
+      header: "Action",
+      className: "w-16 text-center",
       cell: (b) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -190,7 +177,7 @@ export function BookingsListPage() {
             <DropdownMenuItem asChild>
               <Link to={`/bookings/${b.id}`}>
                 <Eye className="h-4 w-4" />
-                View details
+                View
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>

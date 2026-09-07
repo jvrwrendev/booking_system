@@ -1,3 +1,5 @@
+import type { StatusHistoryEntry } from "./order-history";
+
 export type BookingStatus =
   | "pending"
   | "accepted"
@@ -42,6 +44,7 @@ export interface Booking {
   assignedById?: string | null;
   assignedByName?: string | null;
   assignmentDate?: string | null;
+  statusHistory?: StatusHistoryEntry[];
 }
 
 export interface BookingTimelineEvent {

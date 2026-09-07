@@ -11,13 +11,35 @@ import { toast } from "sonner";
 import { mockBookings } from "@/data/mock-bookings";
 import type { AuthUser } from "@/types/auth";
 import type { Booking, BookingStatus } from "@/types/booking";
+import type { StatusHistoryEntry } from "@/types/order-history";
+import { humanize } from "@/components/common/StatusBadge";
 
 const STORAGE_KEY = "agrivet-bookings";
+
+function historyEntry(
+  from: string,
+  to: string,
+  by?: Pick<AuthUser, "id" | "fullName">,
+  label?: string
+): StatusHistoryEntry {
+  return {
+    id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    from,
+    to,
+    label: label ?? humanize(to),
+    timestamp: new Date().toISOString(),
+    by: by?.fullName ?? "System",
+  };
+}
 
 interface BookingsContextValue {
   bookings: Booking[];
   getBooking: (id: string) => Booking | undefined;
-  setStatus: (id: string, status: BookingStatus) => void;
+  setStatus: (
+    id: string,
+    status: BookingStatus,
+    by?: Pick<AuthUser, "id" | "fullName">
+  ) => void;
   assignBooking: (
     id: string,
     admin: Pick<AuthUser, "id" | "fullName">,
@@ -57,14 +79,27 @@ export function BookingsProvider({ children }: { children: ReactNode }) {
     }
   }, [bookings]);
 
-  const setStatus = useCallback((id: string, status: BookingStatus) => {
-    setBookings((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, status } : b))
-    );
-    toast.success("Booking status updated", {
-      description: `Booking marked as ${status}.`,
-    });
-  }, []);
+  const setStatus = useCallback(
+    (id: string, status: BookingStatus, by?: Pick<AuthUser, "id" | "fullName">) => {
+      setBookings((prev) =>
+        prev.map((b) => {
+          if (b.id !== id) return b;
+          return {
+            ...b,
+            status,
+            statusHistory: [
+              ...(b.statusHistory ?? []),
+              historyEntry(b.status, status, by),
+            ],
+          };
+        })
+      );
+      toast.success("Booking status updated", {
+        description: `Booking marked as ${humanize(status)}.`,
+      });
+    },
+    []
+  );
 
   const assignBooking = useCallback(
     (
@@ -86,6 +121,10 @@ export function BookingsProvider({ children }: { children: ReactNode }) {
                   b.status === "pending" || b.status === "accepted"
                     ? "assigned"
                     : b.status,
+                statusHistory: [
+                  ...(b.statusHistory ?? []),
+                  historyEntry(b.status, "assigned", by),
+                ],
               }
             : b
         )
@@ -113,6 +152,10 @@ export function BookingsProvider({ children }: { children: ReactNode }) {
                 assignedById: by.id,
                 assignedByName: by.fullName,
                 assignmentDate: new Date().toISOString(),
+                statusHistory: [
+                  ...(b.statusHistory ?? []),
+                  historyEntry("assigned", "assigned", by),
+                ],
               }
             : b
         )
@@ -135,6 +178,10 @@ export function BookingsProvider({ children }: { children: ReactNode }) {
               assignedById: null,
               assignedByName: null,
               assignmentDate: null,
+              statusHistory: [
+                ...(b.statusHistory ?? []),
+                historyEntry("assigned", "assigned", undefined, "Unassigned"),
+              ],
             }
           : b
       )

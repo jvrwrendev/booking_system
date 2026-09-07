@@ -18,8 +18,15 @@ import { InventoryPage } from "@/features/inventory/pages/InventoryPage";
 import { BookingsListPage } from "@/features/bookings/pages/BookingsListPage";
 import { BookingDetailPage } from "@/features/bookings/pages/BookingDetailPage";
 import { AssignBookingPage } from "@/features/bookings/pages/AssignBookingPage";
-import { MyAssignedBookingsPage } from "@/features/bookings/pages/MyAssignedBookingsPage";
 import { BookingsProvider } from "@/features/bookings/hooks/useBookingsStore";
+
+import { OrdersPage } from "@/features/orders/pages/OrdersPage";
+import { AgentOrderDetailPage } from "@/features/orders/pages/AgentOrderDetailPage";
+import { BranchOrderDetailPage as OrdersBranchOrderDetailPage } from "@/features/orders/pages/BranchOrderDetailPage";
+
+import { BranchOrdersListPage } from "@/features/branch-orders/pages/BranchOrdersListPage";
+import { BranchOrderDetailPage } from "@/features/branch-orders/pages/BranchOrderDetailPage";
+import { BranchOrdersProvider } from "@/features/branch-orders/hooks/useBranchOrdersStore";
 
 import { CustomersListPage } from "@/features/customers/pages/CustomersListPage";
 import { CustomerAddPage } from "@/features/customers/pages/CustomerAddPage";
@@ -58,15 +65,17 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <ProductsProvider>
           <BookingsProvider>
-            <AgentsProvider>
-              <BranchesProvider>
-                <CustomersProvider>
-                  <UsersProvider>
-                    <AppLayout />
-                  </UsersProvider>
-                </CustomersProvider>
-              </BranchesProvider>
-            </AgentsProvider>
+            <BranchOrdersProvider>
+              <AgentsProvider>
+                <BranchesProvider>
+                  <CustomersProvider>
+                    <UsersProvider>
+                      <AppLayout />
+                    </UsersProvider>
+                  </CustomersProvider>
+                </BranchesProvider>
+              </AgentsProvider>
+            </BranchOrdersProvider>
           </BookingsProvider>
         </ProductsProvider>
       </ProtectedRoute>
@@ -146,10 +155,42 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "my-assigned-bookings",
+        path: "orders",
         element: (
           <PermissionRoute permission="bookings.process">
-            <MyAssignedBookingsPage />
+            <OrdersPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "orders/agent/:id",
+        element: (
+          <PermissionRoute permission="bookings.process">
+            <AgentOrderDetailPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "orders/branch/:id",
+        element: (
+          <PermissionRoute permission="bookings.process">
+            <OrdersBranchOrderDetailPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "branch-orders",
+        element: (
+          <PermissionRoute permission="branch_orders.view">
+            <BranchOrdersListPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "branch-orders/:id",
+        element: (
+          <PermissionRoute permission="branch_orders.view">
+            <BranchOrderDetailPage />
           </PermissionRoute>
         ),
       },

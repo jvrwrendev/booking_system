@@ -1,0 +1,834 @@
+Develop a **single professional Agrivet mobile application** using **React Native + TypeScript + NativeWind (Tailwind CSS)** with a **shadcn/ui-inspired reusable component system**.
+
+The application must support **two roles in one mobile app**:
+
+* **AGENT**
+* **BRANCH**
+
+The system must detect the authenticated user's role and display only the appropriate features, navigation, data, and actions for that role.
+
+The application should be **feature-based, scalable, secure, minimalist, and production-ready**.
+
+---
+
+# 1. APPLICATION STRUCTURE
+
+Use one mobile application with role-based features.
+
+### Agent Features
+
+* Dashboard
+* My Customers
+* Add Customer
+* My Bookings
+* Create Booking
+* Booking Details
+* Profile
+
+### Branch Features
+
+* Dashboard
+* Inventory
+* Create Order
+* My Orders
+* Order Details
+* Profile
+
+Do not display Agent features to Branch users and do not display Branch features to Agent users.
+
+---
+
+# 2. AGENT — CUSTOMER MANAGEMENT
+
+Create a **My Customers** module for Agents.
+
+The purpose is to allow each Agent to manage their own customers.
+
+### Add Customer
+
+The Agent can create a customer with:
+
+* Full Name
+* Contact Number
+* Email
+* Address
+* Notes
+
+### Automatic Customer Assignment
+
+When an Agent creates a customer:
+
+```text
+Current Logged-in Agent
+        ↓
+Create Customer
+        ↓
+Customer Created
+        ↓
+Automatically Assigned to Current Agent
+```
+
+The Agent must **not manually select an Agent** when creating a customer.
+
+The backend must automatically save the current authenticated Agent as the owner/assigned Agent.
+
+### My Customers
+
+Display only customers assigned to the currently logged-in Agent.
+
+Example:
+
+| Customer       | Contact       | Bookings | Status | Action |
+| -------------- | ------------- | -------: | ------ | ------ |
+| Juan Dela Cruz | 09XX XXX XXXX |        4 | Active | View   |
+| Maria Santos   | 09XX XXX XXXX |        2 | Active | View   |
+
+Features:
+
+* Search customers
+* View customer details
+* View customer's booking history
+* Create booking for customer
+* Add new customer
+
+An Agent must not be able to access another Agent's customers.
+
+---
+
+# 3. AGENT — CUSTOMER BOOKING
+
+The Agent creates a booking on behalf of a customer.
+
+A Customer Booking must **not require a Branch**.
+
+### Booking Workflow
+
+```text
+Customer
+    ↓
+Agent
+    ↓
+Create Booking
+    ↓
+Select Customer
+    ↓
+Select Product
+    ↓
+Enter Quantity
+    ↓
+Add to Booking
+    ↓
+Review Booking
+    ↓
+Submit Booking
+    ↓
+PENDING
+    ↓
+Super Admin / Booking Admin
+    ↓
+Accept / Reject
+    ↓
+If Accepted
+    ↓
+Assign to Admin
+    ↓
+ASSIGNED
+    ↓
+Assigned Admin
+    ↓
+Accept Booking
+    ↓
+ACCEPTED
+    ↓
+PROCESSING
+    ↓
+READY
+    ↓
+COMPLETED
+```
+
+### Create Booking
+
+The Agent must:
+
+1. Select one of their assigned customers.
+2. Select available products.
+3. Enter quantity.
+4. Add products to the booking.
+5. Review the booking.
+6. Submit the booking.
+
+### Booking Items
+
+Each booking can contain multiple products.
+
+Display:
+
+| Product       | Quantity | Unit Price | Subtotal |
+| ------------- | -------: | ---------: | -------: |
+| Pig Feed 50kg |        2 |     ₱1,000 |   ₱2,000 |
+| Vitamins      |        1 |       ₱500 |     ₱500 |
+
+Display the total amount at the bottom.
+
+---
+
+# 4. AGENT — MY BOOKINGS
+
+Create a **My Bookings** module.
+
+The Agent should only see bookings created by the currently logged-in Agent.
+
+Display:
+
+| Booking No.  | Customer       | Items |  Total | Status     | Date  | Action |
+| ------------ | -------------- | ----: | -----: | ---------- | ----- | ------ |
+| BK-2026-0001 | Juan Dela Cruz |     3 | ₱2,500 | Processing | Sep 7 | View   |
+
+### Booking Details
+
+Display:
+
+* Booking Number
+* Customer
+* Agent
+* Booking Date
+* Products
+* Quantities
+* Prices
+* Subtotals
+* Total Amount
+* Current Status
+* Assigned Admin
+* Status Timeline
+
+The Agent can monitor the booking but must not bypass the approval or Admin processing workflow.
+
+---
+
+# 5. BRANCH — INVENTORY
+
+The Branch uses the application to order inventory.
+
+A Branch Order is completely separate from Customer Bookings.
+
+### Branch Order Workflow
+
+```text
+Branch
+   ↓
+View Inventory
+   ↓
+Select Item
+   ↓
+View Item Details
+   ↓
+Enter Quantity
+   ↓
+Add to Order
+   ↓
+Review Order
+   ↓
+Submit Order
+   ↓
+PENDING
+   ↓
+Super Admin / Booking Admin
+   ↓
+Accept / Reject
+   ↓
+If Accepted
+   ↓
+Assign to Admin
+   ↓
+ASSIGNED
+   ↓
+Assigned Admin
+   ↓
+Accept Order
+   ↓
+ACCEPTED
+   ↓
+PROCESSING
+   ↓
+READY
+   ↓
+COMPLETED
+```
+
+### Inventory Screen
+
+Display:
+
+* Product image
+* Product name
+* Category
+* Available stock
+* Unit price
+* Product status
+
+Include:
+
+* Search
+* Category filter
+* Product selection
+
+### Product Details
+
+Display:
+
+* Product image
+* Product name
+* Description
+* Available stock
+* Unit price
+* Quantity selector
+* Add to Order button
+
+Do not allow the Branch to order more than the available stock.
+
+---
+
+# 6. BRANCH — CREATE ORDER
+
+The Branch can add multiple products to an order.
+
+### Order Cart
+
+Display:
+
+| Product       | Quantity | Unit Price | Subtotal |
+| ------------- | -------: | ---------: | -------: |
+| Pig Feed 50kg |        5 |     ₱1,200 |   ₱6,000 |
+| Vitamins      |        2 |     ₱1,250 |   ₱2,500 |
+
+Display:
+
+* Product
+* Quantity
+* Unit Price
+* Subtotal
+* Total Amount
+* Remove Item
+* Update Quantity
+
+Then provide:
+
+**Review Order**
+
+---
+
+# 7. BRANCH — REVIEW AND SUBMIT ORDER
+
+Before submitting, display:
+
+### Branch Information
+
+* Branch Name
+* Branch Location
+
+### Order Information
+
+* Products
+* Quantities
+* Unit Prices
+* Subtotals
+* Total Amount
+
+Provide:
+
+**Submit Order**
+
+After submission:
+
+```text
+Order #BO-2026-0001
+Status: PENDING
+```
+
+---
+
+# 8. BRANCH — MY ORDERS
+
+Create a **My Orders** module.
+
+The Branch should only see orders belonging to the currently logged-in Branch.
+
+Display:
+
+| Order No.    | Items |  Total | Status     | Date  | Action |
+| ------------ | ----: | -----: | ---------- | ----- | ------ |
+| BO-2026-0001 |     5 | ₱8,500 | Processing | Sep 7 | View   |
+
+### Order Details
+
+Display:
+
+* Order Number
+* Branch
+* Order Date
+* Products
+* Quantities
+* Unit Prices
+* Subtotals
+* Total Amount
+* Current Status
+* Assigned Admin
+* Order Timeline
+
+---
+
+# 9. UNIFIED APPROVAL AND ASSIGNMENT WORKFLOW
+
+Both **Customer Bookings** and **Branch Orders** must use the same approval and assignment process.
+
+## Stage 1 — Pending
+
+The Agent or Branch submits the transaction.
+
+```text
+PENDING
+```
+
+It is now available to the **Super Admin / Booking Admin**.
+
+## Stage 2 — Accept or Reject
+
+Super Admin / Booking Admin can:
+
+```text
+[ Accept ]
+[ Reject ]
+```
+
+If rejected:
+
+```text
+PENDING → REJECTED
+```
+
+If accepted:
+
+```text
+PENDING → ACCEPTED
+```
+
+Then show:
+
+```text
+[ Assign to Admin ]
+```
+
+## Stage 3 — Assign Admin
+
+Super Admin / Booking Admin selects an Admin.
+
+```text
+Select Admin
+     ↓
+Confirm Assignment
+     ↓
+ASSIGNED
+```
+
+Save the assigned Admin ID in the database.
+
+## Stage 4 — Assigned Admin
+
+The assigned Admin receives the transaction in their **My Assigned Bookings / My Assigned Orders** module.
+
+The assigned Admin can:
+
+```text
+ASSIGNED
+    ↓
+Accept
+    ↓
+ACCEPTED
+    ↓
+Processing
+    ↓
+PROCESSING
+    ↓
+Ready
+    ↓
+READY
+    ↓
+Completed
+    ↓
+COMPLETED
+```
+
+Only the assigned Admin can perform these processing actions.
+
+---
+
+# 10. STATUS SYSTEM
+
+Use consistent statuses for both transactions:
+
+```text
+PENDING
+ACCEPTED
+ASSIGNED
+PROCESSING
+READY
+COMPLETED
+REJECTED
+```
+
+Expected flow:
+
+```text
+PENDING
+   │
+   ├──────────────→ REJECTED
+   │
+   ↓
+ACCEPTED
+   ↓
+ASSIGNED
+   ↓
+ACCEPTED
+   ↓
+PROCESSING
+   ↓
+READY
+   ↓
+COMPLETED
+```
+
+Do not allow users to skip required workflow steps.
+
+---
+
+# 11. ROLE PERMISSIONS
+
+### Agent
+
+Can:
+
+* Manage own customers
+* Create customers
+* Create bookings
+* View own bookings
+* View booking details
+* Monitor booking status
+
+Cannot:
+
+* Approve bookings
+* Assign Admins
+* Process bookings
+* Modify another Agent's customers
+* Modify another Agent's bookings
+
+### Branch
+
+Can:
+
+* View inventory
+* Create branch orders
+* View own orders
+* View order details
+* Monitor order status
+
+Cannot:
+
+* Approve orders
+* Assign Admins
+* Process orders
+* Access another Branch's orders
+
+---
+
+# 12. ROLE-BASED NAVIGATION
+
+After login:
+
+```text
+LOGIN
+  ↓
+GET CURRENT USER
+  ↓
+CHECK ROLE
+  ├── AGENT
+  │     ├── Dashboard
+  │     ├── My Customers
+  │     ├── My Bookings
+  │     └── Profile
+  │
+  └── BRANCH
+        ├── Dashboard
+        ├── Inventory
+        ├── My Orders
+        └── Profile
+```
+
+Do not show unauthorized navigation items.
+
+---
+
+# 13. AGENT DASHBOARD
+
+Create a simple Agent dashboard showing:
+
+* Total Customers
+* Total Bookings
+* Pending Bookings
+* Processing Bookings
+* Completed Bookings
+* Recent Bookings
+
+Use clean summary cards and a recent bookings list.
+
+---
+
+# 14. BRANCH DASHBOARD
+
+Create a Branch dashboard showing:
+
+* Available Products
+* Pending Orders
+* Processing Orders
+* Ready Orders
+* Completed Orders
+* Recent Orders
+
+---
+
+# 15. UI/UX DESIGN
+
+Create a **professional, modern, minimalist mobile UI**.
+
+### Technology
+
+* React Native
+* TypeScript
+* NativeWind / Tailwind CSS
+* shadcn/ui-inspired components
+* Reusable UI components
+
+### Design Requirements
+
+* Minimalist
+* Professional
+* Modern
+* Clean
+* Mobile-first
+* Responsive
+* Consistent spacing
+* Clear typography
+* Comfortable touch targets
+* Standard button sizes
+* Standard input heights
+* Proper card dimensions
+* Clear status badges
+* Consistent icons
+
+### Do NOT use:
+
+* Gradients
+* Excessive shadows
+* Heavy visual effects
+* Tiny buttons
+* Tiny input fields
+* Overcrowded layouts
+* Unnecessary animations
+
+Cards, buttons, forms, and list items should have **comfortable standard dimensions suitable for mobile touch interaction**.
+
+Use borders, spacing, typography, and subtle background differences instead of shadows to establish hierarchy.
+
+---
+
+# 16. REUSABLE COMPONENTS
+
+Create reusable components such as:
+
+```text
+Button
+Input
+Select
+SearchInput
+ProductCard
+ProductList
+CustomerCard
+BookingCard
+OrderCard
+StatusBadge
+StatusTimeline
+QuantitySelector
+OrderSummary
+BookingSummary
+EmptyState
+LoadingState
+ErrorState
+ConfirmationDialog
+BottomSheet
+```
+
+Avoid duplicating the same UI code between Agent and Branch features.
+
+---
+
+# 17. FEATURE-BASED PROJECT STRUCTURE
+
+Use a feature-based architecture:
+
+```text
+src/
+├── app/
+│   ├── navigation/
+│   ├── providers/
+│   └── screens/
+│
+├── features/
+│   ├── auth/
+│   │   ├── screens/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── services/
+│   │
+│   ├── dashboard/
+│   │
+│   ├── agent/
+│   │   ├── customers/
+│   │   │   ├── screens/
+│   │   │   ├── components/
+│   │   │   ├── hooks/
+│   │   │   └── services/
+│   │   │
+│   │   └── bookings/
+│   │       ├── screens/
+│   │       ├── components/
+│   │       ├── hooks/
+│   │       └── services/
+│   │
+│   ├── branch/
+│   │   ├── inventory/
+│   │   │   ├── screens/
+│   │   │   ├── components/
+│   │   │   ├── hooks/
+│   │   │   └── services/
+│   │   │
+│   │   └── orders/
+│   │       ├── screens/
+│   │       ├── components/
+│   │       ├── hooks/
+│   │       └── services/
+│   │
+│   └── profile/
+│
+├── components/
+│   ├── ui/
+│   └── shared/
+│
+├── services/
+├── hooks/
+├── lib/
+├── types/
+├── constants/
+└── utils/
+```
+
+---
+
+# 18. SECURITY AND DATA ISOLATION
+
+Do not rely only on frontend filtering.
+
+The backend must enforce ownership and permissions.
+
+### Agent
+
+Every customer query must be scoped to:
+
+```text
+customer.agent_id = currentUser.id
+```
+
+Every Agent booking query must be scoped to:
+
+```text
+booking.agent_id = currentUser.id
+```
+
+### Branch
+
+Every Branch order query must be scoped to:
+
+```text
+order.branch_id = currentUser.id
+```
+
+or the appropriate Branch relationship in the existing database.
+
+Users must not gain access to another user's data by manually changing an ID in an API request.
+
+Backend authorization must enforce all role permissions.
+
+---
+
+# 19. IMPORTANT BUSINESS RULES
+
+Keep these concepts completely separate:
+
+```text
+CUSTOMER BOOKING
+Agent → Customer → Product → Booking
+```
+
+and:
+
+```text
+BRANCH ORDER
+Branch → Product → Order
+```
+
+A Customer Booking:
+
+* Does not require a Branch.
+* Is created by an Agent.
+* Belongs to the Agent who created it.
+* Is for a specific Customer.
+
+A Branch Order:
+
+* Does not require a Customer.
+* Is created by a Branch.
+* Belongs to the Branch that created it.
+* Is used for Branch inventory ordering.
+
+Both use the same:
+
+**Pending → Accept/Reject → Assign → Admin Processing → Ready → Completed**
+
+workflow.
+
+---
+
+# 20. DEVELOPMENT REQUIREMENTS
+
+* Build one mobile application for both Agent and Branch.
+* Use role-based navigation.
+* Use feature-based architecture.
+* Reuse components.
+* Keep business logic separate from UI.
+* Use the existing backend/API where available.
+* Follow the existing database structure where possible.
+* Do not create duplicate APIs or database entities unnecessarily.
+* Handle loading states.
+* Handle empty states.
+* Handle API errors.
+* Handle validation errors.
+* Add confirmation before submitting orders/bookings.
+* Show success feedback after important actions.
+* Maintain proper navigation state.
+* Keep the application scalable and maintainable.
+
+### CRITICAL
+
+**Do not modify, remove, or break unrelated existing code or functionality.**
+
+Only implement the required **Agent and Branch mobile application features**, while preserving the existing Agrivet system architecture and business logic.

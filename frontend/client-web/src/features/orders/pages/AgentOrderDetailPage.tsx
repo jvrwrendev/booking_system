@@ -1,0 +1,371 @@
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  History,
+  Mail,
+  MapPin,
+  Package,
+  Phone,
+  ShieldAlert,
+  Truck,
+  User,
+  UserCheck,
+} from "lucide-react";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { PageHeader } from "@/components/common/PageHeader";
+import { ActivityTimeline } from "@/components/common/ActivityTimeline";
+import {
+  StatusBadge,
+  getBookingStatusVariant,
+  humanize,
+} from "@/components/common/StatusBadge";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+
+import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
+import { bookingTimeline } from "../lib/orderHistory";
+import { mockCustomers } from "@/data/mock-customers";
+import { mockAgents } from "@/data/mock-agents";
+import { useAuth } from "@/hooks/useAuth";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import type { Booking, BookingStatus } from "@/types/booking";
+
+interface PendingAction {
+  target: BookingStatus;
+  label: string;
+}
+
+const NEXT_ACTION: Record<
+  string,
+  { label: string; target: BookingStatus; confirm?: boolean }
+> = {
+  assigned: { label: "Accept Order", target: "accepted", confirm: true },
+  accepted: { label: "Process Order", target: "processing" },
+  confirmed: { label: "Process Order", target: "processing" },
+  processing: { label: "Mark as Ready", target: "ready" },
+  ready: { label: "Complete Order", target: "completed", confirm: true },
+};
+
+export function AgentOrderDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { getBooking, setStatus } = useBookingsStore();
+  const { user } = useAuth();
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+
+  const booking = id ? getBooking(id) : undefined;
+
+  if (!booking) {
+    return (
+      <div className="space-y-4">
+        <Button asChild variant="ghost" size="sm" className="-ml-3">
+          <Link to="/orders">
+            <ArrowLeft className="h-4 w-4" />
+            Back to orders
+          </Link>
+        </Button>
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            Agent order not found.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const customer = mockCustomers.find((c) => c.id === booking.customerId);
+  const agent = mockAgents.find((a) => a.id === booking.agentId);
+  const isAssignedToMe = !!user?.id && booking.assignedAdminId === user.id;
+  const canProcess = isAssignedToMe;
+  const nextAction = canProcess ? NEXT_ACTION[booking.status] : undefined;
+  const timeline = bookingTimeline(booking);
+
+  const applyAction = () => {
+    if (!pendingAction || !user) return;
+    setStatus(booking.id, pendingAction.target, user);
+    setPendingAction(null);
+  };
+
+  return (
+    <div className="space-y-6">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-ml-3"
+        onClick={() => navigate("/orders")}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to orders
+      </Button>
+
+      <PageHeader
+        title={booking.reference}
+        description={`${booking.customerName} · ${booking.items.length} item(s)`}
+        breadcrumbs={[
+          { label: "Operations" },
+          { label: "Orders", href: "/orders" },
+          { label: "Agent Orders" },
+          { label: booking.reference },
+        ]}
+        actions={
+          <div className="flex flex-col items-end gap-2">
+            <StatusBadge
+              variant={getBookingStatusVariant(booking.status)}
+              label={humanize(booking.status)}
+            />
+            {nextAction && (
+              <Button
+                size="sm"
+                onClick={
+                  nextAction.confirm
+                    ? () =>
+                        setPendingAction({
+                          target: nextAction.target,
+                          label: nextAction.label,
+                        })
+                    : () => user && setStatus(booking.id, nextAction.target, user)
+                }
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {nextAction.label}
+              </Button>
+            )}
+          </div>
+        }
+      />
+
+      {booking.assignedAdminId && !isAssignedToMe && (
+        <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            This order is assigned to{" "}
+            <span className="font-medium text-foreground">
+              {booking.assignedAdminName}
+            </span>
+            . You can view its details but cannot process it.
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>Ordered Items</CardTitle>
+            <div className="text-xs text-muted-foreground">
+              {booking.totalQuantity} units
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="py-2 text-left font-medium">Product</th>
+                    <th className="py-2 text-right font-medium">Quantity</th>
+                    <th className="py-2 text-right font-medium">Unit Price</th>
+                    <th className="py-2 text-right font-medium">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {booking.items.map((item) => (
+                    <tr key={item.productId} className="border-t">
+                      <td className="py-2.5">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">{item.productName}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 text-right">{item.quantity}</td>
+                      <td className="py-2.5 text-right">
+                        {formatCurrency(item.unitPrice)}
+                      </td>
+                      <td className="py-2.5 text-right font-medium">
+                        {formatCurrency(item.subtotal)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Separator />
+            <div className="ml-auto max-w-xs space-y-1.5 text-sm">
+              <Row label="Subtotal" value={formatCurrency(booking.subtotal)} />
+              <Row
+                label="Discounts"
+                value={`-${formatCurrency(booking.discount)}`}
+              />
+              <Separator />
+              <Row
+                label="Total Amount"
+                value={formatCurrency(booking.totalAmount)}
+                highlight
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Customer</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <InfoLine
+                icon={User}
+                label={customer?.fullName ?? booking.customerName}
+              />
+              <InfoLine icon={Phone} label={customer?.contactNumber ?? "—"} />
+              <InfoLine icon={Mail} label={customer?.email ?? "—"} />
+              <InfoLine icon={MapPin} label={customer?.address ?? "—"} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Agent</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <InfoLine
+                icon={User}
+                label={agent?.fullName ?? booking.agentName}
+              />
+              <InfoLine icon={Phone} label={agent?.contactNumber ?? "—"} />
+              <InfoLine icon={Mail} label={agent?.email ?? "—"} />
+              <InfoLine icon={MapPin} label={agent?.address ?? "—"} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Order Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <InfoLine
+                icon={CalendarDays}
+                label={`Order Date: ${formatDate(booking.bookingDate)}`}
+              />
+              <InfoLine
+                icon={Truck}
+                label={`Pickup: ${formatDate(booking.pickupDate)}`}
+              />
+              <InfoLine
+                icon={UserCheck}
+                label={
+                  booking.assignedAdminName
+                    ? `Assigned Admin: ${booking.assignedAdminName}`
+                    : "Assigned Admin: —"
+                }
+              />
+              {booking.notes && (
+                <>
+                  <Separator />
+                  <div>
+                    <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Notes
+                    </div>
+                    <p className="mt-1 text-sm">{booking.notes}</p>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Order Timeline</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ActivityTimeline events={timeline} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>Order Summary</CardTitle>
+            <History className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <SummaryLine label="Order No." value={booking.reference} />
+            <SummaryLine label="Status" value={humanize(booking.status)} />
+            <SummaryLine
+              label="Assigned Admin"
+              value={booking.assignedAdminName ?? "—"}
+            />
+            <SummaryLine
+              label="Created"
+              value={formatDateTime(booking.createdAt)}
+            />
+            <Separator />
+          </CardContent>
+        </Card>
+      </div>
+
+      <ConfirmDialog
+        open={pendingAction !== null}
+        onOpenChange={(o) => !o && setPendingAction(null)}
+        title={
+          pendingAction?.target === "completed"
+            ? "Complete this order?"
+            : "Accept this order?"
+        }
+        description={
+          pendingAction
+            ? pendingAction.target === "completed"
+              ? `This will complete order ${booking.reference}. This action cannot be undone.`
+              : `You are accepting order ${booking.reference}. It will move to the accepted stage for processing.`
+            : ""
+        }
+        confirmText={pendingAction?.label ?? "Confirm"}
+        onConfirm={applyAction}
+      />
+    </div>
+  );
+}
+
+function InfoLine({
+  icon: Icon,
+  label,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}) {
+  return (
+    <div className="flex items-start gap-2 text-sm">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="break-words">{label}</span>
+    </div>
+  );
+}
+
+function SummaryLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className={highlight ? "font-semibold" : "text-muted-foreground"}>
+        {label}
+      </span>
+      <span className={highlight ? "text-base font-semibold" : ""}>{value}</span>
+    </div>
+  );
+}
