@@ -1,19 +1,15 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { RefreshControl, FlatList, View } from "react-native";
+import { RefreshControl, FlatList, View, Text, Button } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
-import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
-import { SearchInput } from "@/components/ui/search-input";
-import { CustomerCard } from "@/components/shared/customer-card";
-import { LoadingState } from "@/components/shared/loading-state";
-import { EmptyState } from "@/components/shared/empty-state";
-import { ErrorState } from "@/components/shared/error-state";
 import { listBookingsForAgent } from "@/services/booking.service";
 import { listCustomersForAgent } from "@/services/customer.service";
 import type { Booking } from "@/types/booking";
 import type { AgentStackParamList } from "@/app/navigation/types";
+import { LoadingState } from "@/components/shared/loading-state";
+import { ErrorState } from "@/components/shared/error-state";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export function AgentDashboardScreen() {
   const navigation =
@@ -54,21 +50,13 @@ export function AgentDashboardScreen() {
     load();
   }, [load]);
 
-  const counts = {
-    pending: bookings.filter((b) => b.status === "pending").length,
-    processing: bookings.filter(
-      (b) => b.status === "processing" || b.status === "assigned"
-    ).length,
-    completed: bookings.filter((b) => b.status === "completed").length,
-  };
-
   const recent = [...bookings]
     .sort((a, b) => a.createdAt < b.createdAt ? 1 : -1)
     .slice(0, 5);
 
   return (
-    <View className="flex-1 bg-background">
-      <View className="px-4 pt-3 pb-2">
+    <View style={{ flex: 1, backgroundColor: "#fff" }}>
+      <View className="p-4">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-1">
             <Text variant="small" tone="muted">
@@ -87,82 +75,67 @@ export function AgentDashboardScreen() {
         </View>
       </View>
 
-      <View className="flex-row gap-2">
-        <Text variant="semibold">Customers</Text>
-        <Text variant="small" tone="muted">{customerCount}</Text>
+      <View className="p-2 border-t border-gray-200">
+        <View className="flex-row gap-2 mb-2">
+          <Text variant="semibold">Customers</Text>
+          <Text variant="small" tone="muted">{customerCount}</Text>
+        </View>
+        <View className="flex-row gap-2 mb-3">
+          <Text variant="semibold">Bookings</Text>
+          <Text variant="small" tone="info">{bookings.length}</Text>
+        </View>
       </View>
-      <View className="flex-row gap-2 mt-1">
-        <Text variant="semibold">Bookings</Text>
-        <Text variant="small" tone="info">{bookings.length}</Text>
+
+      <View className="p-4">
+        <Text variant="h2" weight="bold">Recent Bookings</Text>
+        <Text variant="small" tone="muted" className="mb-2">
+          Latest transactions you created
+        </Text>
       </View>
-    </View>
 
-    <View className="mt-4">
-      <Text variant="h2" weight="bold">Recent Bookings</Text>
-      <Text variant="small" tone="muted" className="mt-1">
-        Latest transactions you created
-      </Text>
-    </View>
-
-    {loading ? (
-      <LoadingState label="Loading bookings..." />
-    ) : error ? (
-      <ErrorState description={error} onRetry={load} />
-    ) : (
-      <FlatList
-        data={recent}
-        keyExtractor={(b) => b.id}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 8,
-          paddingBottom: 24,
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              load();
-            }}
-            tintColor="#16A34A"
+      {loading ? (
+        <LoadingState label="Loading bookings..." />
+      ) : error ? (
+        <ErrorState description={error} onRetry={load} />
+      ) : recent.length === 0 ? (
+        <EmptyState
+          title="No bookings yet"
+          description="Create your first booking to see it here."
+          actionLabel="Create Booking"
+          onAction={() => navigation.navigate("BookingCreate")}
+        />
+      ) : (
+        <FlatList
+          data={recent}
+          keyExtractor={(b) => b.id}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 8,
+            paddingBottom: 24,
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                load();
+              }}
+              tintColor="#16A34A"
+            }
           }
-        }
-        ListEmptyComponent={
-          <EmptyState
-            title={
-              recent.length === 0
-                ? "No bookings yet"
-                : "No bookings yet"
-            }
-            description={
-              recent.length === 0
-                ? "Create your first booking to see it here."
-                : "Try a different filter or search."
-            }
-            actionLabel={recent.length === 0 ? "Create Booking" : undefined}
-            onAction={recent.length === 0 ? () => navigation.navigate("BookingCreate") : undefined}
-          />
-        }
-        renderItem={({ item }) => (
-          <CustomerCard
-            customer={{
-              id: item.id,
-              fullName: item.customerName,
-              contactNumber: "—",
-              email: "—",
-              address: "—",
-              status: "active",
-              totalBookings: 0,
-              registeredDate: item.createdAt,
-              notes: "",
-              ...item,
-            }}
-            onPress={() =>
-              navigation.navigate("CustomerDetail", { customerId: item.id })
-            }
-          />
-        )}
-      </FlatList>
+          ListEmptyComponent={
+            <EmptyState
+              title="No bookings yet"
+              description="Try a different filter or search."
+              actionLabel="Create Booking"
+              onAction={() => navigation.navigate("BookingCreate")}
+            />
+          }
+          renderItem={({ item }) => (
+            <Text>{item.customerName}</Text>
+          )}
+        </FlatList>
+      )}
     </View>
   );
 }
