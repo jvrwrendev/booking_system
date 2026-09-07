@@ -1,4 +1,5 @@
 ﻿import type { AuthUser } from "@/types/auth";
+import type { Role } from "@/lib/permissions";
 
 export const mockUsers: AuthUser[] = [
   {
@@ -58,17 +59,53 @@ export const mockUsers: AuthUser[] = [
   },
 ];
 
-export const mockCredentials = [
+export interface AuthCredential {
+  email: string;
+  password: string;
+  role: Role;
+}
+
+export const mockCredentials: AuthCredential[] = [
   {
     email: "superadmin@example.com",
     password: "password",
-    role: "SUPER_ADMIN" as const,
+    role: "SUPER_ADMIN",
   },
   {
     email: "admin@example.com",
     password: "password",
-    role: "ADMIN" as const,
+    role: "ADMIN",
   },
 ];
 
+export interface AuthAccount extends AuthUser {
+  password: string;
+}
 
+const seedAccounts: AuthAccount[] = mockUsers.map((user) => {
+  const credential = mockCredentials.find((c) => c.email === user.email);
+  return { ...user, password: credential?.password ?? "password" };
+});
+
+const addedAccounts: AuthAccount[] = [];
+
+function allAccounts(): AuthAccount[] {
+  return [...seedAccounts, ...addedAccounts];
+}
+
+export function registerAccount(user: AuthUser, password: string) {
+  addedAccounts.push({ ...user, password });
+}
+
+export function updateAccount(id: string, patch: Partial<AuthUser>) {
+  const account = allAccounts().find((a) => a.id === id);
+  if (account) Object.assign(account, patch);
+}
+
+export function findAccountByEmail(
+  email: string
+): AuthAccount | undefined {
+  return allAccounts().find(
+    (a) => a.email.toLowerCase() === email.trim().toLowerCase()
+  );
+}

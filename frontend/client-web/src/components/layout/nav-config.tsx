@@ -12,6 +12,8 @@ import {
   Settings,
   ShieldCheck,
   Leaf,
+  UserCheck,
+  ClipboardList,
 } from "lucide-react";
 
 import type { Permission } from "@/lib/permissions";
@@ -21,6 +23,7 @@ export interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   permission: Permission;
+  end?: boolean;
 }
 
 export interface NavGroup {
@@ -48,12 +51,19 @@ export const navGroups: NavGroup[] = [
         href: "/bookings",
         icon: ShoppingCart,
         permission: "bookings.view",
+        end: true,
       },
       {
-        title: "Booking History",
-        href: "/bookings/history",
-        icon: History,
-        permission: "bookings.history",
+        title: "My Assigned Bookings",
+        href: "/my-assigned-bookings",
+        icon: ClipboardList,
+        permission: "bookings.process",
+      },
+      {
+        title: "Assign Booking",
+        href: "/bookings/assign",
+        icon: UserCheck,
+        permission: "bookings.assign",
       },
       {
         title: "Inventory",

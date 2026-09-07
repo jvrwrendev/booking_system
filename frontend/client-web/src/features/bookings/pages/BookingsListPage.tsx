@@ -4,9 +4,6 @@ import {
   Eye,
   Filter,
   MoreHorizontal,
-  ShoppingCart,
-  UserCheck,
-  UserPlus,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
@@ -34,39 +31,25 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 import { useBookingsStore } from "../hooks/useBookingsStore";
-import { AssignmentDialog } from "../components/AssignmentDialog";
 import type { Booking, BookingStatus } from "@/types/booking";
 import { mockBranches } from "@/data/mock-branches";
 import { mockAgents } from "@/data/mock-agents";
-import { mockUsers } from "@/data/mock-users";
 import { formatCurrency, formatDate, initials } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function BookingsListPage() {
-  const { user } = useAuth();
-  const { bookings, assignBooking, reassignBooking } = useBookingsStore();
+  const { bookings } = useBookingsStore();
   const { can } = usePermissions();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
   const [assignedFilter, setAssignedFilter] = useState<string>("all");
-  const [assignTarget, setAssignTarget] = useState<Booking | null>(null);
 
   const canAssign = can("bookings.assign");
   const isSuperAdmin = canAssign;
 
   const filtered = useMemo(() => {
-    const scoped = isSuperAdmin
-      ? bookings
-      : bookings.filter(
-          (b) =>
-            b.assignedAdminId &&
-            user?.id &&
-            b.assignedAdminId === user.id
-        );
-
-    return scoped.filter((b) => {
+    return bookings.filter((b) => {
       if (statusFilter !== "all" && b.status !== statusFilter) return false;
       if (branchFilter !== "all" && b.branchId !== branchFilter) return false;
       if (agentFilter !== "all" && b.agentId !== agentFilter) return false;
@@ -80,8 +63,6 @@ export function BookingsListPage() {
     branchFilter,
     agentFilter,
     assignedFilter,
-    isSuperAdmin,
-    user?.id,
   ]);
 
   const columns: DataTableColumn<Booking>[] = [
@@ -212,21 +193,6 @@ export function BookingsListPage() {
                 View details
               </Link>
             </DropdownMenuItem>
-            {canAssign && (
-              <DropdownMenuItem onSelect={() => setAssignTarget(b)}>
-                {b.assignedAdminId ? (
-                  <>
-                    <UserCheck className="h-4 w-4" />
-                    Reassign admin
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4" />
-                    Assign to admin
-                  </>
-                )}
-              </DropdownMenuItem>
-            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -240,17 +206,11 @@ export function BookingsListPage() {
         description={
           isSuperAdmin
             ? "Manage, assign, and track customer bookings across all branches."
-            : "Review and process your assigned bookings."
+            : "View all bookings across all branches."
         }
         breadcrumbs={[{ label: "Operations" }, { label: "Bookings" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button asChild variant="outline">
-              <Link to="/bookings/history">
-                <ShoppingCart className="h-4 w-4" />
-                Booking history
-              </Link>
-            </Button>
             <Button asChild variant="outline">
               <Link to="/bookings/new">New booking</Link>
             </Button>
@@ -283,6 +243,7 @@ export function BookingsListPage() {
                   [
                     "assigned",
                     "pending",
+                    "accepted",
                     "confirmed",
                     "processing",
                     "ready",
@@ -341,23 +302,6 @@ export function BookingsListPage() {
           </>
         }
       />
-
-      {assignTarget && user && (
-        <AssignmentDialog
-          open={!!assignTarget}
-          onOpenChange={(o) => !o && setAssignTarget(null)}
-          booking={assignTarget}
-          admins={mockUsers}
-          currentUser={user}
-          onAssign={(admin, by) => {
-            if (assignTarget.assignedAdminId) {
-              reassignBooking(assignTarget.id, admin, by);
-            } else {
-              assignBooking(assignTarget.id, admin, by);
-            }
-          }}
-        />
-      )}
     </div>
   );
 }

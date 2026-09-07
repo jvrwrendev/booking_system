@@ -6,7 +6,11 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { mockUsers } from "@/data/mock-users";
+import {
+  mockUsers,
+  registerAccount,
+  updateAccount,
+} from "@/data/mock-users";
 import type { AuthUser } from "@/types/auth";
 
 export interface UserFormValues {
@@ -15,6 +19,7 @@ export interface UserFormValues {
   username: string;
   role: AuthUser["role"];
   status: AuthUser["status"];
+  password?: string;
 }
 
 interface UsersContextValue {
@@ -51,6 +56,7 @@ export function UsersProvider({ children }: { children: ReactNode }) {
           status: data.status,
           createdAt: new Date().toISOString(),
         };
+        registerAccount(user, data.password ?? "");
         setUsers((prev) => [user, ...prev]);
         toast.success("Admin user created", {
           description: `${user.fullName} has been added.`,
@@ -72,12 +78,20 @@ export function UsersProvider({ children }: { children: ReactNode }) {
               : u
           )
         );
+        updateAccount(id, {
+          fullName: data.fullName,
+          email: data.email,
+          username: data.username,
+          role: data.role,
+          status: data.status,
+        });
         toast.success("User updated");
       },
       toggleStatus: (id, status) => {
         setUsers((prev) =>
           prev.map((u) => (u.id === id ? { ...u, status } : u))
         );
+        updateAccount(id, { status });
         toast.success("User status updated");
       },
       getUser: (id) => users.find((u) => u.id === id),

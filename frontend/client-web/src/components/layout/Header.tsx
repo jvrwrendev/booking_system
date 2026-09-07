@@ -9,11 +9,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { ROLE_LABELS } from "@/lib/permissions";
 import { initials } from "@/lib/utils";
 
 interface HeaderProps {
@@ -63,16 +61,10 @@ export function Header({ onMenuClick }: HeaderProps) {
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-2 px-2">
+            <Button variant="ghost" className="gap-2 px-2" aria-label="Account menu">
               <Avatar className="h-7 w-7">
                 <AvatarFallback>{initials(user.fullName)}</AvatarFallback>
               </Avatar>
-              <div className="hidden text-left leading-tight md:block">
-                <div className="text-xs font-medium">{user.fullName}</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {user.email}
-                </div>
-              </div>
               <ChevronDown className="hidden h-4 w-4 text-muted-foreground md:block" />
             </Button>
           </DropdownMenuTrigger>
@@ -82,9 +74,6 @@ export function Header({ onMenuClick }: HeaderProps) {
               <span className="text-xs text-muted-foreground">
                 {user.email}
               </span>
-              <Badge variant="muted" className="mt-1 w-fit">
-                {ROLE_LABELS[user.role]}
-              </Badge>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => navigate("/settings")}>
@@ -94,7 +83,10 @@ export function Header({ onMenuClick }: HeaderProps) {
               Activity log
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={handleLogout} className="text-destructive">
+            <DropdownMenuItem
+              onSelect={handleLogout}
+              className="text-destructive"
+            >
               <LogOut className="h-4 w-4" />
               Sign out
             </DropdownMenuItem>

@@ -15,9 +15,9 @@ export function UserAddPage() {
 
   return (
     <UserForm
-      title="Add Admin"
-      description="Create a new system administrator account."
-      submitLabel="Create user"
+      title="Add Account"
+      description="Create a new admin or super admin account with login credentials."
+      submitLabel="Create account"
       onSubmit={(data) => {
         addUser(data);
         navigate("/users");

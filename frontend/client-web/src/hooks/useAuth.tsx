@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { mockCredentials, mockUsers } from "@/data/mock-users";
+import { findAccountByEmail } from "@/data/mock-users";
 import type { AuthUser } from "@/types/auth";
 
 const STORAGE_KEY = "agrivet-auth-user";
@@ -44,21 +44,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       await new Promise((r) => setTimeout(r, 400));
-      const credential = mockCredentials.find(
-        (c) =>
-          c.email.toLowerCase() === email.trim().toLowerCase() &&
-          c.password === password
-      );
-      if (!credential) {
+      const account = findAccountByEmail(email);
+      if (!account || account.password !== password) {
         return {
           success: false,
           error: "Invalid email or password.",
         };
       }
-      const found =
-        mockUsers.find((u) => u.email === credential.email) ?? mockUsers[0];
+      if (account.status !== "active") {
+        return {
+          success: false,
+          error: "This account is inactive. Contact a Super Admin.",
+        };
+      }
+      const { password: _password, ...userFields } = account;
       const loggedIn: AuthUser = {
-        ...found,
+        ...userFields,
         lastLogin: new Date().toISOString(),
       };
       setUser(loggedIn);

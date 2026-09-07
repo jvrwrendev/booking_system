@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -10,6 +11,8 @@ import { toast } from "sonner";
 import { mockBookings } from "@/data/mock-bookings";
 import type { AuthUser } from "@/types/auth";
 import type { Booking, BookingStatus } from "@/types/booking";
+
+const STORAGE_KEY = "agrivet-bookings";
 
 interface BookingsContextValue {
   bookings: Booking[];
@@ -28,10 +31,31 @@ interface BookingsContextValue {
   unassignBooking: (id: string) => void;
 }
 
+function loadBookings(): Booking[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed as Booking[];
+    }
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+  return mockBookings;
+}
+
 const BookingsContext = createContext<BookingsContextValue | null>(null);
 
 export function BookingsProvider({ children }: { children: ReactNode }) {
-  const [bookings, setBookings] = useState<Booking[]>(mockBookings);
+  const [bookings, setBookings] = useState<Booking[]>(loadBookings);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
+    } catch {
+      // Ignore quota/availability errors; state remains in-memory.
+    }
+  }, [bookings]);
 
   const setStatus = useCallback((id: string, status: BookingStatus) => {
     setBookings((prev) =>
@@ -58,7 +82,10 @@ export function BookingsProvider({ children }: { children: ReactNode }) {
                 assignedById: by.id,
                 assignedByName: by.fullName,
                 assignmentDate: new Date().toISOString(),
-                status: b.status === "pending" ? "assigned" : b.status,
+                status:
+                  b.status === "pending" || b.status === "accepted"
+                    ? "assigned"
+                    : b.status,
               }
             : b
         )

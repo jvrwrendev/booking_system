@@ -30,6 +30,7 @@ export function getBookingStatusVariant(
     case "pending":
       return "warning";
     case "confirmed":
+    case "accepted":
       return "info";
     case "processing":
       return "info";

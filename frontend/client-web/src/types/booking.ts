@@ -1,6 +1,7 @@
 export type BookingStatus =
-  | "assigned"
   | "pending"
+  | "accepted"
+  | "assigned"
   | "confirmed"
   | "processing"
   | "ready"
@@ -52,8 +53,9 @@ export interface BookingTimelineEvent {
 }
 
 export const BOOKING_STATUS_FLOW: BookingStatus[] = [
-  "assigned",
   "pending",
+  "accepted",
+  "assigned",
   "confirmed",
   "processing",
   "ready",

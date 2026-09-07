@@ -15,14 +15,12 @@ import {
   Truck,
   User,
   UserCheck,
-  UserPlus,
   XCircle,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { ActivityTimeline } from "@/components/common/ActivityTimeline";
 import {
@@ -38,7 +36,7 @@ import { mockCustomers } from "@/data/mock-customers";
 import { mockAgents } from "@/data/mock-agents";
 import { mockBranches } from "@/data/mock-branches";
 import { mockUsers } from "@/data/mock-users";
-import { formatCurrency, formatDate, formatDateTime, initials } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/hooks/useAuth";
 import type { Booking, BookingStatus } from "@/types/booking";
@@ -55,7 +53,7 @@ export function BookingDetailPage() {
   const navigate = useNavigate();
   const { getBooking, setStatus, assignBooking, reassignBooking } =
     useBookingsStore();
-  const { can } = usePermissions();
+  const { can, isSuperAdmin } = usePermissions();
   const { user } = useAuth();
 
   const booking = id ? getBooking(id) : undefined;
@@ -88,17 +86,18 @@ export function BookingDetailPage() {
   const timeline = buildTimeline(booking);
   const canApprove = can("bookings.approve");
   const canUpdate = can("bookings.update");
-  const canAssign = can("bookings.assign");
-  const isSuperAdmin = canAssign;
   const isAssignedToMe =
     !!user?.id && booking.assignedAdminId === user.id;
-  const canActOnBooking = isSuperAdmin || isAssignedToMe;
+  const canProcessBooking = isAssignedToMe;
+  const isTerminal = ["completed", "cancelled", "rejected"].includes(
+    booking.status
+  );
 
   const actionButtons = buildActionButtons(
     booking,
     {
-      canApprove: canApprove && canActOnBooking,
-      canUpdate: canUpdate && canActOnBooking,
+      canApprove: canApprove && canProcessBooking,
+      canUpdate: canUpdate && canProcessBooking,
     },
     {
       onConfirm: () => setStatus(booking.id, "confirmed"),
@@ -133,6 +132,44 @@ export function BookingDetailPage() {
           {btn.label}
         </Button>
       ))}
+      {isSuperAdmin &&
+        !isTerminal &&
+        booking.status === "pending" && (
+          <>
+            <Button size="sm" onClick={() => setStatus(booking.id, "accepted")}>
+              <CheckCircle2 className="h-4 w-4" />
+              Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setConfirmAction({ kind: "reject" })}
+            >
+              <XCircle className="h-4 w-4" />
+              Reject
+            </Button>
+          </>
+        )}
+      {isSuperAdmin &&
+        !isTerminal &&
+        booking.status === "accepted" && (
+          <Button size="sm" onClick={() => setAssignmentOpen(true)}>
+            <UserCheck className="h-4 w-4" />
+            Assign Booking
+          </Button>
+        )}
+      {isSuperAdmin &&
+        !isTerminal &&
+        booking.assignedAdminId && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setAssignmentOpen(true)}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Re-Assign
+          </Button>
+        )}
     </div>
   );
 
@@ -261,76 +298,6 @@ export function BookingDetailPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Assignment</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              {booking.assignedAdminName ? (
-                <>
-                  <div className="flex items-start gap-2">
-                    <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="flex-1">
-                      <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Assigned To
-                      </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-[10px]">
-                            {initials(booking.assignedAdminName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">
-                          {booking.assignedAdminName}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <InfoLine
-                    icon={User}
-                    label={`Assigned By: ${booking.assignedByName ?? "—"}`}
-                  />
-                  <InfoLine
-                    icon={CalendarDays}
-                    label={`Assigned: ${
-                      booking.assignmentDate
-                        ? formatDateTime(booking.assignmentDate)
-                        : "—"
-                    }`}
-                  />
-                </>
-              ) : (
-                <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  This booking has not been assigned yet.
-                  {canAssign ? (
-                    <> Use “Assign” to assign it to an admin.</>
-                  ) : (
-                    <> Awaiting assignment from a Super Admin.</>
-                  )}
-                </div>
-              )}
-              {canAssign && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setAssignmentOpen(true)}
-                >
-                  {booking.assignedAdminName ? (
-                    <>
-                      <RefreshCw className="h-4 w-4" />
-                      Reassign booking
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="h-4 w-4" />
-                      Assign to admin
-                    </>
-                  )}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
               <CardTitle>Booking</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
@@ -394,9 +361,6 @@ export function BookingDetailPage() {
               />
             )}
             <Separator />
-            <Button asChild variant="outline" className="w-full" size="sm">
-              <Link to="/bookings/history">View full history</Link>
-            </Button>
           </CardContent>
         </Card>
       </div>
@@ -421,22 +385,25 @@ export function BookingDetailPage() {
         onConfirm={handleConfirmAction}
       />
 
-      {user && (
-        <AssignmentDialog
-          open={assignmentOpen}
-          onOpenChange={setAssignmentOpen}
-          booking={booking}
-          admins={mockUsers}
-          currentUser={user}
-          onAssign={(admin, by) => {
-            if (booking.assignedAdminId) {
-              reassignBooking(booking.id, admin, by);
-            } else {
-              assignBooking(booking.id, admin, by);
-            }
-          }}
-        />
-      )}
+      {user &&
+        isSuperAdmin &&
+        !isTerminal &&
+        (booking.status === "accepted" || booking.assignedAdminId) && (
+          <AssignmentDialog
+            open={assignmentOpen}
+            onOpenChange={setAssignmentOpen}
+            booking={booking}
+            admins={mockUsers}
+            currentUser={user}
+            onAssign={(admin, by) => {
+              if (booking.status === "accepted") {
+                assignBooking(booking.id, admin, by);
+              } else {
+                reassignBooking(booking.id, admin, by);
+              }
+            }}
+          />
+        )}
     </div>
   );
 }
@@ -459,10 +426,9 @@ function buildActionButtons(
 
   switch (status) {
     case "assigned":
-    case "pending":
       if (canApprove) {
         buttons.push({
-          label: "Confirm",
+          label: "Accept Booking",
           icon: CheckCircle2,
           onClick: handlers.onConfirm,
         });
@@ -486,7 +452,7 @@ function buildActionButtons(
     case "confirmed":
       if (canUpdate) {
         buttons.push({
-          label: "Mark as Processing",
+          label: "Process",
           icon: CheckCircle2,
           onClick: handlers.onProcessing,
         });
@@ -502,7 +468,7 @@ function buildActionButtons(
     case "processing":
       if (canUpdate) {
         buttons.push({
-          label: "Mark as Ready",
+          label: "Ready",
           icon: CheckCircle2,
           onClick: handlers.onReady,
         });
@@ -518,7 +484,7 @@ function buildActionButtons(
     case "ready":
       if (canUpdate) {
         buttons.push({
-          label: "Complete Booking",
+          label: "Completed",
           icon: CheckCircle2,
           onClick: handlers.onComplete,
         });
@@ -537,8 +503,9 @@ function buildActionButtons(
 
 function buildTimeline(booking: Booking) {
   const sequence: BookingStatus[] = [
-    "assigned",
     "pending",
+    "accepted",
+    "assigned",
     "confirmed",
     "processing",
     "ready",
@@ -587,7 +554,11 @@ function buildTimeline(booking: Booking) {
         ? `Booking is currently ${humanize(status).toLowerCase()}.`
         : "",
       timestamp: isCurrent ? formatDateTime(booking.createdAt) : "",
-      by: isCurrent ? "Admin" : "",
+      by: isCurrent
+        ? booking.assignedAdminId
+          ? "Admin"
+          : "Super Admin"
+        : "",
       active: isCurrent,
     });
   });

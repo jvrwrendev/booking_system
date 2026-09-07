@@ -48,17 +48,38 @@ export function UserForm({
           username: "",
           role: "ADMIN",
           status: "active",
+          password: "",
         }
   );
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!values.fullName.trim() || !values.email.trim() || !values.username.trim()) {
+    if (
+      !values.fullName.trim() ||
+      !values.email.trim() ||
+      !values.username.trim()
+    ) {
       setError("All fields are required.");
       return;
     }
-    onSubmit(values);
+    if (!initial) {
+      if (!values.password) {
+        setError("Password is required.");
+        return;
+      }
+      if (values.password.length < 6) {
+        setError("Password must be at least 6 characters.");
+        return;
+      }
+      if (values.password !== confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+    }
+    const { password: _password, ...payload } = values;
+    onSubmit(_password ? { ...payload, password: _password } : payload);
   };
 
   return (
@@ -125,6 +146,34 @@ export function UserForm({
                   placeholder="admin@agrivet.ph"
                 />
               </div>
+              {!initial && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="password">Password *</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={values.password ?? ""}
+                      onChange={(e) =>
+                        setValues((v) => ({ ...v, password: e.target.value }))
+                      }
+                      placeholder="Minimum 6 characters"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter password"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                </>
+              )}
               <div className="space-y-1.5">
                 <Label>Role *</Label>
                 <Select
