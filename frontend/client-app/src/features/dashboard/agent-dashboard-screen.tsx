@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { RefreshControl, FlatList, View, Text, Button } from "react-native";
+import {
+  RefreshControl,
+  FlatList,
+  View,
+  Text,
+  Button,
+  StyleSheet,
+} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
@@ -54,8 +61,43 @@ export function AgentDashboardScreen() {
     .sort((a, b) => a.createdAt < b.createdAt ? 1 : -1)
     .slice(0, 5);
 
+  const emptyState = (
+    <EmptyState
+      title="No bookings yet"
+      description="Create your first booking to see it here."
+      actionLabel="Create Booking"
+      onAction={() => navigation.navigate("BookingCreate")}
+    />
+  );
+
+  const listContent = (
+    <FlatList
+      data={recent}
+      keyExtractor={(b) => b.id}
+      contentContainerStyle={{
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        paddingBottom: 24,
+      }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            load();
+          }}
+          tintColor="#16A34A"
+        />
+      }
+      ListEmptyComponent={emptyState}
+      renderItem={({ item }) => (
+        <Text>{item.customerName}</Text>
+      )}
+    />
+  );
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#fff" }}>
+    <View style={styles.container}>
       <View className="p-4">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-1">
@@ -104,38 +146,11 @@ export function AgentDashboardScreen() {
           actionLabel="Create Booking"
           onAction={() => navigation.navigate("BookingCreate")}
         />
-      ) : (
-        <FlatList
-          data={recent}
-          keyExtractor={(b) => b.id}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 8,
-            paddingBottom: 24,
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                load();
-              }}
-              tintColor="#16A34A"
-            }
-          }
-          ListEmptyComponent={
-            <EmptyState
-              title="No bookings yet"
-              description="Try a different filter or search."
-              actionLabel="Create Booking"
-              onAction={() => navigation.navigate("BookingCreate")}
-            />
-          }
-          renderItem={({ item }) => (
-            <Text>{item.customerName}</Text>
-          )}
-        </FlatList>
-      )}
+      ) : listContent}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+});
