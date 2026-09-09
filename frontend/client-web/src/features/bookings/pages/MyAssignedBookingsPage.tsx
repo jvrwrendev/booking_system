@@ -183,10 +183,12 @@ export function MyAssignedBookingsPage() {
                 {(
                   [
                     "assigned",
+                    "admin_accepted",
                     "confirmed",
                     "processing",
                     "ready",
                     "completed",
+                    "ready_for_delivery",
                     "cancelled",
                     "rejected",
                   ] as BookingStatus[]

@@ -4,9 +4,11 @@ export type BranchOrderStatus =
   | "pending"
   | "assigned"
   | "accepted"
+  | "admin_accepted"
   | "processing"
   | "ready"
   | "completed"
+  | "ready_for_delivery"
   | "rejected";
 
 export interface BranchOrderItem {

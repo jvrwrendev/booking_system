@@ -12,9 +12,8 @@ import {
   Settings,
   ShieldCheck,
   Leaf,
-  UserCheck,
   ClipboardList,
-  Store,
+  KeyRound,
 } from "lucide-react";
 
 import type { Permission } from "@/lib/permissions";
@@ -60,19 +59,6 @@ export const navGroups: NavGroup[] = [
         icon: ClipboardList,
         permission: "bookings.process",
         end: true,
-      },
-      {
-        title: "Branch Orders",
-        href: "/branch-orders",
-        icon: Store,
-        permission: "branch_orders.view",
-        end: true,
-      },
-      {
-        title: "Assign Booking",
-        href: "/bookings/assign",
-        icon: UserCheck,
-        permission: "bookings.assign",
       },
       {
         title: "Inventory",
@@ -136,6 +122,12 @@ export const navGroups: NavGroup[] = [
         href: "/users",
         icon: ShieldCheck,
         permission: "users.view",
+      },
+      {
+        title: "Roles & Permissions",
+        href: "/roles",
+        icon: KeyRound,
+        permission: "roles.view",
       },
       {
         title: "Audit Logs",

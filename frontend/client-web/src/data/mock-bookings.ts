@@ -1,4 +1,16 @@
 import type { Booking } from "@/types/booking";
+import type { StatusHistoryEntry } from "@/types/order-history";
+
+function h(
+  id: string,
+  from: string,
+  to: string,
+  label: string,
+  timestamp: string,
+  by: string
+): StatusHistoryEntry {
+  return { id, from, to, label, timestamp, by };
+}
 
 export const mockBookings: Booking[] = [
   {
@@ -42,6 +54,11 @@ export const mockBookings: Booking[] = [
     assignedById: "USR-001",
     assignedByName: "Juan Dela Cruz",
     assignmentDate: "2026-09-04T10:15:00Z",
+    statusHistory: [
+      h("h-bk001-1", "pending", "pending", "Booking Created", "2026-09-01T08:30:00Z", "Roberto Garcia"),
+      h("h-bk001-2", "pending", "accepted", "Booking Accepted", "2026-09-04T09:40:00Z", "Juan Dela Cruz"),
+      h("h-bk001-3", "accepted", "assigned", "Assigned to Admin", "2026-09-04T10:15:00Z", "Juan Dela Cruz"),
+    ],
   },
   {
     id: "BK-002",
@@ -76,13 +93,19 @@ export const mockBookings: Booking[] = [
     subtotal: 9120,
     discount: 0,
     totalAmount: 9120,
-    status: "confirmed",
+    status: "admin_accepted",
     createdAt: "2026-09-02T09:15:00Z",
     assignedAdminId: "USR-003",
     assignedAdminName: "Pedro Reyes",
     assignedById: "USR-001",
     assignedByName: "Juan Dela Cruz",
     assignmentDate: "2026-09-03T09:00:00Z",
+    statusHistory: [
+      h("h-bk002-1", "pending", "pending", "Booking Created", "2026-09-02T09:15:00Z", "Liza Tan"),
+      h("h-bk002-2", "pending", "accepted", "Booking Accepted", "2026-09-02T16:00:00Z", "Juan Dela Cruz"),
+      h("h-bk002-3", "accepted", "assigned", "Assigned to Admin", "2026-09-03T09:00:00Z", "Juan Dela Cruz"),
+      h("h-bk002-4", "assigned", "admin_accepted", "Accepted by Admin", "2026-09-04T09:30:00Z", "Pedro Reyes"),
+    ],
   },
   {
     id: "BK-003",
@@ -124,6 +147,13 @@ export const mockBookings: Booking[] = [
     assignedById: "USR-005",
     assignedByName: "Carlos Mendoza",
     assignmentDate: "2026-09-02T15:30:00Z",
+    statusHistory: [
+      h("h-bk003-1", "pending", "pending", "Booking Created", "2026-09-02T11:00:00Z", "Mark Villanueva"),
+      h("h-bk003-2", "pending", "accepted", "Booking Accepted", "2026-09-02T13:00:00Z", "Carlos Mendoza"),
+      h("h-bk003-3", "accepted", "assigned", "Assigned to Admin", "2026-09-02T15:30:00Z", "Carlos Mendoza"),
+      h("h-bk003-4", "assigned", "admin_accepted", "Accepted by Admin", "2026-09-03T09:30:00Z", "Maria Santos"),
+      h("h-bk003-5", "admin_accepted", "processing", "Processing", "2026-09-03T11:00:00Z", "Maria Santos"),
+    ],
   },
   {
     id: "BK-004",
@@ -165,6 +195,14 @@ export const mockBookings: Booking[] = [
     assignedById: "USR-001",
     assignedByName: "Juan Dela Cruz",
     assignmentDate: "2026-09-01T16:45:00Z",
+    statusHistory: [
+      h("h-bk004-1", "pending", "pending", "Booking Created", "2026-09-01T14:20:00Z", "Anna Reyes"),
+      h("h-bk004-2", "pending", "accepted", "Booking Accepted", "2026-09-01T15:00:00Z", "Juan Dela Cruz"),
+      h("h-bk004-3", "accepted", "assigned", "Assigned to Admin", "2026-09-01T16:45:00Z", "Juan Dela Cruz"),
+      h("h-bk004-4", "assigned", "admin_accepted", "Accepted by Admin", "2026-09-02T09:30:00Z", "Pedro Reyes"),
+      h("h-bk004-5", "admin_accepted", "processing", "Processing", "2026-09-02T13:00:00Z", "Pedro Reyes"),
+      h("h-bk004-6", "processing", "ready", "Ready for Pickup", "2026-09-03T10:00:00Z", "Pedro Reyes"),
+    ],
   },
   {
     id: "BK-005",
@@ -199,13 +237,23 @@ export const mockBookings: Booking[] = [
     subtotal: 45450,
     discount: 1500,
     totalAmount: 43950,
-    status: "completed",
+    status: "ready_for_delivery",
     createdAt: "2026-08-30T09:00:00Z",
     assignedAdminId: "USR-002",
     assignedAdminName: "Maria Santos",
     assignedById: "USR-005",
     assignedByName: "Carlos Mendoza",
     assignmentDate: "2026-08-30T10:00:00Z",
+    statusHistory: [
+      h("h-bk005-1", "pending", "pending", "Booking Created", "2026-08-30T09:00:00Z", "Patricia Cruz"),
+      h("h-bk005-2", "pending", "accepted", "Booking Accepted", "2026-08-30T09:40:00Z", "Carlos Mendoza"),
+      h("h-bk005-3", "accepted", "assigned", "Assigned to Admin", "2026-08-30T10:00:00Z", "Carlos Mendoza"),
+      h("h-bk005-4", "assigned", "admin_accepted", "Accepted by Admin", "2026-08-30T10:30:00Z", "Maria Santos"),
+      h("h-bk005-5", "admin_accepted", "processing", "Processing", "2026-08-30T13:00:00Z", "Maria Santos"),
+      h("h-bk005-6", "processing", "ready", "Ready for Pickup", "2026-08-31T09:00:00Z", "Maria Santos"),
+      h("h-bk005-7", "ready", "completed", "Completed", "2026-09-01T10:00:00Z", "Maria Santos"),
+      h("h-bk005-8", "completed", "ready_for_delivery", "Ready for Delivery", "2026-09-02T08:00:00Z", "Maria Santos"),
+    ],
   },
   {
     id: "BK-006",
@@ -415,5 +463,8 @@ export const mockBookings: Booking[] = [
     assignedById: null,
     assignedByName: null,
     assignmentDate: null,
+    statusHistory: [
+      h("h-bk011-1", "pending", "pending", "Booking Created", "2026-09-04T07:30:00Z", "Sofia Mendoza"),
+    ],
   },
 ];

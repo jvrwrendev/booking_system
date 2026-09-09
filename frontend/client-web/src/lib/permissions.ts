@@ -1,5 +1,7 @@
 export type Role = "SUPER_ADMIN" | "ADMIN";
 
+export const ALL_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN"];
+
 export type Permission =
   | "dashboard.view"
   | "products.view"
@@ -32,7 +34,46 @@ export type Permission =
   | "reports.view"
   | "settings.manage"
   | "settings.sensitive"
-  | "audit_logs.view";
+  | "audit_logs.view"
+  | "roles.view"
+  | "roles.manage";
+
+export const ALL_PERMISSIONS: Permission[] = [
+  "dashboard.view",
+  "products.view",
+  "products.create",
+  "products.update",
+  "products.delete",
+  "categories.view",
+  "categories.create",
+  "categories.update",
+  "categories.delete",
+  "inventory.view",
+  "inventory.manage",
+  "bookings.view",
+  "bookings.create",
+  "bookings.update",
+  "bookings.delete",
+  "bookings.approve",
+  "bookings.assign",
+  "bookings.process",
+  "branch_orders.view",
+  "customers.view",
+  "customers.manage",
+  "agents.view",
+  "agents.manage",
+  "branches.view",
+  "branches.manage",
+  "users.view",
+  "users.manage",
+  "users.manage_roles",
+  "reports.view",
+  "settings.manage",
+  "settings.sensitive",
+  "audit_logs.view",
+  "roles.view",
+  "roles.manage",
+];
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: [
@@ -53,6 +94,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "bookings.delete",
     "bookings.approve",
     "bookings.assign",
+    "bookings.process",
     "branch_orders.view",
     "customers.view",
     "customers.manage",
@@ -67,6 +109,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "settings.manage",
     "settings.sensitive",
     "audit_logs.view",
+    "roles.view",
+    "roles.manage",
   ],
   ADMIN: [
     "dashboard.view",

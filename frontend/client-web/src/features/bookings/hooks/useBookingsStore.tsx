@@ -14,7 +14,7 @@ import type { Booking, BookingStatus } from "@/types/booking";
 import type { StatusHistoryEntry } from "@/types/order-history";
 import { humanize } from "@/components/common/StatusBadge";
 
-const STORAGE_KEY = "agrivet-bookings";
+const STORAGE_KEY = "agrivet-bookings-v3";
 
 function historyEntry(
   from: string,

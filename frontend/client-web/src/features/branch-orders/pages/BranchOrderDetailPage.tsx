@@ -9,7 +9,9 @@ import {
   MapPin,
   Package,
   Phone,
+  RefreshCw,
   ShoppingCart,
+  UserCheck,
   XCircle,
 } from "lucide-react";
 
@@ -17,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { PageHeader } from "@/components/common/PageHeader";
+import { ActivityTimeline } from "@/components/common/ActivityTimeline";
 import {
   StatusBadge,
   getBranchOrderStatusVariant,
@@ -25,21 +28,30 @@ import {
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 import { useBranchOrdersStore } from "../hooks/useBranchOrdersStore";
+import { AssignmentDialog } from "@/features/bookings/components/AssignmentDialog";
+import { branchOrderTimeline } from "@/features/orders/lib/orderHistory";
 import { mockBranches } from "@/data/mock-branches";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { mockUsers } from "@/data/mock-users";
+import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import type { BranchOrder, BranchOrderStatus } from "@/types/branch-order";
 
-const ACTIONS: Record<string, { label: string; target: BranchOrderStatus }> = {
-  pending: { label: "Accept", target: "processing" },
-  processing: { label: "Ready", target: "ready" },
-  ready: { label: "Completed", target: "completed" },
-};
+const TERMINAL_STATUSES = [
+  "completed",
+  "ready_for_delivery",
+  "rejected",
+] as BranchOrderStatus[];
 
 export function BranchOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getOrder, setStatus } = useBranchOrdersStore();
+  const { getOrder, setStatus, assignOrder, reassignOrder } =
+    useBranchOrdersStore();
+  const { user } = useAuth();
+  const { isSuperAdmin } = usePermissions();
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
 
   const order = id ? getOrder(id) : undefined;
 
@@ -62,29 +74,50 @@ export function BranchOrderDetailPage() {
   }
 
   const branch = mockBranches.find((b) => b.id === order.branchId);
-  const nextAction = ACTIONS[order.status];
+  const timeline = branchOrderTimeline(order);
+  const isTerminal = TERMINAL_STATUSES.includes(order.status);
+  const canReview = isSuperAdmin && !isTerminal;
 
   const handleReject = () => {
-    setStatus(order.id, "rejected");
+    setStatus(order.id, "rejected", user ?? undefined);
     setRejectOpen(false);
   };
 
   const headerActions = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      {nextAction && (
-        <Button size="sm" onClick={() => setStatus(order.id, nextAction.target)}>
-          <CheckCircle2 className="h-4 w-4" />
-          {nextAction.label}
+      {canReview && order.status === "pending" && (
+        <>
+          <Button
+            size="sm"
+            onClick={() => setStatus(order.id, "accepted", user ?? undefined)}
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Accept
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => setRejectOpen(true)}
+          >
+            <XCircle className="h-4 w-4" />
+            Reject
+          </Button>
+        </>
+      )}
+      {canReview && order.status === "accepted" && !order.assignedAdminId && (
+        <Button size="sm" onClick={() => setAssignmentOpen(true)}>
+          <UserCheck className="h-4 w-4" />
+          Assign to Admin
         </Button>
       )}
-      {order.status === "pending" && (
+      {canReview && order.assignedAdminId && (
         <Button
           size="sm"
-          variant="destructive"
-          onClick={() => setRejectOpen(true)}
+          variant="outline"
+          onClick={() => setAssignmentOpen(true)}
         >
-          <XCircle className="h-4 w-4" />
-          Reject
+          <RefreshCw className="h-4 w-4" />
+          Re-assign
         </Button>
       )}
     </div>
@@ -120,6 +153,19 @@ export function BranchOrderDetailPage() {
           </div>
         }
       />
+
+      {order.assignedAdminName && (
+        <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <UserCheck className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            This order is assigned to{" "}
+            <span className="font-medium text-foreground">
+              {order.assignedAdminName}
+            </span>
+            . The assigned admin will process it from the Orders module.
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -210,8 +256,12 @@ export function BranchOrderDetailPage() {
                 label={`Order Date: ${formatDate(order.orderDate)}`}
               />
               <InfoLine
-                icon={CheckCircle2}
-                label={`Current Status: ${humanize(order.status)}`}
+                icon={UserCheck}
+                label={
+                  order.assignedAdminName
+                    ? `Assigned Admin: ${order.assignedAdminName}`
+                    : "Assigned Admin: —"
+                }
               />
               {order.notes && (
                 <>
@@ -229,6 +279,36 @@ export function BranchOrderDetailPage() {
         </div>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Order Timeline</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ActivityTimeline events={timeline} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>Order Summary</CardTitle>
+            <History className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <SummaryLine label="Order No." value={order.reference} />
+            <SummaryLine label="Status" value={humanize(order.status)} />
+            <SummaryLine
+              label="Assigned Admin"
+              value={order.assignedAdminName ?? "—"}
+            />
+            <SummaryLine
+              label="Created"
+              value={formatDateTime(order.createdAt)}
+            />
+            <Separator />
+          </CardContent>
+        </Card>
+      </div>
+
       <ConfirmDialog
         open={rejectOpen}
         onOpenChange={setRejectOpen}
@@ -238,6 +318,30 @@ export function BranchOrderDetailPage() {
         destructive
         onConfirm={handleReject}
       />
+
+      {user && isSuperAdmin && (
+        <AssignmentDialog
+          open={assignmentOpen}
+          onOpenChange={setAssignmentOpen}
+          target={{
+            reference: order.reference,
+            details: order.branchName,
+            assignedAdminId: order.assignedAdminId,
+            assignedAdminName: order.assignedAdminName,
+            assignedByName: order.assignedByName,
+            assignmentDate: order.assignmentDate,
+          }}
+          admins={mockUsers}
+          currentUser={user}
+          onAssign={(admin, by) => {
+            if (order.assignedAdminId) {
+              reassignOrder(order.id, admin, by);
+            } else {
+              assignOrder(order.id, admin, by);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -253,6 +357,15 @@ function InfoLine({
     <div className="flex items-start gap-2 text-sm">
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
       <span className="break-words">{label}</span>
+    </div>
+  );
+}
+
+function SummaryLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
     </div>
   );
 }

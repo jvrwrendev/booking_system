@@ -1,20 +1,22 @@
 import { useEffect, useState } from "react";
 import type { Permission, Role } from "@/lib/permissions";
-import { hasPermission, hasAnyPermission } from "@/lib/permissions";
 import { useAuth } from "./useAuth";
+import { useRolesPermissionsStore } from "@/features/roles-permissions/hooks/useRolesPermissionsStore";
 
 export function usePermissions() {
   const { user } = useAuth();
+  const { getRolePermissions } = useRolesPermissionsStore();
   const role: Role | null = user?.role ?? null;
+  const permissions = getRolePermissions(role);
 
   const can = (permission: Permission): boolean =>
-    hasPermission(role, permission);
+    !!role && permissions.includes(permission);
 
-  const canAny = (permissions: Permission[]): boolean =>
-    hasAnyPermission(role, permissions);
+  const canAny = (allowed: Permission[]): boolean =>
+    !!role && allowed.some((p) => permissions.includes(p));
 
-  const canAll = (permissions: Permission[]): boolean =>
-    permissions.every((p) => hasPermission(role, p));
+  const canAll = (allowed: Permission[]): boolean =>
+    !!role && allowed.every((p) => permissions.includes(p));
 
   return {
     role,

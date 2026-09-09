@@ -1,6 +1,15 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, Filter, User, Store } from "lucide-react";
+import { CalendarRange, Eye, Filter, User, Store } from "lucide-react";
+import {
+  endOfMonth,
+  endOfWeek,
+  endOfYear,
+  format,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+} from "date-fns";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
@@ -19,44 +28,135 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 import { useMyOrders } from "../hooks/useMyOrders";
+import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
+import { useBranchOrdersStore } from "@/features/branch-orders/hooks/useBranchOrdersStore";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import type { Booking, BookingStatus } from "@/types/booking";
 import type { BranchOrder, BranchOrderStatus } from "@/types/branch-order";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, initials } from "@/lib/utils";
 
 const BRANCH_STATUS_OPTIONS: BranchOrderStatus[] = [
-  "assigned",
+  "pending",
   "accepted",
+  "assigned",
+  "admin_accepted",
   "processing",
   "ready",
-  "completed",
+  "ready_for_delivery",
   "rejected",
 ];
 
+const AGENT_STATUS_OPTIONS: BookingStatus[] = [
+  "pending",
+  "accepted",
+  "assigned",
+  "admin_accepted",
+  "confirmed",
+  "processing",
+  "ready",
+  "ready_for_delivery",
+  "cancelled",
+  "rejected",
+];
+
+type DatePreset = "all" | "today" | "week" | "month" | "year";
+
+const DATE_PRESET_OPTIONS: { value: DatePreset; label: string }[] = [
+  { value: "all", label: "All dates" },
+  { value: "today", label: "Today" },
+  { value: "week", label: "This Week" },
+  { value: "month", label: "This Month" },
+  { value: "year", label: "This Year" },
+];
+
+function withinPreset(dateStr: string, preset: DatePreset): boolean {
+  if (preset === "all") return true;
+  const now = new Date();
+  const iso = (d: Date) => format(d, "yyyy-MM-dd");
+  switch (preset) {
+    case "today":
+      return dateStr === iso(now);
+    case "week": {
+      const start = iso(startOfWeek(now, { weekStartsOn: 1 }));
+      const end = iso(endOfWeek(now, { weekStartsOn: 1 }));
+      return dateStr >= start && dateStr <= end;
+    }
+    case "month": {
+      const start = iso(startOfMonth(now));
+      const end = iso(endOfMonth(now));
+      return dateStr >= start && dateStr <= end;
+    }
+    case "year": {
+      const start = iso(startOfYear(now));
+      const end = iso(endOfYear(now));
+      return dateStr >= start && dateStr <= end;
+    }
+  }
+}
+
+function AssignedAdminCell({
+  assignedAdminName,
+}: {
+  assignedAdminName?: string | null;
+}) {
+  if (!assignedAdminName) {
+    return (
+      <Badge variant="muted" className="text-[10px]">
+        Unassigned
+      </Badge>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <Avatar className="h-6 w-6">
+        <AvatarFallback className="text-[10px]">
+          {initials(assignedAdminName)}
+        </AvatarFallback>
+      </Avatar>
+      <span className="text-sm font-medium">{assignedAdminName}</span>
+    </div>
+  );
+}
+
 export function OrdersPage() {
   const { user } = useAuth();
+  const { isSuperAdmin } = usePermissions();
+  const { bookings } = useBookingsStore();
+  const { orders } = useBranchOrdersStore();
   const { myAgentOrders, myBranchOrders } = useMyOrders();
   const [agentStatus, setAgentStatus] = useState("all");
   const [branchStatus, setBranchStatus] = useState("all");
+  const [agentDate, setAgentDate] = useState<DatePreset>("all");
+  const [branchDate, setBranchDate] = useState<DatePreset>("all");
+
+  const agentSource = isSuperAdmin ? bookings : myAgentOrders;
+  const branchSource = isSuperAdmin ? orders : myBranchOrders;
 
   const filteredAgentOrders = useMemo(
     () =>
-      myAgentOrders
+      agentSource
+        .filter((b) => b.status !== "completed")
         .filter((b) => agentStatus === "all" || b.status === agentStatus)
+        .filter((b) => withinPreset(b.bookingDate, agentDate))
         .slice()
         .sort((a, b) => b.bookingDate.localeCompare(a.bookingDate)),
-    [myAgentOrders, agentStatus]
+    [agentSource, agentStatus, agentDate]
   );
 
   const filteredBranchOrders = useMemo(
     () =>
-      myBranchOrders
+      branchSource
+        .filter((o) => o.status !== "completed")
         .filter((o) => branchStatus === "all" || o.status === branchStatus)
+        .filter((o) => withinPreset(o.orderDate, branchDate))
         .slice()
         .sort((a, b) => b.orderDate.localeCompare(a.orderDate)),
-    [myBranchOrders, branchStatus]
+    [branchSource, branchStatus, branchDate]
   );
 
   const agentColumns: DataTableColumn<Booking>[] = [
@@ -117,6 +217,12 @@ export function OrdersPage() {
           label={humanize(b.status)}
         />
       ),
+    },
+    {
+      id: "assigned",
+      header: "Assigned Admin",
+      cell: (b) => <AssignedAdminCell assignedAdminName={b.assignedAdminName} />,
+      className: "hidden md:table-cell",
     },
     {
       id: "date",
@@ -193,6 +299,12 @@ export function OrdersPage() {
       ),
     },
     {
+      id: "assigned",
+      header: "Assigned Admin",
+      cell: (o) => <AssignedAdminCell assignedAdminName={o.assignedAdminName} />,
+      className: "hidden md:table-cell",
+    },
+    {
       id: "date",
       header: "Order Date",
       cell: (o) => <span className="text-sm">{formatDate(o.orderDate)}</span>,
@@ -219,7 +331,11 @@ export function OrdersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Orders"
-        description={`Orders assigned to ${user?.fullName ?? "you"} for processing.`}
+        description={
+          isSuperAdmin
+            ? "Review agent and branch orders, accept or reject them, and assign accepted orders to admins."
+            : `Orders assigned to ${user?.fullName ?? "you"} for processing.`
+        }
         breadcrumbs={[{ label: "Operations" }, { label: "Orders" }]}
       />
 
@@ -257,20 +373,25 @@ export function OrdersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All statuses</SelectItem>
-                    {(
-                      [
-                        "assigned",
-                        "accepted",
-                        "confirmed",
-                        "processing",
-                        "ready",
-                        "completed",
-                        "cancelled",
-                        "rejected",
-                      ] as BookingStatus[]
-                    ).map((s) => (
+                    {AGENT_STATUS_OPTIONS.map((s) => (
                       <SelectItem key={s} value={s}>
                         {humanize(s)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <CalendarRange className="hidden h-4 w-4 text-muted-foreground sm:block" />
+                <Select
+                  value={agentDate}
+                  onValueChange={(v) => setAgentDate(v as DatePreset)}
+                >
+                  <SelectTrigger className="h-9 w-[130px]">
+                    <SelectValue placeholder="Date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DATE_PRESET_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -279,7 +400,9 @@ export function OrdersPage() {
             }
             emptyState={
               <div className="py-10 text-center text-sm text-muted-foreground">
-                No agent orders assigned to you yet.
+                {isSuperAdmin
+                  ? "No agent orders yet."
+                  : "No agent orders assigned to you yet."}
               </div>
             }
           />
@@ -308,11 +431,29 @@ export function OrdersPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <CalendarRange className="hidden h-4 w-4 text-muted-foreground sm:block" />
+                <Select
+                  value={branchDate}
+                  onValueChange={(v) => setBranchDate(v as DatePreset)}
+                >
+                  <SelectTrigger className="h-9 w-[130px]">
+                    <SelectValue placeholder="Date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DATE_PRESET_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </>
             }
             emptyState={
               <div className="py-10 text-center text-sm text-muted-foreground">
-                No branch orders assigned to you yet.
+                {isSuperAdmin
+                  ? "No branch orders yet."
+                  : "No branch orders assigned to you yet."}
               </div>
             }
           />

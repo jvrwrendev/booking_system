@@ -13,6 +13,7 @@ import {
   Truck,
   User,
   UserCheck,
+  XCircle,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,12 +29,22 @@ import {
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
+import { AssignmentDialog } from "@/features/bookings/components/AssignmentDialog";
 import { bookingTimeline } from "../lib/orderHistory";
 import { mockCustomers } from "@/data/mock-customers";
 import { mockAgents } from "@/data/mock-agents";
+import { mockUsers } from "@/data/mock-users";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import type { Booking, BookingStatus } from "@/types/booking";
+
+const TERMINAL_STATUSES = [
+  "completed",
+  "ready_for_delivery",
+  "cancelled",
+  "rejected",
+] as BookingStatus[];
 
 interface PendingAction {
   target: BookingStatus;
@@ -44,19 +55,28 @@ const NEXT_ACTION: Record<
   string,
   { label: string; target: BookingStatus; confirm?: boolean }
 > = {
-  assigned: { label: "Accept Order", target: "accepted", confirm: true },
-  accepted: { label: "Process Order", target: "processing" },
+  assigned: { label: "Accept Order", target: "admin_accepted", confirm: true },
+  admin_accepted: { label: "Process Order", target: "processing" },
   confirmed: { label: "Process Order", target: "processing" },
   processing: { label: "Mark as Ready", target: "ready" },
   ready: { label: "Complete Order", target: "completed", confirm: true },
+  completed: {
+    label: "Ready for Delivery",
+    target: "ready_for_delivery",
+    confirm: true,
+  },
 };
 
 export function AgentOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getBooking, setStatus } = useBookingsStore();
+  const { getBooking, setStatus, assignBooking, reassignBooking } =
+    useBookingsStore();
   const { user } = useAuth();
+  const { isSuperAdmin } = usePermissions();
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
   const booking = id ? getBooking(id) : undefined;
 
@@ -81,15 +101,51 @@ export function AgentOrderDetailPage() {
   const customer = mockCustomers.find((c) => c.id === booking.customerId);
   const agent = mockAgents.find((a) => a.id === booking.agentId);
   const isAssignedToMe = !!user?.id && booking.assignedAdminId === user.id;
-  const canProcess = isAssignedToMe;
+  const canProcess = !isSuperAdmin && isAssignedToMe;
   const nextAction = canProcess ? NEXT_ACTION[booking.status] : undefined;
   const timeline = bookingTimeline(booking);
+  const isTerminal = TERMINAL_STATUSES.includes(booking.status);
 
   const applyAction = () => {
     if (!pendingAction || !user) return;
     setStatus(booking.id, pendingAction.target, user);
     setPendingAction(null);
   };
+
+  const rejectOrder = () => {
+    setStatus(booking.id, "rejected", user ?? undefined);
+    setRejectOpen(false);
+  };
+
+  const confirmTitle = (() => {
+    switch (pendingAction?.target) {
+      case "completed":
+        return "Complete this order?";
+      case "ready_for_delivery":
+        return "Mark order ready for delivery?";
+      case "admin_accepted":
+        return "Accept this order?";
+      case "rejected":
+        return "Reject this order?";
+      default:
+        return "Confirm action?";
+    }
+  })();
+
+  const confirmDescription = (() => {
+    switch (pendingAction?.target) {
+      case "completed":
+        return `This will complete order ${booking.reference}. This action cannot be undone.`;
+      case "ready_for_delivery":
+        return `Order ${booking.reference} will be marked as ready for delivery. This action cannot be undone.`;
+      case "admin_accepted":
+        return `You are accepting order ${booking.reference}. It will move to the accepted stage for processing.`;
+      case "rejected":
+        return `This will reject order ${booking.reference}. This action cannot be undone.`;
+      default:
+        return "";
+    }
+  })();
 
   return (
     <div className="space-y-6">
@@ -118,6 +174,37 @@ export function AgentOrderDetailPage() {
               variant={getBookingStatusVariant(booking.status)}
               label={humanize(booking.status)}
             />
+            {isSuperAdmin && (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {booking.status === "pending" && (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        setStatus(booking.id, "accepted", user ?? undefined)
+                      }
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setRejectOpen(true)}
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Reject
+                    </Button>
+                  </>
+                )}
+                {booking.status === "accepted" && !booking.assignedAdminId && (
+                  <Button size="sm" onClick={() => setAssignmentOpen(true)}>
+                    <UserCheck className="h-4 w-4" />
+                    Assign to Admin
+                  </Button>
+                )}
+              </div>
+            )}
             {nextAction && (
               <Button
                 size="sm"
@@ -128,7 +215,8 @@ export function AgentOrderDetailPage() {
                           target: nextAction.target,
                           label: nextAction.label,
                         })
-                    : () => user && setStatus(booking.id, nextAction.target, user)
+                    : () =>
+                        setStatus(booking.id, nextAction.target, user ?? undefined)
                 }
               >
                 <CheckCircle2 className="h-4 w-4" />
@@ -139,7 +227,7 @@ export function AgentOrderDetailPage() {
         }
       />
 
-      {booking.assignedAdminId && !isAssignedToMe && (
+      {!isSuperAdmin && booking.assignedAdminId && !isAssignedToMe && (
         <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
@@ -148,6 +236,19 @@ export function AgentOrderDetailPage() {
               {booking.assignedAdminName}
             </span>
             . You can view its details but cannot process it.
+          </div>
+        </div>
+      )}
+
+      {isSuperAdmin && isTerminal && (
+        <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            This order is{" "}
+            <span className="font-medium text-foreground">
+              {humanize(booking.status).toLowerCase()}
+            </span>{" "}
+            and no further action is available.
           </div>
         </div>
       )}
@@ -306,23 +407,47 @@ export function AgentOrderDetailPage() {
       </div>
 
       <ConfirmDialog
+        open={rejectOpen}
+        onOpenChange={setRejectOpen}
+        title="Reject this order?"
+        description={`This will reject order ${booking.reference}. This action cannot be undone.`}
+        confirmText="Reject"
+        destructive
+        onConfirm={rejectOrder}
+      />
+
+      <ConfirmDialog
         open={pendingAction !== null}
         onOpenChange={(o) => !o && setPendingAction(null)}
-        title={
-          pendingAction?.target === "completed"
-            ? "Complete this order?"
-            : "Accept this order?"
-        }
-        description={
-          pendingAction
-            ? pendingAction.target === "completed"
-              ? `This will complete order ${booking.reference}. This action cannot be undone.`
-              : `You are accepting order ${booking.reference}. It will move to the accepted stage for processing.`
-            : ""
-        }
+        title={confirmTitle}
+        description={confirmDescription}
         confirmText={pendingAction?.label ?? "Confirm"}
         onConfirm={applyAction}
       />
+
+      {user && isSuperAdmin && (
+        <AssignmentDialog
+          open={assignmentOpen}
+          onOpenChange={setAssignmentOpen}
+          target={{
+            reference: booking.reference,
+            details: `${booking.customerName} · ${booking.branchName}`,
+            assignedAdminId: booking.assignedAdminId,
+            assignedAdminName: booking.assignedAdminName,
+            assignedByName: booking.assignedByName,
+            assignmentDate: booking.assignmentDate,
+          }}
+          admins={mockUsers}
+          currentUser={user}
+          onAssign={(admin, by) => {
+            if (booking.assignedAdminId) {
+              reassignBooking(booking.id, admin, by);
+            } else {
+              assignBooking(booking.id, admin, by);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

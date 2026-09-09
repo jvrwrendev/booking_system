@@ -24,11 +24,13 @@ export function getBookingStatusVariant(
 ): StatusVariant {
   switch (status) {
     case "completed":
+    case "ready_for_delivery":
       return "success";
     case "assigned":
       return "warning";
     case "pending":
       return "warning";
+    case "admin_accepted":
     case "confirmed":
     case "accepted":
       return "info";
@@ -47,8 +49,10 @@ export function getBookingStatusVariant(
 export function getBranchOrderStatusVariant(status: string): StatusVariant {
   switch (status) {
     case "completed":
+    case "ready_for_delivery":
       return "success";
     case "accepted":
+    case "admin_accepted":
     case "processing":
     case "ready":
       return "info";

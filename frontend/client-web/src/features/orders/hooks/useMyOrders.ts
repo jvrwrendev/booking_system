@@ -7,7 +7,7 @@ import type { BranchOrder } from "@/types/branch-order";
 
 export const ACTIVE_AGENT_STATUSES = [
   "assigned",
-  "accepted",
+  "admin_accepted",
   "confirmed",
   "processing",
   "ready",
@@ -15,7 +15,7 @@ export const ACTIVE_AGENT_STATUSES = [
 
 export const ACTIVE_BRANCH_STATUSES = [
   "assigned",
-  "accepted",
+  "admin_accepted",
   "processing",
   "ready",
 ];

@@ -21,12 +21,20 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { initials } from "@/lib/utils";
 import type { AuthUser } from "@/types/auth";
-import type { Booking } from "@/types/booking";
+
+export interface AssignmentTarget {
+  reference: string;
+  details: string;
+  assignedAdminId?: string | null;
+  assignedAdminName?: string | null;
+  assignedByName?: string | null;
+  assignmentDate?: string | null;
+}
 
 interface AssignmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  booking: Booking;
+  target: AssignmentTarget;
   admins: AuthUser[];
   currentUser: AuthUser;
   onAssign: (
@@ -38,7 +46,7 @@ interface AssignmentDialogProps {
 export function AssignmentDialog({
   open,
   onOpenChange,
-  booking,
+  target,
   admins,
   currentUser,
   onAssign,
@@ -48,8 +56,8 @@ export function AssignmentDialog({
     [admins]
   );
   const initialAdminId =
-    booking.assignedAdminId ??
-    activeAdmins.find((a) => a.id !== booking.assignedAdminId)?.id ??
+    target.assignedAdminId ??
+    activeAdmins.find((a) => a.id !== target.assignedAdminId)?.id ??
     activeAdmins[0]?.id ??
     "";
 
@@ -61,7 +69,7 @@ export function AssignmentDialog({
     }
   }, [open, initialAdminId]);
 
-  const isReassign = Boolean(booking.assignedAdminId);
+  const isReassign = Boolean(target.assignedAdminId);
 
   const handleConfirm = () => {
     const admin = activeAdmins.find((a) => a.id === selectedAdminId);
@@ -83,27 +91,27 @@ export function AssignmentDialog({
             {isReassign ? (
               <>
                 <UserCheck className="h-4 w-4 text-muted-foreground" />
-                Reassign booking
+                Reassign task
               </>
             ) : (
               <>
                 <UserPlus className="h-4 w-4 text-muted-foreground" />
-                Assign booking
+                Assign task
               </>
             )}
           </DialogTitle>
           <DialogDescription>
             {isReassign
-              ? "Select a new admin to take over this booking task. The previous assignment will be replaced."
-              : "Assign this booking to an admin to review and process it."}
+              ? "Select a new admin to take over this task. The previous assignment will be replaced."
+              : "Assign this task to an admin to review and process it."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-            <div className="font-medium">{booking.reference}</div>
+            <div className="font-medium">{target.reference}</div>
             <div className="text-xs text-muted-foreground">
-              {booking.customerName} · {booking.branchName}
+              {target.details}
             </div>
           </div>
 
@@ -140,7 +148,7 @@ export function AssignmentDialog({
             </Select>
           </div>
 
-          {isReassign && booking.assignedAdminName && (
+          {isReassign && target.assignedAdminName && (
             <>
               <Separator />
               <div className="rounded-md border bg-background px-3 py-2 text-sm">
@@ -148,13 +156,13 @@ export function AssignmentDialog({
                   Currently assigned to
                 </div>
                 <div className="mt-1 font-medium">
-                  {booking.assignedAdminName}
+                  {target.assignedAdminName}
                 </div>
-                {booking.assignedByName && (
+                {target.assignedByName && (
                   <div className="text-xs text-muted-foreground">
-                    By {booking.assignedByName}
-                    {booking.assignmentDate &&
-                      ` · ${new Date(booking.assignmentDate).toLocaleString()}`}
+                    By {target.assignedByName}
+                    {target.assignmentDate &&
+                      ` · ${new Date(target.assignmentDate).toLocaleString()}`}
                   </div>
                 )}
               </div>
@@ -186,7 +194,7 @@ export function AssignmentDialog({
             Cancel
           </Button>
           <Button onClick={handleConfirm} disabled={!selectedAdmin}>
-            {isReassign ? "Reassign booking" : "Assign booking"}
+            {isReassign ? "Reassign task" : "Assign task"}
           </Button>
         </DialogFooter>
       </DialogContent>

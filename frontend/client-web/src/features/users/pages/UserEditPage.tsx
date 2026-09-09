@@ -1,8 +1,11 @@
 import { useNavigate, useParams } from "react-router-dom";
+
 import { UserForm } from "../components/UserForm";
 import { useUsersStore } from "../hooks/useUsersStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { NotFound } from "@/components/common/NotFound";
+import { FormPageLayout } from "@/components/common/FormPageLayout";
+import { ROLE_LABELS } from "@/lib/permissions";
 
 export function UserEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,15 +23,34 @@ export function UserEditPage() {
   }
 
   return (
-    <UserForm
-      initial={user}
-      title={`Edit ${user.fullName}`}
-      description="Update user details and role."
-      submitLabel="Save changes"
-      onSubmit={(data) => {
-        updateUser(user.id, data);
-        navigate("/users");
-      }}
-    />
+    <FormPageLayout
+      title={user.fullName}
+      description="Update the details of this account."
+      backHref="/users"
+      breadcrumbs={[
+        { label: "Administration" },
+        { label: "Users", href: "/users" },
+        { label: user.fullName },
+        { label: "Edit" },
+      ]}
+      meta={[
+        { label: "ID", value: user.id },
+        { label: "Role", value: ROLE_LABELS[user.role] },
+        { label: "Status", value: user.status },
+        {
+          label: "Created",
+          value: new Date(user.createdAt).toLocaleDateString(),
+        },
+      ]}
+    >
+      <UserForm
+        initial={user}
+        onSubmit={(data) => {
+          updateUser(user.id, data);
+          navigate("/users");
+        }}
+        onCancel={() => navigate("/users")}
+      />
+    </FormPageLayout>
   );
 }

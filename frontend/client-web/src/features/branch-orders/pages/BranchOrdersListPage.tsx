@@ -146,9 +146,13 @@ export function BranchOrdersListPage() {
                 {(
                   [
                     "pending",
+                    "accepted",
+                    "assigned",
+                    "admin_accepted",
                     "processing",
                     "ready",
                     "completed",
+                    "ready_for_delivery",
                     "rejected",
                   ] as BranchOrderStatus[]
                 ).map((s) => (

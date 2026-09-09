@@ -4,6 +4,7 @@ import {
   Eye,
   Filter,
   MoreHorizontal,
+  Route,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
@@ -180,6 +181,12 @@ export function BookingsListPage() {
                 View
               </Link>
             </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to={`/bookings/track/${b.id}`}>
+                <Route className="h-4 w-4" />
+                Track
+              </Link>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -228,13 +235,15 @@ export function BookingsListPage() {
                 <SelectItem value="all">All statuses</SelectItem>
                 {(
                   [
-                    "assigned",
                     "pending",
                     "accepted",
+                    "assigned",
+                    "admin_accepted",
                     "confirmed",
                     "processing",
                     "ready",
                     "completed",
+                    "ready_for_delivery",
                     "cancelled",
                     "rejected",
                   ] as BookingStatus[]

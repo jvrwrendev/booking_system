@@ -243,13 +243,15 @@ export function AssignBookingPage() {
                 <SelectItem value="all">All statuses</SelectItem>
                 {(
                   [
-                    "assigned",
                     "pending",
                     "accepted",
+                    "assigned",
+                    "admin_accepted",
                     "confirmed",
                     "processing",
                     "ready",
                     "completed",
+                    "ready_for_delivery",
                     "cancelled",
                     "rejected",
                   ] as BookingStatus[]
@@ -304,7 +306,14 @@ export function AssignBookingPage() {
         <AssignmentDialog
           open={!!assignTarget}
           onOpenChange={(o) => !o && setAssignTarget(null)}
-          booking={assignTarget}
+          target={{
+            reference: assignTarget.reference,
+            details: `${assignTarget.customerName} · ${assignTarget.branchName}`,
+            assignedAdminId: assignTarget.assignedAdminId,
+            assignedAdminName: assignTarget.assignedAdminName,
+            assignedByName: assignTarget.assignedByName,
+            assignmentDate: assignTarget.assignmentDate,
+          }}
           admins={mockUsers}
           currentUser={user}
           onAssign={(admin, by) => {

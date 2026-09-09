@@ -54,6 +54,11 @@ import { ReportsPage } from "@/features/reports/pages/ReportsPage";
 import { AuditLogsPage } from "@/features/audit-logs/pages/AuditLogsPage";
 import { SettingsPage } from "@/features/settings/pages/SettingsPage";
 
+import { RolesOverviewPage } from "@/features/roles-permissions/pages/RolesOverviewPage";
+import { RolePermissionsPage } from "@/features/roles-permissions/pages/RolePermissionsPage";
+
+import { BookingTrackingPage } from "@/features/bookings/pages/BookingTrackingPage";
+
 export const router = createBrowserRouter([
   {
     path: "/login",
@@ -151,6 +156,14 @@ export const router = createBrowserRouter([
         element: (
           <PermissionRoute permission="bookings.assign">
             <AssignBookingPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "bookings/track/:id",
+        element: (
+          <PermissionRoute permission="bookings.view">
+            <BookingTrackingPage />
           </PermissionRoute>
         ),
       },
@@ -343,6 +356,22 @@ export const router = createBrowserRouter([
         element: (
           <PermissionRoute permission="settings.manage">
             <SettingsPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "roles",
+        element: (
+          <PermissionRoute permission="roles.view">
+            <RolesOverviewPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "roles/:roleId",
+        element: (
+          <PermissionRoute permission="roles.manage">
+            <RolePermissionsPage />
           </PermissionRoute>
         ),
       },

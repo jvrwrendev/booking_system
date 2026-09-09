@@ -14,7 +14,7 @@ import type { BranchOrder, BranchOrderStatus } from "@/types/branch-order";
 import type { StatusHistoryEntry } from "@/types/order-history";
 import { humanize } from "@/components/common/StatusBadge";
 
-const STORAGE_KEY = "agrivet-branch-orders";
+const STORAGE_KEY = "agrivet-branch-orders-v2";
 
 function historyEntry(
   from: string,
@@ -39,6 +39,16 @@ interface BranchOrdersContextValue {
     id: string,
     status: BranchOrderStatus,
     by?: Pick<AuthUser, "id" | "fullName">
+  ) => void;
+  assignOrder: (
+    id: string,
+    admin: Pick<AuthUser, "id" | "fullName">,
+    by: Pick<AuthUser, "id" | "fullName">
+  ) => void;
+  reassignOrder: (
+    id: string,
+    admin: Pick<AuthUser, "id" | "fullName">,
+    by: Pick<AuthUser, "id" | "fullName">
   ) => void;
 }
 
@@ -96,13 +106,81 @@ export function BranchOrdersProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const assignOrder = useCallback(
+    (
+      id: string,
+      admin: Pick<AuthUser, "id" | "fullName">,
+      by: Pick<AuthUser, "id" | "fullName">
+    ) => {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === id
+            ? {
+                ...o,
+                assignedAdminId: admin.id,
+                assignedAdminName: admin.fullName,
+                assignedById: by.id,
+                assignedByName: by.fullName,
+                assignmentDate: new Date().toISOString(),
+                status:
+                  o.status === "pending" || o.status === "accepted"
+                    ? "assigned"
+                    : o.status,
+                statusHistory: [
+                  ...(o.statusHistory ?? []),
+                  historyEntry(o.status, "assigned", by),
+                ],
+              }
+            : o
+        )
+      );
+      toast.success("Order assigned", {
+        description: `Order assigned to ${admin.fullName}.`,
+      });
+    },
+    []
+  );
+
+  const reassignOrder = useCallback(
+    (
+      id: string,
+      admin: Pick<AuthUser, "id" | "fullName">,
+      by: Pick<AuthUser, "id" | "fullName">
+    ) => {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === id
+            ? {
+                ...o,
+                assignedAdminId: admin.id,
+                assignedAdminName: admin.fullName,
+                assignedById: by.id,
+                assignedByName: by.fullName,
+                assignmentDate: new Date().toISOString(),
+                statusHistory: [
+                  ...(o.statusHistory ?? []),
+                  historyEntry("assigned", "assigned", by),
+                ],
+              }
+            : o
+        )
+      );
+      toast.success("Order reassigned", {
+        description: `Order reassigned to ${admin.fullName}.`,
+      });
+    },
+    []
+  );
+
   const value = useMemo<BranchOrdersContextValue>(
     () => ({
       orders,
       getOrder: (id) => orders.find((o) => o.id === id),
       setStatus,
+      assignOrder,
+      reassignOrder,
     }),
-    [orders, setStatus]
+    [orders, setStatus, assignOrder, reassignOrder]
   );
 
   return (

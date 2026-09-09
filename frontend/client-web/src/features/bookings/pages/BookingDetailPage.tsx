@@ -37,6 +37,7 @@ import { mockUsers } from "@/data/mock-users";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/hooks/useAuth";
+import { TERMINAL_STATUSES } from "@/types/booking";
 import type { Booking, BookingStatus } from "@/types/booking";
 
 interface ActionButton {
@@ -84,9 +85,7 @@ export function BookingDetailPage() {
   const isAssignedToMe =
     !!user?.id && booking.assignedAdminId === user.id;
   const canProcessBooking = isAssignedToMe;
-  const isTerminal = ["completed", "cancelled", "rejected"].includes(
-    booking.status
-  );
+  const isTerminal = TERMINAL_STATUSES.includes(booking.status);
 
   const actionButtons = buildActionButtons(
     booking,
@@ -94,10 +93,11 @@ export function BookingDetailPage() {
       canProcess: canUpdate && canProcessBooking,
     },
     {
-      onAccept: () => setStatus(booking.id, "accepted"),
+      onAccept: () => setStatus(booking.id, "admin_accepted"),
       onProcess: () => setStatus(booking.id, "processing"),
       onReady: () => setStatus(booking.id, "ready"),
       onComplete: () => setStatus(booking.id, "completed"),
+      onReadyForDelivery: () => setStatus(booking.id, "ready_for_delivery"),
     }
   );
 
@@ -382,7 +382,14 @@ export function BookingDetailPage() {
           <AssignmentDialog
             open={assignmentOpen}
             onOpenChange={setAssignmentOpen}
-            booking={booking}
+            target={{
+              reference: booking.reference,
+              details: `${booking.customerName} · ${booking.branchName}`,
+              assignedAdminId: booking.assignedAdminId,
+              assignedAdminName: booking.assignedAdminName,
+              assignedByName: booking.assignedByName,
+              assignmentDate: booking.assignmentDate,
+            }}
             admins={mockUsers}
             currentUser={user}
             onAssign={(admin, by) => {
@@ -406,6 +413,7 @@ function buildActionButtons(
     onProcess: () => void;
     onReady: () => void;
     onComplete: () => void;
+    onReadyForDelivery: () => void;
   }
 ): ActionButton[] {
   const buttons: ActionButton[] = [];
@@ -421,7 +429,7 @@ function buildActionButtons(
       });
       break;
 
-    case "accepted":
+    case "admin_accepted":
     case "confirmed":
       buttons.push({
         label: "Process Order",
@@ -446,8 +454,17 @@ function buildActionButtons(
       });
       break;
 
-    case "pending":
     case "completed":
+      buttons.push({
+        label: "Ready for Delivery",
+        icon: CheckCircle2,
+        onClick: handlers.onReadyForDelivery,
+      });
+      break;
+
+    case "pending":
+    case "accepted":
+    case "ready_for_delivery":
     case "cancelled":
     case "rejected":
     default:
@@ -462,10 +479,11 @@ function buildTimeline(booking: Booking) {
     "pending",
     "accepted",
     "assigned",
-    "confirmed",
+    "admin_accepted",
     "processing",
     "ready",
     "completed",
+    "ready_for_delivery",
   ];
   const currentIdx = sequence.indexOf(booking.status);
   const events: {
