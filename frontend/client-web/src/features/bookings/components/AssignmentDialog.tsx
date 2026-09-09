@@ -20,6 +20,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { initials } from "@/lib/utils";
+import { ROLE_LABELS } from "@/lib/permissions";
 import type { AuthUser } from "@/types/auth";
 
 export interface AssignmentTarget {
@@ -52,8 +53,14 @@ export function AssignmentDialog({
   onAssign,
 }: AssignmentDialogProps) {
   const activeAdmins = useMemo(
-    () => admins.filter((a) => a.role === "ADMIN" && a.status === "active"),
-    [admins]
+    () =>
+      admins.filter(
+        (a) =>
+          a.role === "ADMIN" &&
+          a.status === "active" &&
+          a.id !== currentUser.id
+      ),
+    [admins, currentUser.id]
   );
   const initialAdminId =
     target.assignedAdminId ??
@@ -70,6 +77,14 @@ export function AssignmentDialog({
   }, [open, initialAdminId]);
 
   const isReassign = Boolean(target.assignedAdminId);
+
+  const handleAssignToMe = () => {
+    onAssign(
+      { id: currentUser.id, fullName: currentUser.fullName },
+      { id: currentUser.id, fullName: currentUser.fullName }
+    );
+    onOpenChange(false);
+  };
 
   const handleConfirm = () => {
     const admin = activeAdmins.find((a) => a.id === selectedAdminId);
@@ -107,7 +122,7 @@ export function AssignmentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+<div className="space-y-4">
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
             <div className="font-medium">{target.reference}</div>
             <div className="text-xs text-muted-foreground">
@@ -115,37 +130,80 @@ export function AssignmentDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Assign to admin
-            </label>
-            <Select
-              value={selectedAdminId}
-              onValueChange={setSelectedAdminId}
-            >
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Select admin" />
-              </SelectTrigger>
-              <SelectContent>
-                {activeAdmins.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback className="text-[10px]">
-                          {initials(a.fullName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col text-left">
-                        <span className="text-sm">{a.fullName}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          @{a.username}
-                        </span>
-                      </div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-3">
+              <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Assign to
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto w-full justify-start gap-2 py-2"
+                onClick={handleAssignToMe}
+              >
+                <Avatar className="h-6 w-6">
+                  <AvatarFallback className="text-[10px]">
+                    {initials(currentUser.fullName)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="flex flex-col items-start text-left">
+                  <span className="text-sm font-medium">
+                    Assign to me{" "}
+                    <span className="text-muted-foreground">(You)</span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {currentUser.fullName} · {ROLE_LABELS[currentUser.role]}
+                  </span>
+                </span>
+                <UserCheck className="ml-auto h-4 w-4 text-muted-foreground" />
+              </Button>
+
+              <div className="flex items-center gap-3 py-0.5">
+                <Separator className="flex-1" />
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  or choose an admin
+                </span>
+                <Separator className="flex-1" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Assign to admin
+              </label>
+              <Select
+                value={selectedAdminId}
+                onValueChange={setSelectedAdminId}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select admin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeAdmins.length > 0 ? (
+                    activeAdmins.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarFallback className="text-[10px]">
+                              {initials(a.fullName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col text-left">
+                            <span className="text-sm">{a.fullName}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              @{a.username}
+                            </span>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="__none" disabled>
+                      No other active admins
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {isReassign && target.assignedAdminName && (
@@ -187,7 +245,6 @@ export function AssignmentDialog({
               </div>
             </div>
           )}
-        </div>
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>

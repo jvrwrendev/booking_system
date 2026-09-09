@@ -58,6 +58,8 @@ import { RolesOverviewPage } from "@/features/roles-permissions/pages/RolesOverv
 import { RolePermissionsPage } from "@/features/roles-permissions/pages/RolePermissionsPage";
 
 import { BookingTrackingPage } from "@/features/bookings/pages/BookingTrackingPage";
+import { TrackingOverviewPage } from "@/features/orders/pages/TrackingOverviewPage";
+import { BranchOrderTrackingPage } from "@/features/orders/pages/BranchOrderTrackingPage";
 
 export const router = createBrowserRouter([
   {
@@ -164,6 +166,22 @@ export const router = createBrowserRouter([
         element: (
           <PermissionRoute permission="bookings.view">
             <BookingTrackingPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "tracking",
+        element: (
+          <PermissionRoute permission="bookings.view">
+            <TrackingOverviewPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "tracking/branch/:id",
+        element: (
+          <PermissionRoute permission="bookings.view">
+            <BranchOrderTrackingPage />
           </PermissionRoute>
         ),
       },

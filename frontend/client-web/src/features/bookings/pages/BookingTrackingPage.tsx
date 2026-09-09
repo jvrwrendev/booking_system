@@ -36,32 +36,17 @@ import { useAuth } from "@/hooks/useAuth";
 import { mockUsers } from "@/data/mock-users";
 import type { AuthUser } from "@/types/auth";
 import {
-  BOOKING_STATUS_FLOW,
-  type BookingStatus,
-} from "@/types/booking";
+  type JourneyStep,
+  nextOrderStep,
+  ORDER_JOURNEY,
+  orderJourneyIndex,
+} from "@/features/orders/lib/journey";
 import {
   formatCurrency,
   formatDateTime,
   initials,
   relativeTime,
 } from "@/lib/utils";
-
-interface JourneyStep {
-  key: BookingStatus;
-  label: string;
-  hint: string;
-}
-
-const JOURNEY: JourneyStep[] = [
-  { key: "pending", label: "Pending", hint: "Booking submitted and awaiting approval" },
-  { key: "accepted", label: "Accepted", hint: "Approved and ready to be assigned" },
-  { key: "assigned", label: "Assigned to Admin", hint: "An admin has been assigned" },
-  { key: "admin_accepted", label: "Admin Accepted", hint: "Accepted by the assigned admin" },
-  { key: "processing", label: "Processing", hint: "Order is being prepared" },
-  { key: "ready", label: "Ready for Pickup", hint: "Ready to be picked up" },
-  { key: "completed", label: "Completed", hint: "Pickup was completed" },
-  { key: "ready_for_delivery", label: "Ready for Delivery", hint: "Out for delivery / delivered" },
-];
 
 interface ActivityEvent {
   id: string;
@@ -86,9 +71,7 @@ export function BookingTrackingPage() {
   }, []);
 
   const history = booking?.statusHistory ?? [];
-  const currentIdx = booking
-    ? BOOKING_STATUS_FLOW.indexOf(booking.status)
-    : -1;
+  const currentIdx = booking ? orderJourneyIndex(booking.status) : -1;
   const isTerminal = booking
     ? ["cancelled", "rejected"].includes(booking.status)
     : false;
@@ -163,32 +146,11 @@ export function BookingTrackingPage() {
         }
       : null;
 
-  const nextStep = (): { status: BookingStatus; viaAssignment: boolean } | null => {
-    switch (booking.status) {
-      case "pending":
-        return { status: "accepted", viaAssignment: false };
-      case "accepted":
-        return { status: "assigned", viaAssignment: true };
-      case "assigned":
-        return { status: "admin_accepted", viaAssignment: false };
-      case "admin_accepted":
-        return { status: "processing", viaAssignment: false };
-      case "processing":
-        return { status: "ready", viaAssignment: false };
-      case "ready":
-        return { status: "completed", viaAssignment: false };
-      case "completed":
-        return { status: "ready_for_delivery", viaAssignment: false };
-      default:
-        return null;
-    }
-  };
-
-  const next = nextStep();
+  const next = nextOrderStep(booking.status);
   const isDone = !next || booking.status === "ready_for_delivery";
 
   const simulateNext = () => {
-    const step = nextStep();
+    const step = nextOrderStep(booking.status);
     if (!step) return;
     const actor: Pick<AuthUser, "id" | "fullName"> = user ?? {
       id: "USR-001",
@@ -229,7 +191,7 @@ export function BookingTrackingPage() {
 
     return (
       <div key={step.key} className="relative flex gap-4 pb-8 last:pb-0">
-        {index < JOURNEY.length - 1 && (
+        {index < ORDER_JOURNEY.length - 1 && (
           <span
             className={`absolute left-[15px] top-8 h-full w-0.5 ${
               done ? "bg-primary/60" : "bg-border"
@@ -372,12 +334,12 @@ export function BookingTrackingPage() {
                 Booking Journey
                 <span className="ml-2 text-xs font-normal text-muted-foreground">
                   {currentIdx >= 0
-                    ? `Step ${currentIdx + 1} of ${JOURNEY.length}`
+                    ? `Step ${currentIdx + 1} of ${ORDER_JOURNEY.length}`
                     : humanize(booking.status)}
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent>{JOURNEY.map(renderJourneyStep)}</CardContent>
+            <CardContent>{ORDER_JOURNEY.map(renderJourneyStep)}</CardContent>
           </Card>
 
           <Card>

@@ -100,8 +100,11 @@ export function AgentOrderDetailPage() {
 
   const customer = mockCustomers.find((c) => c.id === booking.customerId);
   const agent = mockAgents.find((a) => a.id === booking.agentId);
+  const assignedUser = booking.assignedAdminId
+    ? mockUsers.find((u) => u.id === booking.assignedAdminId)
+    : undefined;
   const isAssignedToMe = !!user?.id && booking.assignedAdminId === user.id;
-  const canProcess = !isSuperAdmin && isAssignedToMe;
+  const canProcess = isAssignedToMe;
   const nextAction = canProcess ? NEXT_ACTION[booking.status] : undefined;
   const timeline = bookingTimeline(booking);
   const isTerminal = TERMINAL_STATUSES.includes(booking.status);
@@ -227,7 +230,7 @@ export function AgentOrderDetailPage() {
         }
       />
 
-      {!isSuperAdmin && booking.assignedAdminId && !isAssignedToMe && (
+      {booking.assignedAdminId && !isAssignedToMe && (
         <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
@@ -356,7 +359,11 @@ export function AgentOrderDetailPage() {
                 icon={UserCheck}
                 label={
                   booking.assignedAdminName
-                    ? `Assigned Admin: ${booking.assignedAdminName}`
+                    ? `Assigned ${
+                        assignedUser?.role === "SUPER_ADMIN"
+                          ? "to Super Admin"
+                          : "Admin"
+                      }: ${booking.assignedAdminName}`
                     : "Assigned Admin: —"
                 }
               />
@@ -395,7 +402,13 @@ export function AgentOrderDetailPage() {
             <SummaryLine label="Status" value={humanize(booking.status)} />
             <SummaryLine
               label="Assigned Admin"
-              value={booking.assignedAdminName ?? "—"}
+              value={
+                booking.assignedAdminName
+                  ? assignedUser?.role === "SUPER_ADMIN"
+                    ? `${booking.assignedAdminName} (Super Admin)`
+                    : booking.assignedAdminName
+                  : "—"
+              }
             />
             <SummaryLine
               label="Created"

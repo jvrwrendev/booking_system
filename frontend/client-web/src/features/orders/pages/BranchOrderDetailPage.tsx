@@ -95,8 +95,11 @@ export function BranchOrderDetailPage() {
   }
 
   const branch = mockBranches.find((b) => b.id === order.branchId);
+  const assignedUser = order.assignedAdminId
+    ? mockUsers.find((u) => u.id === order.assignedAdminId)
+    : undefined;
   const isAssignedToMe = !!user?.id && order.assignedAdminId === user.id;
-  const canProcess = !isSuperAdmin && isAssignedToMe;
+  const canProcess = isAssignedToMe;
   const nextAction = canProcess ? NEXT_ACTION[order.status] : undefined;
   const timeline = branchOrderTimeline(order);
   const isTerminal = TERMINAL_STATUSES.includes(order.status);
@@ -222,7 +225,7 @@ export function BranchOrderDetailPage() {
         }
       />
 
-      {!isSuperAdmin && order.assignedAdminId && !isAssignedToMe && (
+      {order.assignedAdminId && !isAssignedToMe && (
         <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
@@ -339,7 +342,11 @@ export function BranchOrderDetailPage() {
                 icon={UserCheck}
                 label={
                   order.assignedAdminName
-                    ? `Assigned Admin: ${order.assignedAdminName}`
+                    ? `Assigned ${
+                        assignedUser?.role === "SUPER_ADMIN"
+                          ? "to Super Admin"
+                          : "Admin"
+                      }: ${order.assignedAdminName}`
                     : "Assigned Admin: —"
                 }
               />
@@ -378,7 +385,13 @@ export function BranchOrderDetailPage() {
             <SummaryLine label="Status" value={humanize(order.status)} />
             <SummaryLine
               label="Assigned Admin"
-              value={order.assignedAdminName ?? "—"}
+              value={
+                order.assignedAdminName
+                  ? assignedUser?.role === "SUPER_ADMIN"
+                    ? `${order.assignedAdminName} (Super Admin)`
+                    : order.assignedAdminName
+                  : "—"
+              }
             />
             <SummaryLine
               label="Created"

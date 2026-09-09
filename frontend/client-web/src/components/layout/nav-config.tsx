@@ -14,6 +14,7 @@ import {
   Leaf,
   ClipboardList,
   KeyRound,
+  Radio,
 } from "lucide-react";
 
 import type { Permission } from "@/lib/permissions";
@@ -58,6 +59,13 @@ export const navGroups: NavGroup[] = [
         href: "/orders",
         icon: ClipboardList,
         permission: "bookings.process",
+        end: true,
+      },
+      {
+        title: "Live Tracking",
+        href: "/tracking",
+        icon: Radio,
+        permission: "bookings.view",
         end: true,
       },
       {

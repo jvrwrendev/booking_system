@@ -36,6 +36,7 @@ import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
 import { useBranchOrdersStore } from "@/features/branch-orders/hooks/useBranchOrdersStore";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
+import { mockUsers } from "@/data/mock-users";
 import type { Booking, BookingStatus } from "@/types/booking";
 import type { BranchOrder, BranchOrderStatus } from "@/types/branch-order";
 import { formatCurrency, formatDate, initials } from "@/lib/utils";
@@ -100,8 +101,10 @@ function withinPreset(dateStr: string, preset: DatePreset): boolean {
 }
 
 function AssignedAdminCell({
+  assignedAdminId,
   assignedAdminName,
 }: {
+  assignedAdminId?: string | null;
   assignedAdminName?: string | null;
 }) {
   if (!assignedAdminName) {
@@ -111,6 +114,9 @@ function AssignedAdminCell({
       </Badge>
     );
   }
+  const assignedUser = assignedAdminId
+    ? mockUsers.find((u) => u.id === assignedAdminId)
+    : undefined;
   return (
     <div className="flex items-center gap-2">
       <Avatar className="h-6 w-6">
@@ -119,6 +125,11 @@ function AssignedAdminCell({
         </AvatarFallback>
       </Avatar>
       <span className="text-sm font-medium">{assignedAdminName}</span>
+      {assignedUser?.role === "SUPER_ADMIN" && (
+        <Badge variant="outline" className="text-[10px]">
+          Super Admin
+        </Badge>
+      )}
     </div>
   );
 }
@@ -221,7 +232,12 @@ export function OrdersPage() {
     {
       id: "assigned",
       header: "Assigned Admin",
-      cell: (b) => <AssignedAdminCell assignedAdminName={b.assignedAdminName} />,
+      cell: (b) => (
+        <AssignedAdminCell
+          assignedAdminId={b.assignedAdminId}
+          assignedAdminName={b.assignedAdminName}
+        />
+      ),
       className: "hidden md:table-cell",
     },
     {
@@ -301,7 +317,12 @@ export function OrdersPage() {
     {
       id: "assigned",
       header: "Assigned Admin",
-      cell: (o) => <AssignedAdminCell assignedAdminName={o.assignedAdminName} />,
+      cell: (o) => (
+        <AssignedAdminCell
+          assignedAdminId={o.assignedAdminId}
+          assignedAdminName={o.assignedAdminName}
+        />
+      ),
       className: "hidden md:table-cell",
     },
     {
