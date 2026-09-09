@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  BadgePercent,
   Building2,
   CalendarDays,
   CheckCircle2,
@@ -29,6 +30,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 import { useBranchOrdersStore } from "@/features/branch-orders/hooks/useBranchOrdersStore";
 import { AssignmentDialog } from "@/features/bookings/components/AssignmentDialog";
+import { DiscountDialog } from "../components/DiscountDialog";
 import { branchOrderTimeline } from "../lib/orderHistory";
 import { mockBranches } from "@/data/mock-branches";
 import { mockUsers } from "@/data/mock-users";
@@ -66,13 +68,16 @@ const NEXT_ACTION: Record<
 export function BranchOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getOrder, setStatus, assignOrder, reassignOrder } =
+  const { getOrder, setStatus, assignOrder, reassignOrder, applyDiscount } =
     useBranchOrdersStore();
   const { user } = useAuth();
   const { isSuperAdmin } = usePermissions();
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const canEditDiscount =
+    user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
 
   const order = id ? getOrder(id) : undefined;
 
@@ -258,8 +263,23 @@ export function BranchOrderDetailPage() {
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
               Ordered Items
             </CardTitle>
-            <div className="text-xs text-muted-foreground">
-              {order.totalQuantity} units
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-muted-foreground">
+                {order.totalQuantity} units
+              </div>
+              {canEditDiscount &&
+                !["ready_for_delivery", "rejected"].includes(order.status) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setDiscountOpen(true)}
+                >
+                  <BadgePercent className="h-4 w-4" />
+                  {order.discount > 0 ? "Edit discount" : "Add discount"}
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -444,6 +464,16 @@ export function BranchOrderDetailPage() {
           }}
         />
       )}
+
+      <DiscountDialog
+        open={discountOpen}
+        onOpenChange={setDiscountOpen}
+        subtotal={order.subtotal}
+        currentDiscount={order.discount ?? 0}
+        onSave={(discount, note) =>
+          applyDiscount(order.id, discount, user ?? undefined, note)
+        }
+      />
     </div>
   );
 }

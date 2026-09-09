@@ -37,6 +37,7 @@ import { useBranchOrdersStore } from "@/features/branch-orders/hooks/useBranchOr
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { mockUsers } from "@/data/mock-users";
+import { mockBranches } from "@/data/mock-branches";
 import type { Booking, BookingStatus } from "@/types/booking";
 import type { BranchOrder, BranchOrderStatus } from "@/types/branch-order";
 import { formatCurrency, formatDate, initials } from "@/lib/utils";
@@ -134,6 +135,12 @@ function AssignedAdminCell({
   );
 }
 
+function branchManager(branchId?: string | null): string {
+  if (!branchId) return "—";
+  const branch = mockBranches.find((br) => br.id === branchId);
+  return branch?.manager ?? "—";
+}
+
 export function OrdersPage() {
   const { user } = useAuth();
   const { isSuperAdmin } = usePermissions();
@@ -198,6 +205,12 @@ export function OrdersPage() {
       cell: (b) => <span className="text-sm">{b.agentName}</span>,
       sortable: true,
       sortKey: "agentName",
+      hideOnMobile: true,
+    },
+    {
+      id: "branchManager",
+      header: "Branch Manager",
+      cell: (b) => <span className="text-sm">{branchManager(b.branchId)}</span>,
       hideOnMobile: true,
     },
     {
@@ -284,6 +297,12 @@ export function OrdersPage() {
       cell: (o) => <span className="text-sm">{o.branchName}</span>,
       sortable: true,
       sortKey: "branchName",
+    },
+    {
+      id: "branchManager",
+      header: "Branch Manager",
+      cell: (o) => <span className="text-sm">{branchManager(o.branchId)}</span>,
+      hideOnMobile: true,
     },
     {
       id: "items",

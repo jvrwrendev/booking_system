@@ -13,6 +13,7 @@ import type { AuthUser } from "@/types/auth";
 import type { BranchOrder, BranchOrderStatus } from "@/types/branch-order";
 import type { StatusHistoryEntry } from "@/types/order-history";
 import { humanize } from "@/components/common/StatusBadge";
+import { formatCurrency } from "@/lib/utils";
 
 const STORAGE_KEY = "agrivet-branch-orders-v2";
 
@@ -49,6 +50,12 @@ interface BranchOrdersContextValue {
     id: string,
     admin: Pick<AuthUser, "id" | "fullName">,
     by: Pick<AuthUser, "id" | "fullName">
+  ) => void;
+  applyDiscount: (
+    id: string,
+    discount: number,
+    by?: Pick<AuthUser, "id" | "fullName">,
+    note?: string
   ) => void;
 }
 
@@ -172,6 +179,45 @@ export function BranchOrdersProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const applyDiscount = useCallback(
+    (
+      id: string,
+      discount: number,
+      by?: Pick<AuthUser, "id" | "fullName">,
+      note?: string
+    ) => {
+      setOrders((prev) =>
+        prev.map((o) => {
+          if (o.id !== id) return o;
+          const removed = discount === 0 && (o.discount ?? 0) > 0;
+          return {
+            ...o,
+            discount,
+            totalAmount: Math.max(0, o.subtotal - discount),
+            statusHistory: [
+              ...(o.statusHistory ?? []),
+              historyEntry(
+                o.status,
+                o.status,
+                by,
+                removed
+                  ? "Discount removed"
+                  : `Discount ${note ? `${note}: ` : ""}${formatCurrency(discount)}`
+              ),
+            ],
+          };
+        })
+      );
+      toast.success("Discount updated", {
+        description:
+          discount === 0
+            ? "Discount removed from the order."
+            : `Discount of ${formatCurrency(discount)} applied.`,
+      });
+    },
+    []
+  );
+
   const value = useMemo<BranchOrdersContextValue>(
     () => ({
       orders,
@@ -179,8 +225,9 @@ export function BranchOrdersProvider({ children }: { children: ReactNode }) {
       setStatus,
       assignOrder,
       reassignOrder,
+      applyDiscount,
     }),
-    [orders, setStatus, assignOrder, reassignOrder]
+    [orders, setStatus, assignOrder, reassignOrder, applyDiscount]
   );
 
   return (

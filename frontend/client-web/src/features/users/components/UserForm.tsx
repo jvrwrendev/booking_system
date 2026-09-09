@@ -27,6 +27,30 @@ interface UserFormProps {
   formId?: string;
 }
 
+function splitFullName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return { firstName: "", middleName: "", lastName: "", suffix: "" };
+  }
+  if (parts.length === 1) {
+    return { firstName: parts[0], middleName: "", lastName: "", suffix: "" };
+  }
+  if (parts.length === 2) {
+    return {
+      firstName: parts[0],
+      middleName: "",
+      lastName: parts[1],
+      suffix: "",
+    };
+  }
+  return {
+    firstName: parts[0],
+    middleName: parts.slice(1, -1).join(" "),
+    lastName: parts[parts.length - 1],
+    suffix: "",
+  };
+}
+
 export function UserForm({
   initial,
   submitLabel,
@@ -38,14 +62,17 @@ export function UserForm({
   const [values, setValues] = useState<UserFormValues>(
     initial
       ? {
-          fullName: initial.fullName,
+          ...splitFullName(initial.fullName),
           email: initial.email,
           username: initial.username,
           role: initial.role,
           status: initial.status,
         }
       : {
-          fullName: "",
+          firstName: "",
+          middleName: "",
+          lastName: "",
+          suffix: "",
           email: "",
           username: "",
           role: "ADMIN",
@@ -60,7 +87,8 @@ export function UserForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (
-      !values.fullName.trim() ||
+      !values.firstName.trim() ||
+      !values.lastName.trim() ||
       !values.email.trim() ||
       !values.username.trim()
     ) {
@@ -99,19 +127,66 @@ export function UserForm({
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <FormField
-            label="Full name"
+            label="First name"
             required
-            htmlFor="fullName"
-            className="sm:col-span-2"
+            htmlFor="firstName"
           >
             <Input
-              id="fullName"
-              value={values.fullName}
+              id="firstName"
+              value={values.firstName}
               onChange={(e) =>
-                setValues((v) => ({ ...v, fullName: e.target.value }))
+                setValues((v) => ({ ...v, firstName: e.target.value }))
               }
-              placeholder="e.g., Juan Dela Cruz"
-              autoComplete="name"
+              placeholder="e.g., Juan"
+              autoComplete="given-name"
+              className="h-10"
+            />
+          </FormField>
+          <FormField
+            label="Middle name"
+            htmlFor="middleName"
+            hint="Leave blank if not applicable."
+          >
+            <Input
+              id="middleName"
+              value={values.middleName}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, middleName: e.target.value }))
+              }
+              placeholder="e.g., Santos"
+              autoComplete="additional-name"
+              className="h-10"
+            />
+          </FormField>
+          <FormField
+            label="Last name"
+            required
+            htmlFor="lastName"
+          >
+            <Input
+              id="lastName"
+              value={values.lastName}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, lastName: e.target.value }))
+              }
+              placeholder="e.g., Dela Cruz"
+              autoComplete="family-name"
+              className="h-10"
+            />
+          </FormField>
+          <FormField
+            label="Suffix"
+            htmlFor="suffix"
+            hint="e.g., Jr., Sr., III"
+          >
+            <Input
+              id="suffix"
+              value={values.suffix}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, suffix: e.target.value }))
+              }
+              placeholder="e.g., Jr."
+              autoComplete="honorific-suffix"
               className="h-10"
             />
           </FormField>

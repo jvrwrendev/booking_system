@@ -1,11 +1,14 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowUpRight,
   CalendarDays,
+  Filter,
   MapPin,
   Radio,
+  Search,
   UserRound,
+  X,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
@@ -22,6 +25,14 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
@@ -29,6 +40,32 @@ import { useBranchOrdersStore } from "@/features/branch-orders/hooks/useBranchOr
 import { mockUsers } from "@/data/mock-users";
 import { initials, relativeTime } from "@/lib/utils";
 import { ORDER_JOURNEY, orderJourneyIndex } from "../lib/journey";
+
+const AGENT_STATUS_OPTIONS = [
+  "pending",
+  "accepted",
+  "assigned",
+  "admin_accepted",
+  "confirmed",
+  "processing",
+  "ready",
+  "completed",
+  "ready_for_delivery",
+  "cancelled",
+  "rejected",
+] as const;
+
+const BRANCH_STATUS_OPTIONS = [
+  "pending",
+  "assigned",
+  "accepted",
+  "admin_accepted",
+  "processing",
+  "ready",
+  "completed",
+  "ready_for_delivery",
+  "rejected",
+] as const;
 
 function JourneyProgress({ status }: { status: string }) {
   const idx = orderJourneyIndex(status);
@@ -157,12 +194,55 @@ export function TrackingOverviewPage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const agentOrders = [...bookings].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt)
+  const [search, setSearch] = useState("");
+  const [agentStatus, setAgentStatus] = useState<string>("all");
+  const [branchStatus, setBranchStatus] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>("agent");
+
+  const q = search.trim().toLowerCase();
+  const matchesQuery = (...fields: Array<string | null | undefined>) =>
+    !q || fields.some((f) => f?.toLowerCase().includes(q));
+
+  const filteredAgentOrders = useMemo(
+    () =>
+      [...bookings]
+        .filter(
+          (b) =>
+            (agentStatus === "all" || b.status === agentStatus) &&
+            matchesQuery(
+              b.reference,
+              b.customerName,
+              b.branchName,
+              b.agentName,
+              b.assignedAdminName
+            )
+        )
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [bookings, search, agentStatus]
   );
-  const branchRows = [...branchOrders].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt)
+
+  const filteredBranchOrders = useMemo(
+    () =>
+      [...branchOrders]
+        .filter(
+          (o) =>
+            (branchStatus === "all" || o.status === branchStatus) &&
+            matchesQuery(
+              o.reference,
+              o.branchName,
+              o.assignedAdminName
+            )
+        )
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [branchOrders, search, branchStatus]
   );
+
+  const activeStatus =
+    activeTab === "agent" ? agentStatus : branchStatus;
+  const setActiveStatus = (v: string) =>
+    activeTab === "agent" ? setAgentStatus(v) : setBranchStatus(v);
+  const statusOptions =
+    activeTab === "agent" ? AGENT_STATUS_OPTIONS : BRANCH_STATUS_OPTIONS;
 
   return (
     <div className="space-y-6">
@@ -190,19 +270,59 @@ export function TrackingOverviewPage() {
         }
       />
 
-      <Tabs defaultValue="agent">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-1 items-center gap-2">
+          <div className="relative max-w-xs flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by order no., customer, branch..."
+              className="pl-8 pr-8"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
+          <Select value={activeStatus} onValueChange={setActiveStatus}>
+            <SelectTrigger className="h-9 w-[160px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {statusOptions.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {humanize(s)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Tabs defaultValue="agent" onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="agent">
-            Agent Orders ({agentOrders.length})
+            Agent Orders ({filteredAgentOrders.length})
           </TabsTrigger>
           <TabsTrigger value="branch">
-            Branch Orders ({branchRows.length})
+            Branch Orders ({filteredBranchOrders.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="agent">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {agentOrders.map((booking) => (
+            {filteredAgentOrders.map((booking) => (
               <TrackingCard
                 key={booking.id}
                 href={`/bookings/track/${booking.id}`}
@@ -234,12 +354,12 @@ export function TrackingOverviewPage() {
               </TrackingCard>
             ))}
           </div>
-          {agentOrders.length === 0 && (
+          {filteredAgentOrders.length === 0 && (
             <Card>
               <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
                 <Radio className="h-8 w-8 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
-                  No agent orders to track yet.
+                  No agent orders match your search or filters.
                 </p>
               </CardContent>
             </Card>
@@ -248,7 +368,7 @@ export function TrackingOverviewPage() {
 
         <TabsContent value="branch">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {branchRows.map((order) => (
+            {filteredBranchOrders.map((order) => (
               <TrackingCard
                 key={order.id}
                 href={`/tracking/branch/${order.id}`}
@@ -277,12 +397,12 @@ export function TrackingOverviewPage() {
               </TrackingCard>
             ))}
           </div>
-          {branchRows.length === 0 && (
+          {filteredBranchOrders.length === 0 && (
             <Card>
               <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
                 <Radio className="h-8 w-8 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
-                  No branch orders to track yet.
+                  No branch orders match your search or filters.
                 </p>
               </CardContent>
             </Card>

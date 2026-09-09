@@ -14,12 +14,27 @@ import {
 import type { AuthUser } from "@/types/auth";
 
 export interface UserFormValues {
-  fullName: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  suffix: string;
   email: string;
   username: string;
   role: AuthUser["role"];
   status: AuthUser["status"];
   password?: string;
+}
+
+export function composeFullName(
+  firstName: string,
+  middleName: string,
+  lastName: string,
+  suffix: string
+): string {
+  return [firstName, middleName, lastName, suffix]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ");
 }
 
 interface UsersContextValue {
@@ -49,7 +64,12 @@ export function UsersProvider({ children }: { children: ReactNode }) {
       addUser: (data) => {
         const user: AuthUser = {
           id: nextId(users),
-          fullName: data.fullName,
+          fullName: composeFullName(
+            data.firstName,
+            data.middleName,
+            data.lastName,
+            data.suffix
+          ),
           email: data.email,
           username: data.username,
           role: data.role,
@@ -64,12 +84,18 @@ export function UsersProvider({ children }: { children: ReactNode }) {
         return user;
       },
       updateUser: (id, data) => {
+        const fullName = composeFullName(
+          data.firstName,
+          data.middleName,
+          data.lastName,
+          data.suffix
+        );
         setUsers((prev) =>
           prev.map((u) =>
             u.id === id
               ? {
                   ...u,
-                  fullName: data.fullName,
+                  fullName,
                   email: data.email,
                   username: data.username,
                   role: data.role,
@@ -79,7 +105,7 @@ export function UsersProvider({ children }: { children: ReactNode }) {
           )
         );
         updateAccount(id, {
-          fullName: data.fullName,
+          fullName,
           email: data.email,
           username: data.username,
           role: data.role,

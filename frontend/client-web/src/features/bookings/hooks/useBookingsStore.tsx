@@ -13,6 +13,7 @@ import type { AuthUser } from "@/types/auth";
 import type { Booking, BookingStatus } from "@/types/booking";
 import type { StatusHistoryEntry } from "@/types/order-history";
 import { humanize } from "@/components/common/StatusBadge";
+import { formatCurrency } from "@/lib/utils";
 
 const STORAGE_KEY = "agrivet-bookings-v3";
 
@@ -51,6 +52,12 @@ interface BookingsContextValue {
     by: Pick<AuthUser, "id" | "fullName">
   ) => void;
   unassignBooking: (id: string) => void;
+  applyDiscount: (
+    id: string,
+    discount: number,
+    by?: Pick<AuthUser, "id" | "fullName">,
+    note?: string
+  ) => void;
 }
 
 function loadBookings(): Booking[] {
@@ -191,6 +198,46 @@ export function BookingsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const applyDiscount = useCallback(
+    (
+      id: string,
+      discount: number,
+      by?: Pick<AuthUser, "id" | "fullName">,
+      note?: string
+    ) => {
+      setBookings((prev) =>
+        prev.map((b) => {
+          if (b.id !== id) return b;
+          const previous = b.discount ?? 0;
+          const removed = discount === 0 && previous > 0;
+          return {
+            ...b,
+            discount,
+            totalAmount: Math.max(0, b.subtotal - discount),
+            statusHistory: [
+              ...(b.statusHistory ?? []),
+              historyEntry(
+                b.status,
+                b.status,
+                by,
+                removed
+                  ? "Discount removed"
+                  : `Discount ${note ? `${note}: ` : ""}${formatCurrency(discount)}`
+              ),
+            ],
+          };
+        })
+      );
+      toast.success("Discount updated", {
+        description:
+          discount === 0
+            ? "Discount removed from the order."
+            : `Discount of ${formatCurrency(discount)} applied.`,
+      });
+    },
+    []
+  );
+
   const value = useMemo<BookingsContextValue>(
     () => ({
       bookings,
@@ -199,8 +246,9 @@ export function BookingsProvider({ children }: { children: ReactNode }) {
       assignBooking,
       reassignBooking,
       unassignBooking,
+      applyDiscount,
     }),
-    [bookings, setStatus, assignBooking, reassignBooking, unassignBooking]
+    [bookings, setStatus, assignBooking, reassignBooking, unassignBooking, applyDiscount]
   );
 
   return (

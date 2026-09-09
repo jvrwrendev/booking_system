@@ -70,8 +70,8 @@ export function UserAddPage() {
             <div className="flex items-start gap-2.5">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <p className="text-xs text-muted-foreground">
-                Use the user's legal full name so audit logs and orders stay
-                consistent.
+                Use the user's official first, middle, and last name so audit
+                logs and orders stay consistent.
               </p>
             </div>
             <div className="flex items-start gap-2.5">

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  BadgePercent,
   CalendarDays,
   CheckCircle2,
   History,
@@ -30,6 +31,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
 import { AssignmentDialog } from "@/features/bookings/components/AssignmentDialog";
+import { DiscountDialog } from "../components/DiscountDialog";
 import { bookingTimeline } from "../lib/orderHistory";
 import { mockCustomers } from "@/data/mock-customers";
 import { mockAgents } from "@/data/mock-agents";
@@ -70,13 +72,16 @@ const NEXT_ACTION: Record<
 export function AgentOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getBooking, setStatus, assignBooking, reassignBooking } =
+  const { getBooking, setStatus, assignBooking, reassignBooking, applyDiscount } =
     useBookingsStore();
   const { user } = useAuth();
   const { isSuperAdmin } = usePermissions();
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const canEditDiscount =
+    user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
 
   const booking = id ? getBooking(id) : undefined;
 
@@ -260,8 +265,25 @@ export function AgentOrderDetailPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>Ordered Items</CardTitle>
-            <div className="text-xs text-muted-foreground">
-              {booking.totalQuantity} units
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-muted-foreground">
+                {booking.totalQuantity} units
+              </div>
+              {canEditDiscount &&
+                !["ready_for_delivery", "cancelled", "rejected"].includes(
+                  booking.status
+                ) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setDiscountOpen(true)}
+                >
+                  <BadgePercent className="h-4 w-4" />
+                  {booking.discount > 0 ? "Edit discount" : "Add discount"}
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -461,6 +483,16 @@ export function AgentOrderDetailPage() {
           }}
         />
       )}
+
+      <DiscountDialog
+        open={discountOpen}
+        onOpenChange={setDiscountOpen}
+        subtotal={booking.subtotal}
+        currentDiscount={booking.discount ?? 0}
+        onSave={(discount, note) =>
+          applyDiscount(booking.id, discount, user ?? undefined, note)
+        }
+      />
     </div>
   );
 }
