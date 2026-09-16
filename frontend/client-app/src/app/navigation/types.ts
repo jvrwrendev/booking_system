@@ -61,6 +61,7 @@ export type RootStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
+  Terms: undefined;
   VerifyEmail: { email: string };
   VerificationSuccess: undefined;
   VerificationFailure: { email?: string; message?: string };

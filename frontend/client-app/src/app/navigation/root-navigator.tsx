@@ -6,6 +6,7 @@ import { SplashScreen } from "@/components/shared/splash-screen";
 import { LoginScreen } from "@/features/auth/screens/login-screen";
 import { RegisterScreen } from "@/features/auth/screens/register-screen";
 import { WelcomeScreen } from "@/features/auth/screens/welcome-screen";
+import { ProfileTermsScreen } from "@/features/profile/screens/profile-terms-screen";
 import { VerifyEmailScreen } from "@/features/auth/screens/verify-email-screen";
 import { VerificationSuccessScreen } from "@/features/auth/screens/verification-success-screen";
 import { VerificationFailureScreen } from "@/features/auth/screens/verification-failure-screen";
@@ -79,6 +80,7 @@ export function RootNavigator() {
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="Terms" component={ProfileTermsScreen} />
             <Stack.Screen
               name="VerifyEmail"
               component={VerifyEmailScreen}

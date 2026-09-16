@@ -39,15 +39,21 @@ import type { RootStackParamList } from "@/app/navigation/types";
 const MUTED_ICON = "#64748B";
 const CONTENT_MAX_WIDTH = 420;
 
-type RegisterStep = "account" | "contact" | "security";
+type RegisterStep = "account" | "details" | "contact" | "security";
 
 const STEPS: WizardStep<RegisterStep>[] = [
   { key: "account", label: "Account" },
+  { key: "details", label: "Details" },
   { key: "contact", label: "Contact" },
   { key: "security", label: "Security" },
 ];
 
-const STEP_ORDER: RegisterStep[] = ["account", "contact", "security"];
+const STEP_ORDER: RegisterStep[] = [
+  "account",
+  "details",
+  "contact",
+  "security",
+];
 
 const STEP_META: Record<
   RegisterStep,
@@ -56,7 +62,12 @@ const STEP_META: Record<
   account: {
     title: "Choose your account",
     description:
-      "Tell us what kind of account you need and who should be registered.",
+      "Select the account type that fits how you'll use Agrivet.",
+  },
+  details: {
+    title: "Your details",
+    description:
+      "Add the name and owner details for the account you selected.",
   },
   contact: {
     title: "Contact & address",
@@ -101,6 +112,7 @@ export function RegisterScreen() {
   const [step, setStep] = useState<RegisterStep>("account");
   const [attempted, setAttempted] = useState<Record<RegisterStep, boolean>>({
     account: false,
+    details: false,
     contact: false,
     security: false,
   });
@@ -113,6 +125,7 @@ export function RegisterScreen() {
     useState<AddressParts>(EMPTY_ADDRESS);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -127,9 +140,9 @@ export function RegisterScreen() {
   }, [step]);
 
   const nameError =
-    attempted.account && !name.trim() ? `${nameLabel} is required.` : undefined;
+    attempted.details && !name.trim() ? `${nameLabel} is required.` : undefined;
   const ownerNameError =
-    attempted.account && role === "BRANCH" && !ownerName.trim()
+    attempted.details && role === "BRANCH" && !ownerName.trim()
       ? "Owner's full name is required."
       : undefined;
   const emailError = attempted.contact ? validateEmail(email) : undefined;
@@ -157,8 +170,12 @@ export function RegisterScreen() {
     attempted.security && confirmPassword !== password
       ? "Passwords do not match."
       : undefined;
+  const termsError =
+    attempted.security && !acceptedTerms
+      ? "Please agree to the Terms of Service and Privacy Policy."
+      : undefined;
 
-  const accountValid =
+  const detailsValid =
     Boolean(name.trim()) &&
     (role !== "BRANCH" || Boolean(ownerName.trim()));
   const contactValid =
@@ -166,9 +183,11 @@ export function RegisterScreen() {
     Boolean(contactNumber.trim()) &&
     addressComplete;
   const securityValid =
-    password.length >= 8 && confirmPassword === password;
+    password.length >= 8 &&
+    confirmPassword === password &&
+    acceptedTerms;
   const canSubmit =
-    accountValid && contactValid && securityValid && !submitting;
+    detailsValid && contactValid && securityValid && !submitting;
 
   const resetFeedback = () => setError(null);
 
@@ -198,10 +217,12 @@ export function RegisterScreen() {
 
     const valid =
       step === "account"
-        ? accountValid
-        : step === "contact"
-          ? contactValid
-          : securityValid;
+        ? true
+        : step === "details"
+          ? detailsValid
+          : step === "contact"
+            ? contactValid
+            : securityValid;
 
     if (!valid) {
       Keyboard.dismiss();
@@ -217,13 +238,18 @@ export function RegisterScreen() {
   const onSubmit = async () => {
     if (submitting) return;
 
-    setAttempted({ account: true, contact: true, security: true });
+    setAttempted({
+      account: true,
+      details: true,
+      contact: true,
+      security: true,
+    });
     setError(null);
 
     if (!canSubmit) {
       Keyboard.dismiss();
-      if (!accountValid) {
-        setStep("account");
+      if (!detailsValid) {
+        setStep("details");
       } else if (!contactValid) {
         setStep("contact");
       } else {
@@ -363,6 +389,34 @@ export function RegisterScreen() {
                       );
                     })}
                   </View>
+                </View>
+              </View>
+            ) : null}
+
+            {step === "details" ? (
+              <View className="gap-4">
+                <View className="flex-row items-center justify-between rounded-lg border border-border bg-secondary/50 px-3 py-2.5">
+                  <View className="flex-row items-center gap-2">
+                    <Text variant="small" tone="muted">
+                      Account type
+                    </Text>
+                    <Text variant="small" weight="semibold">
+                      {role === "AGENT" ? "Agent" : "Branch"}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => {
+                      setError(null);
+                      setStep("account");
+                    }}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Change account type"
+                  >
+                    <Text variant="small" tone="primary" weight="semibold">
+                      Change
+                    </Text>
+                  </Pressable>
                 </View>
 
                 <Input
@@ -574,6 +628,65 @@ export function RegisterScreen() {
                     />
                   </View>
                 </View>
+
+                <View className="gap-2">
+                  <View className="flex-row items-start gap-2.5">
+                    <Pressable
+                      onPress={() => {
+                        setAcceptedTerms((current) => !current);
+                        resetFeedback();
+                      }}
+                      hitSlop={8}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: acceptedTerms }}
+                      accessibilityLabel="Agree to the Terms of Service and Privacy Policy"
+                      className={cn(
+                        "mt-0.5 h-5 w-5 items-center justify-center rounded-md border",
+                        acceptedTerms
+                          ? "border-primary bg-primary"
+                          : "border-field bg-background"
+                      )}
+                    >
+                      {acceptedTerms ? (
+                        <Text className="text-[12px] font-bold leading-none text-white">
+                          ✓
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                    <Text
+                      variant="small"
+                      tone="muted"
+                      className="flex-1 leading-5"
+                    >
+                      I agree to the{" "}
+                      <Text
+                        variant="small"
+                        weight="semibold"
+                        tone="primary"
+                        accessibilityRole="link"
+                        onPress={() => navigation.navigate("Terms")}
+                      >
+                        Terms of Service
+                      </Text>{" "}
+                      and{" "}
+                      <Text
+                        variant="small"
+                        weight="semibold"
+                        tone="primary"
+                        accessibilityRole="link"
+                        onPress={() => navigation.navigate("Terms")}
+                      >
+                        Privacy Policy
+                      </Text>
+                      .
+                    </Text>
+                  </View>
+                  {termsError ? (
+                    <Text variant="small" tone="danger">
+                      {termsError}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
             ) : null}
 
@@ -591,37 +704,26 @@ export function RegisterScreen() {
             ) : null}
 
             <View className="mt-8 gap-3">
-              <View className="flex-row gap-3">
-                {step !== "account" ? (
-                  <Button
-                    label="Back"
-                    variant="outline"
-                    size="control"
-                    className="flex-1"
-                    onPress={onBack}
-                    disabled={submitting}
-                  />
-                ) : null}
-                {step === "security" ? (
-                  <Button
-                    label="Create account"
-                    size="control"
-                    className="flex-[1.5]"
-                    onPress={() => {
-                      void onSubmit();
-                    }}
-                    loading={submitting}
-                  />
-                ) : (
-                  <Button
-                    label="Continue"
-                    size="control"
-                    className={step === "account" ? undefined : "flex-[1.5]"}
-                    onPress={onContinue}
-                    fullWidth={step === "account"}
-                  />
-                )}
-              </View>
+              {step === "security" ? (
+                <Button
+                  label="Create account"
+                  size="control"
+                  className="mt-1 bg-primary opacity-100"
+                  onPress={() => {
+                    void onSubmit();
+                  }}
+                  loading={submitting}
+                  fullWidth
+                />
+              ) : (
+                <Button
+                  label="Continue"
+                  size="control"
+                  className="mt-1 bg-primary opacity-100"
+                  onPress={onContinue}
+                  fullWidth
+                />
+              )}
 
               <View className="items-center pt-2">
                 <Pressable
