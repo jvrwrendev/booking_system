@@ -4,7 +4,7 @@ import {
   validateBody,
   validateParams,
   validateQuery,
-} from "../../middleware/validate.middleware.js";
+} from "../../middleware/validation.middleware.js";
 import {
   createUserController,
   deleteUserController,
@@ -15,13 +15,13 @@ import {
   updateUserStatusController,
 } from "./users.controller.js";
 import {
-  createUserSchema,
-  idParamSchema,
-  listUsersQuerySchema,
-  setPasswordSchema,
-  updateUserSchema,
-  updateUserStatusSchema,
-} from "./users.schema.js";
+  createUserDto,
+  listUsersQueryDto,
+  setPasswordDto,
+  updateUserDto,
+  updateUserStatusDto,
+  userParamsDto,
+} from "./dto/index.js";
 
 export const usersRouter = Router();
 
@@ -29,37 +29,37 @@ usersRouter.use(requireRole("ADMIN"));
 
 usersRouter.get(
   "/",
-  validateQuery(listUsersQuerySchema),
+  validateQuery(listUsersQueryDto),
   listUsersController,
 );
 
-usersRouter.get("/:id", validateParams(idParamSchema), getUserController);
+usersRouter.get("/:id", validateParams(userParamsDto), getUserController);
 
-usersRouter.post("/", validateBody(createUserSchema), createUserController);
+usersRouter.post("/", validateBody(createUserDto), createUserController);
 
 usersRouter.patch(
   "/:id",
-  validateParams(idParamSchema),
-  validateBody(updateUserSchema),
+  validateParams(userParamsDto),
+  validateBody(updateUserDto),
   updateUserController,
 );
 
 usersRouter.patch(
   "/:id/status",
-  validateParams(idParamSchema),
-  validateBody(updateUserStatusSchema),
+  validateParams(userParamsDto),
+  validateBody(updateUserStatusDto),
   updateUserStatusController,
 );
 
 usersRouter.patch(
   "/:id/password",
-  validateParams(idParamSchema),
-  validateBody(setPasswordSchema),
+  validateParams(userParamsDto),
+  validateBody(setPasswordDto),
   setPasswordController,
 );
 
 usersRouter.delete(
   "/:id",
-  validateParams(idParamSchema),
+  validateParams(userParamsDto),
   deleteUserController,
 );

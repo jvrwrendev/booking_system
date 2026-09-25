@@ -7,7 +7,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
-  ACCESS_TOKEN_TTL: z.string().regex(/^\d+[smhd]$/, "Invalid token TTL").default("15m"),
+  SESSION_TTL: z.string().regex(/^\d+[smhd]$/, "Invalid session TTL").default("24h"),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
   SEED_ADMIN_NAME: z.string().default("System Administrator"),
   SEED_ADMIN_EMAIL: z.string().email().default("admin@agrivet.local"),

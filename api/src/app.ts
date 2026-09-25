@@ -4,10 +4,10 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import { env } from "./config/env.js";
 import { sendSuccess } from "./lib/api-response.js";
-import { authRouter } from "./features/auth/auth.routes.js";
-import { usersRouter } from "./features/users/users.routes.js";
+import { authModule } from "./modules/auth/auth.module.js";
+import { usersModule } from "./modules/users/users.module.js";
+import { registerModules } from "./app.module.js";
 import { authenticateUnlessPublic } from "./middleware/auth.middleware.js";
-import { requireRole } from "./middleware/role.middleware.js";
 import {
   errorHandler,
   notFoundHandler,
@@ -34,23 +34,7 @@ export function createApp(): Express {
     sendSuccess(res, { status: "ok" });
   });
 
-  app.use("/api/v1/auth", authRouter);
-
-  app.use("/api/v1/users", usersRouter);
-
-  app.get("/api/v1/admin/example", requireRole("SUPER_ADMIN"), (_req, res) => {
-    sendSuccess(res, { message: "Super admin only area" });
-  });
-
-  app.get(
-    "/api/v1/admin/example-admin",
-    requireRole("ADMIN"),
-    (_req, res) => {
-      sendSuccess(res, {
-        message: "Admin area (super admins included via hierarchy)",
-      });
-    },
-  );
+  registerModules(app, [authModule, usersModule]);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

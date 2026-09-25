@@ -3,10 +3,18 @@ import { asyncHandler } from "../../lib/async-handler.js";
 import { sendSuccess } from "../../lib/api-response.js";
 import { env } from "../../config/env.js";
 import { AUTH_COOKIE_NAME } from "../../constants.js";
-import { accessTokenTtlMs } from "../../lib/jwt.js";
+import { sessionTtlMs, verifyAccessToken } from "../../lib/jwt.js";
 import type { AuthenticatedRequest } from "./auth.types.js";
-import { changePasswordDto, loginDto } from "./dto/index.js";
-import { changePassword, getCurrentUser, login } from "./auth.service.js";
+import { changePasswordDto, loginDto, sessionParamsDto } from "./dto/index.js";
+import {
+  changePassword,
+  getActiveSessions,
+  getCurrentUser,
+  login,
+  revokeAllSessions,
+  revokeSession,
+  revokeSessionById,
+} from "./auth.service.js";
 
 const cookieOptions: CookieOptions = {
   httpOnly: true,
@@ -18,17 +26,33 @@ const cookieOptions: CookieOptions = {
 export const loginController = asyncHandler(async (req: Request, res) => {
   const dto = loginDto.parse(req.body);
 
-  const { accessToken, user } = await login(dto);
+  const { accessToken, user, session } = await login(dto, {
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
 
   res.cookie(AUTH_COOKIE_NAME, accessToken, {
     ...cookieOptions,
-    maxAge: accessTokenTtlMs(),
+    maxAge: sessionTtlMs(),
   });
 
-  return sendSuccess(res, { user });
+  return sendSuccess(res, { user, session });
 });
 
-export const logoutController = asyncHandler(async (_req, res) => {
+export const logoutController = asyncHandler(async (req, res) => {
+  const token = req.cookies?.[AUTH_COOKIE_NAME];
+
+  if (typeof token === "string" && token.length > 0) {
+    try {
+      const payload = verifyAccessToken(token);
+      if (typeof payload.sid === "string") {
+        await revokeSessionById(payload.sid);
+      }
+    } catch {
+      // Best-effort: invalid tokens are simply ignored on logout.
+    }
+  }
+
   res.clearCookie(AUTH_COOKIE_NAME, cookieOptions);
   return sendSuccess(res, { message: "Logged out successfully" });
 });
@@ -43,7 +67,36 @@ export const getMeController = asyncHandler(
 export const changePasswordController = asyncHandler(
   async (req: AuthenticatedRequest, res) => {
     const dto = changePasswordDto.parse(req.body);
-    await changePassword(req.user.id, dto);
+    await changePassword(req.user.id, req.session.id, dto);
     return sendSuccess(res, { message: "Password changed successfully" });
+  },
+);
+
+export const listSessionsController = asyncHandler(
+  async (req: AuthenticatedRequest, res) => {
+    const sessions = await getActiveSessions(req.user.id, req.session.id);
+    return sendSuccess(res, { sessions });
+  },
+);
+
+export const revokeSessionController = asyncHandler(
+  async (req: AuthenticatedRequest<{ id: string }>, res) => {
+    const { id } = sessionParamsDto.parse(req.params);
+
+    await revokeSession(req.user.id, id);
+
+    if (id === req.session.id) {
+      res.clearCookie(AUTH_COOKIE_NAME, cookieOptions);
+    }
+
+    return sendSuccess(res, { message: "Session revoked successfully" });
+  },
+);
+
+export const revokeAllSessionsController = asyncHandler(
+  async (req: AuthenticatedRequest, res) => {
+    await revokeAllSessions(req.user.id);
+    res.clearCookie(AUTH_COOKIE_NAME, cookieOptions);
+    return sendSuccess(res, { message: "Logged out everywhere" });
   },
 );

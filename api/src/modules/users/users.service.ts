@@ -5,12 +5,12 @@ import { Errors } from "../../lib/app-error.js";
 import { prisma } from "../../lib/prisma.js";
 import { PUBLIC_USER_SELECT } from "../../lib/user-select.js";
 import type {
-  CreateUserInput,
-  ListUsersQuery,
-  SetPasswordInput,
-  UpdateUserInput,
-  UpdateUserStatusInput,
-} from "./users.schema.js";
+  CreateUserDto,
+  ListUsersQueryDto,
+  SetPasswordDto,
+  UpdateUserDto,
+  UpdateUserStatusDto,
+} from "./dto/index.js";
 import type { ListUsersResult, UserView } from "./users.types.js";
 
 export interface UserActor {
@@ -54,7 +54,7 @@ async function mustGetUser(id: string): Promise<UserView> {
   return user;
 }
 
-export async function listUsers(query: ListUsersQuery): Promise<ListUsersResult> {
+export async function listUsers(query: ListUsersQueryDto): Promise<ListUsersResult> {
   const where: Prisma.UserWhereInput = {};
 
   if (query.search) {
@@ -92,7 +92,7 @@ export async function getUserById(id: string): Promise<UserView> {
 
 export async function createUser(
   actor: UserActor,
-  input: CreateUserInput,
+  input: CreateUserDto,
 ): Promise<UserView> {
   if (input.role === "SUPER_ADMIN" && !isSuperAdmin(actor)) {
     throw Errors.forbidden(
@@ -122,7 +122,7 @@ export async function createUser(
 export async function updateUser(
   actor: UserActor,
   id: string,
-  input: UpdateUserInput,
+  input: UpdateUserDto,
 ): Promise<UserView> {
   const target = await mustGetUser(id);
   assertCanManage(actor, target);
@@ -157,7 +157,7 @@ export async function updateUser(
 export async function updateUserStatus(
   actor: UserActor,
   id: string,
-  input: UpdateUserStatusInput,
+  input: UpdateUserStatusDto,
 ): Promise<UserView> {
   const target = await mustGetUser(id);
   assertCanManage(actor, target);
@@ -173,7 +173,7 @@ export async function updateUserStatus(
 export async function setUserPassword(
   actor: UserActor,
   id: string,
-  input: SetPasswordInput,
+  input: SetPasswordDto,
 ): Promise<void> {
   const target = await mustGetUser(id);
   assertCanManage(actor, target);

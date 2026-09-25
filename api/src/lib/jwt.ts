@@ -4,17 +4,23 @@ import { env } from "../config/env.js";
 export type AccessTokenPayload = JwtPayload & {
   sub: string;
   role: string;
+  sid?: string;
 };
 
 export function signAccessToken(user: {
   id: string;
   role: string;
+  sessionId: string;
 }): string {
-  return jwt.sign({ sub: user.id, role: user.role }, env.JWT_SECRET, {
-    expiresIn: env.ACCESS_TOKEN_TTL as SignOptions["expiresIn"],
-    issuer: "agrivet-api",
-    audience: "agrivet-client",
-  });
+  return jwt.sign(
+    { sub: user.id, role: user.role, sid: user.sessionId },
+    env.JWT_SECRET,
+    {
+      expiresIn: env.SESSION_TTL as SignOptions["expiresIn"],
+      issuer: "agrivet-api",
+      audience: "agrivet-client",
+    },
+  );
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
@@ -30,9 +36,9 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
   return decoded as AccessTokenPayload;
 }
 
-export function accessTokenTtlMs(): number {
-  const unit = env.ACCESS_TOKEN_TTL.slice(-1);
-  const value = Number.parseInt(env.ACCESS_TOKEN_TTL.slice(0, -1), 10);
+export function sessionTtlMs(): number {
+  const unit = env.SESSION_TTL.slice(-1);
+  const value = Number.parseInt(env.SESSION_TTL.slice(0, -1), 10);
   const multipliers: Record<string, number> = {
     s: 1000,
     m: 60_000,
@@ -41,7 +47,7 @@ export function accessTokenTtlMs(): number {
   };
   const multiplier = multipliers[unit];
   if (!multiplier) {
-    throw new Error("Invalid ACCESS_TOKEN_TTL");
+    throw new Error("Invalid SESSION_TTL");
   }
   return value * multiplier;
 }

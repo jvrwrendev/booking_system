@@ -1,9 +1,9 @@
-import type { Express } from "express";
+import type { Express, Router } from "express";
 
 export interface AppModule {
   name: string;
   basePath: string;
-  router: unknown;
+  router: Router;
 }
 
 export function registerModules(
@@ -11,6 +11,6 @@ export function registerModules(
   modules: readonly AppModule[],
 ): void {
   for (const module of modules) {
-    app.use(module.basePath, module.router as import("express").Router);
+    app.use(module.basePath, module.router);
   }
 }

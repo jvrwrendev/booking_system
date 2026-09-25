@@ -3,9 +3,13 @@ import { asyncHandler } from "../lib/async-handler.js";
 import { Errors } from "../lib/app-error.js";
 import { verifyAccessToken } from "../lib/jwt.js";
 import { prisma } from "../lib/prisma.js";
-import { PUBLIC_USER_SELECT } from "../lib/user-select.js";
+import { PUBLIC_USER_SELECT, toPublicUser } from "../lib/user-select.js";
 import { AUTH_COOKIE_NAME } from "../constants.js";
-import type { AuthenticatedRequest, AuthUser } from "../features/auth/auth.types.js";
+import type {
+  AuthenticatedRequest,
+  AuthUser,
+  SessionMeta,
+} from "../modules/auth/auth.types.js";
 
 export const authenticate: RequestHandler = asyncHandler(
   async (req, _res, next) => {
@@ -22,20 +26,43 @@ export const authenticate: RequestHandler = asyncHandler(
       throw Errors.unauthorized("Session is invalid or has expired");
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: PUBLIC_USER_SELECT,
+    if (typeof payload.sid !== "string" || payload.sid.length === 0) {
+      throw Errors.unauthorized("Session is invalid or has expired");
+    }
+
+    const session = await prisma.session.findUnique({
+      where: { id: payload.sid },
+      include: { user: { select: PUBLIC_USER_SELECT } },
     });
 
-    if (!user) {
-      throw Errors.unauthorized("Account no longer exists");
+    if (!session) {
+      throw Errors.unauthorized("Session no longer exists");
     }
+
+    if (session.revokedAt) {
+      throw Errors.unauthorized("Session has been revoked");
+    }
+
+    if (session.expiresAt <= new Date()) {
+      await prisma.session
+        .delete({ where: { id: session.id } })
+        .catch(() => undefined);
+      throw Errors.unauthorized("Session has expired");
+    }
+
+    const user = toPublicUser(session.user);
 
     if (user.status !== "ACTIVE") {
       throw Errors.unauthorized("Account is inactive or suspended");
     }
 
-    (req as AuthenticatedRequest).user = user as AuthUser;
+    const authReq = req as AuthenticatedRequest;
+    authReq.user = user as AuthUser;
+    authReq.session = {
+      id: session.id,
+      createdAt: session.createdAt,
+      expiresAt: session.expiresAt,
+    } satisfies SessionMeta;
     next();
   },
 );

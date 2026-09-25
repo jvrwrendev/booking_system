@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
+import { sessionsRouter } from "./sessions.routes.js";
 import {
   changePasswordController,
   getMeController,
@@ -30,3 +31,5 @@ authRouter.post("/logout", logoutController);
 authRouter.get("/me", getMeController);
 
 authRouter.post("/change-password", changePasswordController);
+
+authRouter.use("/sessions", sessionsRouter);

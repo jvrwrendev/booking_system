@@ -1,7 +1,7 @@
 import type { RequestHandler } from "express";
 import type { Role } from "@prisma/client";
 import { Errors } from "../lib/app-error.js";
-import type { AuthenticatedRequest } from "../features/auth/auth.types.js";
+import type { AuthenticatedRequest } from "../modules/auth/auth.types.js";
 
 export const ROLE_GRANTS: Record<Role, readonly Role[]> = {
   SUPER_ADMIN: ["SUPER_ADMIN", "ADMIN"],
