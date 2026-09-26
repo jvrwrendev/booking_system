@@ -12,7 +12,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { initials } from "@/lib/utils";
+import { useNotifications } from "@/features/notifications/hooks/useNotifications";
+import { cn, initials, relativeTime } from "@/lib/utils";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -20,6 +21,8 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth();
+  const { notifications, unreadCount, markRead, markAllRead } =
+    useNotifications();
   const navigate = useNavigate();
 
   if (!user) return null;
@@ -50,15 +53,76 @@ export function Header({ onMenuClick }: HeaderProps) {
         </div>
       </div>
       <div className="ml-auto flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              aria-label={`Notifications (${unreadCount} unread)`}
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                  {unreadCount}
+                </span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80 p-0">
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className="text-sm font-semibold">Notifications</span>
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={markAllRead}
+                  className="text-[11px] font-medium text-primary hover:underline"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
+            <DropdownMenuSeparator className="my-0" />
+            {notifications.length === 0 ? (
+              <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                You&apos;re all caught up.
+              </p>
+            ) : (
+              <div className="max-h-80 overflow-y-auto scrollbar-thin">
+                {notifications.map((n) => (
+                  <DropdownMenuItem
+                    key={n.id}
+                    onSelect={() => {
+                      markRead(n.id);
+                      navigate(n.href);
+                    }}
+                    className="items-start rounded-none px-3 py-2"
+                  >
+                    <span
+                      className={cn(
+                        "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
+                        n.read ? "bg-muted-foreground/30" : "bg-primary"
+                      )}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={cn(
+                          "block truncate text-xs",
+                          n.read ? "text-muted-foreground" : "font-medium"
+                        )}
+                      >
+                        {n.title}
+                      </span>
+                      <span className="block text-[10px] text-muted-foreground">
+                        {relativeTime(n.timestamp)}
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </div>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 px-2" aria-label="Account menu">

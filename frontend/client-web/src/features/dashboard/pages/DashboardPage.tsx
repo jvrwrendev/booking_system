@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatisticsCard } from "@/components/common/StatisticsCard";
+import { NotificationsCard } from "@/features/notifications/components/NotificationsCard";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -224,43 +225,7 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="space-y-1">
-              <CardTitle className="text-sm font-medium">By Status</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Current booking distribution.
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {mockReports.bookingsByStatus.map((entry) => {
-              const total = mockReports.bookingsByStatus.reduce(
-                (s, e) => s + e.count,
-                0
-              );
-              const pct = total > 0 ? (entry.count / total) * 100 : 0;
-              return (
-                <div key={entry.status} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      {entry.status}
-                    </span>
-                    <span className="font-medium tabular-nums">
-                      {entry.count}
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary/80 transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
+        <NotificationsCard />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
