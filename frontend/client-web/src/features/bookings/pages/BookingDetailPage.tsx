@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  Ban,
   CalendarDays,
   CheckCircle2,
   History,
@@ -59,7 +58,6 @@ export function BookingDetailPage() {
   const booking = id ? getBooking(id) : undefined;
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
-  const [cancelOpen, setCancelOpen] = useState(false);
 
   if (!booking) {
     return (
@@ -75,8 +73,8 @@ export function BookingDetailPage() {
             Booking not found.
           </CardContent>
         </Card>
-    </div>
-  );
+      </div>
+    );
   }
 
   const customer = mockCustomers.find((c) => c.id === booking.customerId);
@@ -153,18 +151,6 @@ export function BookingDetailPage() {
           >
             <RefreshCw className="h-4 w-4" />
             Re-Assign
-          </Button>
-        )}
-      {isSuperAdmin &&
-        !isTerminal &&
-        booking.stockCommitted && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setCancelOpen(true)}
-          >
-            <Ban className="h-4 w-4" />
-            Cancel Booking
           </Button>
         )}
     </div>
@@ -386,24 +372,6 @@ export function BookingDetailPage() {
         onConfirm={() => {
           setStatus(booking.id, "rejected");
           setRejectOpen(false);
-        }}
-      />
-
-      <ConfirmDialog
-        open={cancelOpen}
-        onOpenChange={setCancelOpen}
-        title="Cancel this booking?"
-        description={
-          booking.stockCommitted
-            ? `This will cancel booking ${booking.reference} and return the reserved stock to the catalog.`
-            : `This will cancel booking ${booking.reference}.`
-        }
-        confirmText="Cancel booking"
-        destructive
-        onConfirm={() => {
-          if (!setStatus(booking.id, "cancelled").ok) return false;
-          setCancelOpen(false);
-          return true;
         }}
       />
 

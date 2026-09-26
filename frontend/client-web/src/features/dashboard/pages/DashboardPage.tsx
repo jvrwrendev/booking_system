@@ -34,14 +34,13 @@ import {
   CircleDollarSign,
 } from "lucide-react";
 
+import { mockProducts } from "@/data/mock-products";
+import { mockCategories } from "@/data/mock-categories";
 import { mockCustomers } from "@/data/mock-customers";
 import { mockAgents } from "@/data/mock-agents";
 import { mockBranches } from "@/data/mock-branches";
+import { mockBookings } from "@/data/mock-bookings";
 import { mockReports } from "@/data/mock-reports";
-import { useProductsStore } from "@/features/products/hooks/useProductsStore";
-import { useCategoriesStore } from "@/features/categories/hooks/useCategoriesStore";
-import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
-import { getStockStatus, isLowStock, isOutOfStock } from "@/lib/stock";
 import {
   formatCurrency,
   formatDate,
@@ -55,49 +54,30 @@ import {
 } from "@/components/common/StatusBadge";
 
 export function DashboardPage() {
-  const { products } = useProductsStore();
-  const { categories } = useCategoriesStore();
-  const { bookings } = useBookingsStore();
-
-  const totalProducts = products.length;
-  // Cost price is optional, so fall back to selling price to value stock on hand.
-  const totalInventoryValue = products.reduce(
-    (sum, p) => sum + p.stockQuantity * (p.costPrice ?? p.sellingPrice),
+  const totalProducts = mockProducts.length;
+  const totalInventoryValue = mockProducts.reduce(
+    (sum, p) => sum + p.stockQuantity * p.costPrice,
     0
   );
-  // Low stock and out of stock are counted separately so the two alerts never
-  // overlap; an out-of-stock item is not also reported as "low".
-  const lowStockItems = useMemo(
-    () =>
-      products.filter((p) =>
-        isLowStock(p.stockQuantity, p.minimumStockLevel)
-      ),
-    [products]
+  const lowStockItems = mockProducts.filter(
+    (p) => p.stockQuantity <= p.minimumStockLevel
   );
-  const outOfStockItems = useMemo(
-    () => products.filter((p) => isOutOfStock(p.stockQuantity)),
-    [products]
-  );
-  const stockAlertItems = useMemo(
-    () => [...outOfStockItems, ...lowStockItems].slice(0, 5),
-    [outOfStockItems, lowStockItems]
-  );
-  const pendingBookings = bookings.filter((b) => b.status === "pending");
+  const pendingBookings = mockBookings.filter((b) => b.status === "pending");
   const todayIso = new Date().toISOString().slice(0, 10);
-  const todaysBookings = bookings.filter((b) => b.bookingDate === todayIso);
+  const todaysBookings = mockBookings.filter((b) => b.bookingDate === todayIso);
   const totalCustomers = mockCustomers.length;
   const totalAgents = mockAgents.filter((a) => a.status === "active").length;
   const totalBranches = mockBranches.filter((b) => b.status === "active").length;
 
   const recentBookings = useMemo(
     () =>
-      [...bookings]
+      [...mockBookings]
         .sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         )
         .slice(0, 5),
-    [bookings]
+    []
   );
 
   const recentCustomers = useMemo(
@@ -143,13 +123,7 @@ export function DashboardPage() {
           label="Low Stock Items"
           value={formatNumber(lowStockItems.length)}
           icon={<AlertTriangle className="h-4 w-4" />}
-          hint="Above zero but at or below the minimum level"
-        />
-        <StatisticsCard
-          label="Out of Stock"
-          value={formatNumber(outOfStockItems.length)}
-          icon={<Boxes className="h-4 w-4" />}
-          hint="Needs immediate replenishment"
+          hint="Items below minimum stock level"
         />
         <StatisticsCard
           label="Pending Bookings"
@@ -462,9 +436,9 @@ export function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div className="space-y-1">
-              <CardTitle className="text-sm font-medium">Stock Alerts</CardTitle>
+              <CardTitle className="text-sm font-medium">Low Stock Alert</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Out-of-stock products and items at or below their minimum level.
+                Products that need restocking attention.
               </p>
             </div>
             <Button asChild variant="ghost" size="sm" className="h-8">
@@ -482,11 +456,18 @@ export function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {stockAlertItems.map((product) => {
-                  const stockStatus = getStockStatus(
-                    product.stockQuantity,
-                    product.minimumStockLevel
-                  );
+                {lowStockItems.slice(0, 5).map((product) => {
+                  const stockStatus = (() => {
+                    if (product.stockQuantity <= 0) return "out_of_stock";
+                    if (
+                      product.stockQuantity <=
+                      Math.max(product.minimumStockLevel / 2, 1)
+                    )
+                      return "critical";
+                    if (product.stockQuantity <= product.minimumStockLevel)
+                      return "low_stock";
+                    return "in_stock";
+                  })();
                   return (
                     <TableRow key={product.id}>
                       <TableCell>

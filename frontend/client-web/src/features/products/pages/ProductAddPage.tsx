@@ -1,30 +1,26 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Info, Package } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ProductForm } from "../components/ProductForm";
 import { useProductsStore } from "../hooks/useProductsStore";
-import { useCategoriesStore } from "@/features/categories/hooks/useCategoriesStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { NotFound } from "@/components/common/NotFound";
 import { FormPageLayout } from "@/components/common/FormPageLayout";
 import { DetailsPanel } from "@/components/common/DetailsPanel";
-import type { ProductFormErrors } from "../lib/validation";
+import { mockCategories } from "@/data/mock-categories";
 
 export function ProductAddPage() {
   const navigate = useNavigate();
   const { addProduct, products } = useProductsStore();
-  const { categories } = useCategoriesStore();
   const { can } = usePermissions();
-  const [errors, setErrors] = useState<ProductFormErrors>({});
 
   if (!can("products.create")) {
     return <NotFound permission title="Permission denied" />;
   }
 
   const activeProducts = products.filter((p) => p.status === "active").length;
-  const activeCategories = categories.filter(
+  const activeCategories = mockCategories.filter(
     (c) => c.status === "active"
   ).length;
 
@@ -98,14 +94,8 @@ export function ProductAddPage() {
       <ProductForm
         formId="product-add-form"
         hideFooter
-        errors={errors}
         onSubmit={(data) => {
-          const result = addProduct(data);
-          if (!result.ok) {
-            setErrors(result.errors ?? {});
-            return;
-          }
-          setErrors({});
+          addProduct(data);
           navigate("/products");
         }}
         onCancel={() => navigate("/products")}

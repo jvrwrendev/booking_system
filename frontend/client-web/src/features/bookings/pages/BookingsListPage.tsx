@@ -204,13 +204,11 @@ export function BookingsListPage() {
         }
         breadcrumbs={[{ label: "Operations" }, { label: "Bookings" }]}
         actions={
-          can("bookings.create") && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button asChild variant="outline">
-                <Link to="/bookings/new">New booking</Link>
-              </Button>
-            </div>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline">
+              <Link to="/bookings/new">New booking</Link>
+            </Button>
+          </div>
         }
       />
 

@@ -10,24 +10,6 @@ export const STATUS_INACTIVE = "inactive";
 
 export const CURRENCY = "₱";
 
-/** Units of measure offered when creating or editing a product. */
-export const PRODUCT_UNITS = [
-  "Bottle",
-  "Sack",
-  "Piece",
-  "Box",
-  "Pack",
-  "Bag",
-  "Kit",
-  "Set",
-  "Roll",
-  "Gallon",
-  "Tablet",
-  "Liter",
-] as const;
-
-export const DEFAULT_PRODUCT_UNIT = "Piece";
-
 export const dateFormatPatterns = {
   short: "MMM dd, yyyy",
   long: "MMMM dd, yyyy",

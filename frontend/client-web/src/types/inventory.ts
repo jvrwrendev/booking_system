@@ -1,6 +1,4 @@
-import { getStockStatus, type StockStatus } from "@/lib/stock";
-
-export type { StockStatus };
+export type StockStatus = "in_stock" | "low_stock" | "critical" | "out_of_stock";
 
 export interface InventoryItem {
   id: string;
@@ -42,4 +40,12 @@ export interface InventoryTransaction {
   date: string;
 }
 
-export const computeStockStatus = getStockStatus;
+export function computeStockStatus(
+  current: number,
+  minimum: number
+): StockStatus {
+  if (current <= 0) return "out_of_stock";
+  if (current <= Math.max(Math.floor(minimum / 2), 1)) return "critical";
+  if (current <= minimum) return "low_stock";
+  return "in_stock";
+}

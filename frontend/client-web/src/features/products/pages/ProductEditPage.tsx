@@ -1,23 +1,18 @@
-import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "sonner";
 
 import { ProductForm } from "../components/ProductForm";
 import { useProductsStore } from "../hooks/useProductsStore";
-import { useCategoriesStore } from "@/features/categories/hooks/useCategoriesStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { NotFound } from "@/components/common/NotFound";
 import { FormPageLayout } from "@/components/common/FormPageLayout";
 import { formatCurrency } from "@/lib/utils";
-import type { ProductFormErrors } from "../lib/validation";
+import { mockCategories } from "@/data/mock-categories";
 
 export function ProductEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getProduct, updateProduct } = useProductsStore();
-  const { categories } = useCategoriesStore();
   const { can } = usePermissions();
-  const [errors, setErrors] = useState<ProductFormErrors>({});
 
   const product = id ? getProduct(id) : undefined;
 
@@ -28,7 +23,7 @@ export function ProductEditPage() {
     return <NotFound title="Product not found" backHref="/products" />;
   }
 
-  const category = categories.find((c) => c.id === product.categoryId);
+  const category = mockCategories.find((c) => c.id === product.categoryId);
 
   return (
     <FormPageLayout
@@ -51,23 +46,8 @@ export function ProductEditPage() {
       <ProductForm
         initial={product}
         submitLabel="Save changes"
-        errors={errors}
-        onSubmit={(data, openedStock) => {
-          if (openedStock === undefined) {
-            toast.error("Could not save changes", {
-              description:
-                "This product has no recorded stock level. Reload the page and try again.",
-            });
-            return;
-          }
-          // `openedStock` is the count the form was opened with, so a booking
-          // accepted while this page was open is not written over on save.
-          const result = updateProduct(product.id, data, openedStock);
-          if (!result.ok) {
-            setErrors(result.errors ?? {});
-            return;
-          }
-          setErrors({});
+        onSubmit={(data) => {
+          updateProduct(product.id, data);
           navigate(`/products/${product.id}`);
         }}
         onCancel={() => navigate(`/products/${product.id}`)}
