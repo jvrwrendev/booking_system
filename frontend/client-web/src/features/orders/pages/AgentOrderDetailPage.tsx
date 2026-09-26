@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   BadgePercent,
+  Ban,
   CalendarDays,
   CheckCircle2,
   History,
@@ -115,9 +116,12 @@ export function AgentOrderDetailPage() {
   const isTerminal = TERMINAL_STATUSES.includes(booking.status);
 
   const applyAction = () => {
-    if (!pendingAction || !user) return;
-    setStatus(booking.id, pendingAction.target, user);
+    if (!pendingAction || !user) return false;
+    // Returning false keeps the confirmation open when the transition is
+    // refused, e.g. there is not enough stock to commit the order.
+    if (!setStatus(booking.id, pendingAction.target, user).ok) return false;
     setPendingAction(null);
+    return true;
   };
 
   const rejectOrder = () => {
@@ -135,6 +139,8 @@ export function AgentOrderDetailPage() {
         return "Accept this order?";
       case "rejected":
         return "Reject this order?";
+      case "cancelled":
+        return "Cancel this order?";
       default:
         return "Confirm action?";
     }
@@ -150,6 +156,10 @@ export function AgentOrderDetailPage() {
         return `You are accepting order ${booking.reference}. It will move to the accepted stage for processing.`;
       case "rejected":
         return `This will reject order ${booking.reference}. This action cannot be undone.`;
+      case "cancelled":
+        return booking.stockCommitted
+          ? `This will cancel order ${booking.reference} and return the reserved stock to the catalog.`
+          : `This will cancel order ${booking.reference}. This action cannot be undone.`;
       default:
         return "";
     }
@@ -209,6 +219,21 @@ export function AgentOrderDetailPage() {
                   <Button size="sm" onClick={() => setAssignmentOpen(true)}>
                     <UserCheck className="h-4 w-4" />
                     Assign to Admin
+                  </Button>
+                )}
+                {!isTerminal && booking.stockCommitted && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setPendingAction({
+                        target: "cancelled",
+                        label: "Cancel Order",
+                      })
+                    }
+                  >
+                    <Ban className="h-4 w-4" />
+                    Cancel Order
                   </Button>
                 )}
               </div>
@@ -457,6 +482,7 @@ export function AgentOrderDetailPage() {
         title={confirmTitle}
         description={confirmDescription}
         confirmText={pendingAction?.label ?? "Confirm"}
+        destructive={pendingAction?.target === "cancelled"}
         onConfirm={applyAction}
       />
 

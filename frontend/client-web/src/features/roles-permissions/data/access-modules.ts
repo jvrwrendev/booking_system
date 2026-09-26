@@ -1,4 +1,5 @@
 import {
+  Boxes,
   ClipboardList,
   FileBarChart,
   Package,
@@ -6,6 +7,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   Store,
+  Tags,
   Users,
 } from "lucide-react";
 
@@ -53,6 +55,30 @@ export const ACCESS_MODULES: AccessModule[] = [
     description: "Process assigned orders through to delivery.",
     icon: Package,
     permissions: ["bookings.process"],
+  },
+  {
+    key: "products",
+    label: "Products",
+    description: "View, create, update, and delete catalog products and pricing.",
+    icon: Boxes,
+    permissions: [
+      "products.view",
+      "products.create",
+      "products.update",
+      "products.delete",
+    ],
+  },
+  {
+    key: "categories",
+    label: "Categories",
+    description: "Manage the product categories that group the catalog.",
+    icon: Tags,
+    permissions: [
+      "categories.view",
+      "categories.create",
+      "categories.update",
+      "categories.delete",
+    ],
   },
   {
     key: "user-management",

@@ -14,14 +14,15 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { NotFound } from "@/components/common/NotFound";
 
 import { useProductsStore } from "../hooks/useProductsStore";
-import { mockCategories } from "@/data/mock-categories";
-import { getProductStockStatus } from "@/types/product";
+import { useCategoriesStore } from "@/features/categories/hooks/useCategoriesStore";
+import { getStockStatus } from "@/lib/stock";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { getProduct } = useProductsStore();
+  const { categories } = useCategoriesStore();
   const { can } = usePermissions();
   const navigate = useNavigate();
 
@@ -30,12 +31,14 @@ export function ProductDetailPage() {
     return <NotFound title="Product not found" backHref="/products" />;
   }
 
-  const category = mockCategories.find((c) => c.id === product.categoryId);
-  const stockStatus = getProductStockStatus(product);
-  const margin = product.sellingPrice - product.costPrice;
+  const category = categories.find((c) => c.id === product.categoryId);
+  const stockStatus = getStockStatus(product.stockQuantity, product.minimumStockLevel);
+  // Cost price is optional, so margin is only meaningful when it is recorded.
+  const hasCost = product.costPrice !== undefined;
+  const margin = hasCost ? product.sellingPrice - product.costPrice! : 0;
   const marginPercent =
-    product.costPrice > 0
-      ? Math.round((margin / product.costPrice) * 100)
+    hasCost && product.costPrice! > 0
+      ? Math.round((margin / product.costPrice!) * 100)
       : 0;
 
   return (
@@ -104,12 +107,17 @@ export function ProductDetailPage() {
               <InfoRow label="Brand" value={product.brand || "—"} />
               <InfoRow label="Unit" value={product.unit} />
               <InfoRow label="Supplier" value={product.supplier || "—"} />
-              <InfoRow label="Cost Price" value={formatCurrency(product.costPrice)} />
-              <InfoRow label="Selling Price" value={formatCurrency(product.sellingPrice)} />
               <InfoRow
-                label="Margin"
-                value={`${formatCurrency(margin)} (${marginPercent}%)`}
+                label="Cost Price"
+                value={hasCost ? formatCurrency(product.costPrice!) : "—"}
               />
+              <InfoRow label="Selling Price" value={formatCurrency(product.sellingPrice)} />
+              {hasCost && (
+                <InfoRow
+                  label="Margin"
+                  value={`${formatCurrency(margin)} (${marginPercent}%)`}
+                />
+              )}
               <InfoRow label="Created" value={formatDate(product.createdAt)} />
               <InfoRow label="Updated" value={formatDate(product.updatedAt)} />
             </dl>

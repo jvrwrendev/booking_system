@@ -17,7 +17,12 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   destructive?: boolean;
-  onConfirm: () => void;
+  /**
+   * Return `false` to keep the dialog open. The confirm button is a Radix
+   * `Dialog.Close`, so it closes on click unless the default is prevented;
+   * returning nothing or `true` closes it as usual.
+   */
+  onConfirm: () => boolean | void;
 }
 
 export function ConfirmDialog({
@@ -42,7 +47,9 @@ export function ConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelText}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={(event) => {
+              if (onConfirm() === false) event.preventDefault();
+            }}
             className={
               destructive
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"

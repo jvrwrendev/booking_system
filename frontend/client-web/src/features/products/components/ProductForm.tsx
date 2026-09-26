@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Package } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -18,70 +18,99 @@ import {
 import { ImageUpload } from "@/components/common/ImageUpload";
 
 import type { Product, ProductFormValues } from "@/types/product";
-import { mockCategories } from "@/data/mock-categories";
+import { useCategoriesStore } from "@/features/categories/hooks/useCategoriesStore";
+import { DEFAULT_PRODUCT_UNIT, PRODUCT_UNITS } from "@/lib/constants";
+import type { ProductFormErrors } from "../lib/validation";
 
 interface ProductFormProps {
   initial?: Product;
   submitLabel?: string;
-  onSubmit: (data: ProductFormValues) => void;
+  errors?: ProductFormErrors;
+  /**
+   * `openedStockQuantity` is the stock count the form was opened with, taken
+   * from the same snapshot the field values came from. Edits must be applied as
+   * a difference from it, otherwise a deduction committed while the form was
+   * open would be undone by saving an unrelated field.
+   */
+  onSubmit: (
+    data: ProductFormValues,
+    openedStockQuantity: number | undefined
+  ) => void;
   onCancel?: () => void;
   hideFooter?: boolean;
   formId?: string;
 }
 
+function toFormValues(initial?: Product): ProductFormValues {
+  return initial
+    ? {
+        name: initial.name,
+        sku: initial.sku,
+        categoryId: initial.categoryId,
+        description: initial.description,
+        unit: initial.unit,
+        sellingPrice: initial.sellingPrice,
+        stockQuantity: initial.stockQuantity,
+        minimumStockLevel: initial.minimumStockLevel,
+        status: initial.status,
+        image: initial.image,
+        // Optional commercial details are normalized to empty form values.
+        brand: initial.brand ?? "",
+        costPrice: initial.costPrice ?? 0,
+        supplier: initial.supplier ?? "",
+      }
+    : {
+        name: "",
+        sku: "",
+        categoryId: "",
+        brand: "",
+        description: "",
+        unit: DEFAULT_PRODUCT_UNIT,
+        costPrice: 0,
+        sellingPrice: 0,
+        stockQuantity: 0,
+        minimumStockLevel: 0,
+        supplier: "",
+        status: "active",
+      };
+}
+
 export function ProductForm({
   initial,
   submitLabel,
+  errors = {},
   onSubmit,
   onCancel,
   hideFooter = false,
   formId,
 }: ProductFormProps) {
-  const [values, setValues] = useState<ProductFormValues>(
-    initial
-      ? {
-          name: initial.name,
-          sku: initial.sku,
-          categoryId: initial.categoryId,
-          brand: initial.brand,
-          description: initial.description,
-          unit: initial.unit,
-          costPrice: initial.costPrice,
-          sellingPrice: initial.sellingPrice,
-          stockQuantity: initial.stockQuantity,
-          minimumStockLevel: initial.minimumStockLevel,
-          supplier: initial.supplier,
-          status: initial.status,
-          image: initial.image,
-        }
-      : {
-          name: "",
-          sku: "",
-          categoryId: "",
-          brand: "",
-          description: "",
-          unit: "piece",
-          costPrice: 0,
-          sellingPrice: 0,
-          stockQuantity: 0,
-          minimumStockLevel: 0,
-          supplier: "",
-          status: "active",
-        }
+  const { categories, activeCategories } = useCategoriesStore();
+  const [values, setValues] = useState<ProductFormValues>(() =>
+    toFormValues(initial)
   );
+  // Captured from the same `initial` snapshot the state above was built from,
+  // and never re-read: the catalog can change underneath an open form, and the
+  // live value would no longer describe what the admin is looking at.
+  const openedStockQuantity = useRef(initial?.stockQuantity);
+
+  // A product already assigned to a deactivated category must stay editable, so
+  // its current category is offered even though new products cannot pick it.
+  const categoryOptions = useMemo(() => {
+    if (initial && !activeCategories.some((c) => c.id === initial.categoryId)) {
+      const current = categories.find((c) => c.id === initial.categoryId);
+      if (current) return [...activeCategories, current];
+    }
+    return activeCategories;
+  }, [activeCategories, categories, initial]);
 
   const margin =
-    values.sellingPrice > 0
-      ? values.sellingPrice - values.costPrice
-      : 0;
+    values.sellingPrice > 0 ? values.sellingPrice - values.costPrice : 0;
   const marginPercent =
-    values.costPrice > 0
-      ? Math.round((margin / values.costPrice) * 100)
-      : 0;
+    values.costPrice > 0 ? Math.round((margin / values.costPrice) * 100) : 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(values);
+    onSubmit(values, openedStockQuantity.current);
   };
 
   return (
@@ -119,14 +148,19 @@ export function ProductForm({
         description="Name, identifier, and classification details."
       >
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <FormField label="Product name" required htmlFor="name">
+          <FormField
+            label="Product name"
+            required
+            htmlFor="name"
+            error={errors.name}
+          >
             <Input
               id="name"
               value={values.name}
               onChange={(e) =>
                 setValues((v) => ({ ...v, name: e.target.value }))
               }
-              placeholder="Premium Hog Feed"
+              placeholder="Dewormer 100ml"
               className="h-10"
             />
           </FormField>
@@ -134,7 +168,8 @@ export function ProductForm({
             label="SKU"
             required
             htmlFor="sku"
-            hint="Will be auto-uppercased."
+            hint="Must be unique. Auto-uppercased."
+            error={errors.sku}
           >
             <Input
               id="sku"
@@ -145,11 +180,16 @@ export function ProductForm({
                   sku: e.target.value.toUpperCase(),
                 }))
               }
-              placeholder="FEED-HOG-001"
+              placeholder="VET-DWM-001"
               className="h-10 font-mono"
             />
           </FormField>
-          <FormField label="Category" required htmlFor="category">
+          <FormField
+            label="Category"
+            required
+            htmlFor="category"
+            error={errors.categoryId}
+          >
             <Select
               value={values.categoryId}
               onValueChange={(v) =>
@@ -160,13 +200,12 @@ export function ProductForm({
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {mockCategories
-                  .filter((c) => c.status === "active")
-                  .map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
+                {categoryOptions.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                    {c.status === "inactive" ? " (inactive)" : ""}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </FormField>
@@ -181,16 +220,28 @@ export function ProductForm({
               className="h-10"
             />
           </FormField>
-          <FormField label="Unit" optional htmlFor="unit">
-            <Input
-              id="unit"
+          <FormField
+            label="Unit"
+            required
+            htmlFor="unit"
+            error={errors.unit}
+            hint="How the product is sold and counted."
+          >
+            <Select
               value={values.unit}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, unit: e.target.value }))
-              }
-              placeholder="50 kg sack"
-              className="h-10"
-            />
+              onValueChange={(v) => setValues((s) => ({ ...s, unit: v }))}
+            >
+              <SelectTrigger id="unit" className="h-10">
+                <SelectValue placeholder="Select unit" />
+              </SelectTrigger>
+              <SelectContent>
+                {PRODUCT_UNITS.map((u) => (
+                  <SelectItem key={u} value={u}>
+                    {u}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </FormField>
           <FormField label="Supplier" optional htmlFor="supplier">
             <Input
@@ -213,9 +264,10 @@ export function ProductForm({
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <FormField
             label="Cost price (₱)"
-            required
+            optional
             htmlFor="costPrice"
-            hint="The amount you pay per unit."
+            hint="Used for margin and inventory value."
+            error={errors.costPrice}
           >
             <Input
               id="costPrice"
@@ -237,6 +289,7 @@ export function ProductForm({
             required
             htmlFor="sellingPrice"
             hint="The price customers pay per unit."
+            error={errors.sellingPrice}
           >
             <Input
               id="sellingPrice"
@@ -253,7 +306,12 @@ export function ProductForm({
               className="h-10"
             />
           </FormField>
-          <FormField label="Margin" optional htmlFor="margin" className="pointer-events-none">
+          <FormField
+            label="Margin"
+            optional
+            htmlFor="margin"
+            className="pointer-events-none"
+          >
             <Input
               id="margin"
               readOnly
@@ -278,6 +336,7 @@ export function ProductForm({
             required
             htmlFor="stockQuantity"
             hint="Current units in stock."
+            error={errors.stockQuantity}
           >
             <Input
               id="stockQuantity"
@@ -297,7 +356,8 @@ export function ProductForm({
             label="Minimum stock level"
             optional
             htmlFor="minimumStockLevel"
-            hint="Trigger reorder alert when stock falls below this."
+            hint="Triggers the low stock alert. Leave 0 to disable it."
+            error={errors.minimumStockLevel}
           >
             <Input
               id="minimumStockLevel"
@@ -334,7 +394,7 @@ export function ProductForm({
 
       <FormSection
         title="Status"
-        description="Control whether this product is visible and available for bookings."
+        description="Control whether this product is visible and available for new bookings."
       >
         <div className="max-w-xs">
           <Select
@@ -352,7 +412,6 @@ export function ProductForm({
             <SelectContent>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="out_of_stock">Out of stock</SelectItem>
             </SelectContent>
           </Select>
         </div>

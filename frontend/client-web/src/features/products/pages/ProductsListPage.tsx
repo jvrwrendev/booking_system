@@ -1,6 +1,15 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, MoreHorizontal, Package, Plus, Trash2, Pencil } from "lucide-react";
+import {
+  Eye,
+  MoreHorizontal,
+  Package,
+  Plus,
+  Power,
+  PowerOff,
+  Trash2,
+  Pencil,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
@@ -27,29 +36,72 @@ import {
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 import { useProductsStore } from "../hooks/useProductsStore";
+import { useCategoriesStore } from "@/features/categories/hooks/useCategoriesStore";
+import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
+import { toast } from "sonner";
 import type { Product } from "@/types/product";
-import { getProductStockStatus } from "@/types/product";
-import { mockCategories } from "@/data/mock-categories";
+import { canAffectStock } from "@/types/booking";
+import { getStockStatus, type StockStatus } from "@/lib/stock";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 
+const STOCK_FILTERS: { value: string; label: string }[] = [
+  { value: "all", label: "All stock levels" },
+  { value: "out_of_stock", label: "Out of stock" },
+  { value: "critical", label: "Critical" },
+  { value: "low_stock", label: "Low stock" },
+  { value: "in_stock", label: "In stock" },
+];
+
 export function ProductsListPage() {
-  const { products, deleteProduct } = useProductsStore();
+  const { products, deleteProduct, setProductStatus } = useProductsStore();
+  const { categories } = useCategoriesStore();
+  const { bookings } = useBookingsStore();
   const { can } = usePermissions();
   const navigate = useNavigate();
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [stockFilter, setStockFilter] = useState<string>("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
-      if (statusFilter !== "all" && p.status !== statusFilter) return false;
-      if (categoryFilter !== "all" && p.categoryId !== categoryFilter)
-        return false;
-      return true;
-    });
-  }, [products, statusFilter, categoryFilter]);
+  const categoryName = useMemo(() => {
+    const byId = new Map(categories.map((c) => [c.id, c.name]));
+    return (id: string) => byId.get(id) ?? "Uncategorized";
+  }, [categories]);
+
+  /**
+   * Open bookings that can still deduct or return units of each product. The
+   * products store cannot know this itself, so the list page counts it here and
+   * passes it to the delete guard. Counting only committed bookings would let a
+   * product be deleted while a pending booking still claims it.
+   */
+  const openRefCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const booking of bookings) {
+      if (!canAffectStock(booking)) continue;
+      for (const id of new Set(booking.items.map((i) => i.productId))) {
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+    }
+    return (id: string) => counts.get(id) ?? 0;
+  }, [bookings]);
+
+  const filtered = useMemo(
+    () =>
+      products.filter((p) => {
+        if (statusFilter !== "all" && p.status !== statusFilter) return false;
+        if (categoryFilter !== "all" && p.categoryId !== categoryFilter)
+          return false;
+        if (
+          stockFilter !== "all" &&
+          getStockStatus(p.stockQuantity, p.minimumStockLevel) !== stockFilter
+        )
+          return false;
+        return true;
+      }),
+    [products, statusFilter, categoryFilter, stockFilter]
+  );
 
   const columns: DataTableColumn<Product>[] = [
     {
@@ -78,7 +130,7 @@ export function ProductsListPage() {
               {p.name}
             </Link>
             <div className="truncate text-xs text-muted-foreground">
-              {p.brand} · {p.unit}
+              {[p.brand, p.unit].filter(Boolean).join(" · ")}
             </div>
           </div>
         </div>
@@ -97,10 +149,9 @@ export function ProductsListPage() {
     {
       id: "category",
       header: "Category",
-      cell: (p) => {
-        const cat = mockCategories.find((c) => c.id === p.categoryId);
-        return <span className="text-sm">{cat?.name ?? "Uncategorized"}</span>;
-      },
+      cell: (p) => (
+        <span className="text-sm">{categoryName(p.categoryId)}</span>
+      ),
       className: "hidden md:table-cell",
     },
     {
@@ -109,9 +160,11 @@ export function ProductsListPage() {
       cell: (p) => (
         <div className="text-sm">
           <div className="font-medium">{formatCurrency(p.sellingPrice)}</div>
-          <div className="text-[11px] text-muted-foreground">
-            Cost {formatCurrency(p.costPrice)}
-          </div>
+          {p.costPrice !== undefined && (
+            <div className="text-[11px] text-muted-foreground">
+              Cost {formatCurrency(p.costPrice)}
+            </div>
+          )}
         </div>
       ),
       sortable: true,
@@ -120,16 +173,14 @@ export function ProductsListPage() {
     {
       id: "stock",
       header: "Stock",
-      cell: (p) => {
-        return (
-          <div className="text-sm">
-            <div className="font-medium">{p.stockQuantity}</div>
-            <div className="text-[11px] text-muted-foreground">
-              Min {p.minimumStockLevel}
-            </div>
+      cell: (p) => (
+        <div className="text-sm">
+          <div className="font-medium">{p.stockQuantity}</div>
+          <div className="text-[11px] text-muted-foreground">
+            Min {p.minimumStockLevel}
           </div>
-        );
-      },
+        </div>
+      ),
       sortable: true,
       sortKey: "stockQuantity",
     },
@@ -137,7 +188,10 @@ export function ProductsListPage() {
       id: "status",
       header: "Status",
       cell: (p) => {
-        const stock = getProductStockStatus(p);
+        const stock: StockStatus = getStockStatus(
+          p.stockQuantity,
+          p.minimumStockLevel
+        );
         return (
           <div className="flex flex-col items-start gap-1">
             <StatusBadge
@@ -190,6 +244,18 @@ export function ProductsListPage() {
                 </Link>
               </DropdownMenuItem>
             )}
+            {can("products.update") &&
+              (p.status === "active" ? (
+                <DropdownMenuItem onSelect={() => setProductStatus(p.id, "inactive")}>
+                  <PowerOff className="h-4 w-4" />
+                  Mark as inactive
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onSelect={() => setProductStatus(p.id, "active")}>
+                  <Power className="h-4 w-4" />
+                  Mark as active
+                </DropdownMenuItem>
+              ))}
             {can("products.delete") && (
               <DropdownMenuItem
                 className="text-destructive"
@@ -235,7 +301,7 @@ export function ProductsListPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All categories</SelectItem>
-                {mockCategories.map((c) => (
+                {categories.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>
@@ -250,7 +316,18 @@ export function ProductsListPage() {
                 <SelectItem value="all">All status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={stockFilter} onValueChange={setStockFilter}>
+              <SelectTrigger className="h-9 w-[160px]">
+                <SelectValue placeholder="Stock" />
+              </SelectTrigger>
+              <SelectContent>
+                {STOCK_FILTERS.map((f) => (
+                  <SelectItem key={f.value} value={f.value}>
+                    {f.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </>
@@ -265,8 +342,18 @@ export function ProductsListPage() {
         confirmText="Delete"
         destructive
         onConfirm={() => {
-          if (deletingId) deleteProduct(deletingId);
+          if (!deletingId) return false;
+          const result = deleteProduct(deletingId, openRefCounts(deletingId));
+          if (!result.ok) {
+            toast.error("Cannot delete this product", {
+              description: result.error,
+            });
+            // Keeps the dialog open so the refusal stays attached to the action
+            // the admin just took.
+            return false;
+          }
           setDeletingId(null);
+          return true;
         }}
       />
     </div>

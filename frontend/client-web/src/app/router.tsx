@@ -12,10 +12,12 @@ import { ProductEditPage } from "@/features/products/pages/ProductEditPage";
 import { ProductsProvider } from "@/features/products/hooks/useProductsStore";
 
 import { CategoriesListPage } from "@/features/categories/pages/CategoriesListPage";
+import { CategoriesProvider } from "@/features/categories/hooks/useCategoriesStore";
 
 import { InventoryPage } from "@/features/inventory/pages/InventoryPage";
 
 import { BookingsListPage } from "@/features/bookings/pages/BookingsListPage";
+import { BookingAddPage } from "@/features/bookings/pages/BookingAddPage";
 import { BookingDetailPage } from "@/features/bookings/pages/BookingDetailPage";
 import { AssignBookingPage } from "@/features/bookings/pages/AssignBookingPage";
 import { BookingsProvider } from "@/features/bookings/hooks/useBookingsStore";
@@ -70,21 +72,26 @@ export const router = createBrowserRouter([
     path: "/",
     element: (
       <ProtectedRoute>
-        <ProductsProvider>
-          <BookingsProvider>
-            <BranchOrdersProvider>
-              <AgentsProvider>
-                <BranchesProvider>
-                  <CustomersProvider>
-                    <UsersProvider>
-                      <AppLayout />
-                    </UsersProvider>
-                  </CustomersProvider>
-                </BranchesProvider>
-              </AgentsProvider>
-            </BranchOrdersProvider>
-          </BookingsProvider>
-        </ProductsProvider>
+        {/* Order is load-bearing, not stylistic: products reads categories to
+            validate and delete, and bookings reads products to commit and
+            release stock. Reordering these throws at runtime. */}
+        <CategoriesProvider>
+          <ProductsProvider>
+            <BookingsProvider>
+              <BranchOrdersProvider>
+                <AgentsProvider>
+                  <BranchesProvider>
+                    <CustomersProvider>
+                      <UsersProvider>
+                        <AppLayout />
+                      </UsersProvider>
+                    </CustomersProvider>
+                  </BranchesProvider>
+                </AgentsProvider>
+              </BranchOrdersProvider>
+            </BookingsProvider>
+          </ProductsProvider>
+        </CategoriesProvider>
       </ProtectedRoute>
     ),
     children: [
@@ -150,6 +157,14 @@ export const router = createBrowserRouter([
         element: (
           <PermissionRoute permission="bookings.view">
             <BookingsListPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "bookings/new",
+        element: (
+          <PermissionRoute permission="bookings.create">
+            <BookingAddPage />
           </PermissionRoute>
         ),
       },
