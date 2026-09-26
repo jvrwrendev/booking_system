@@ -6,6 +6,8 @@ import { useMyOrders } from "@/features/orders/hooks/useMyOrders";
 import { brandIcon, navGroups } from "./nav-config";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ROLE_LABELS } from "@/lib/permissions";
 
 interface SidebarProps {
   onNavigate?: () => void;
@@ -25,7 +27,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r bg-card">
-      <div className="flex h-14 items-center gap-2 border-b px-5">
+      <div className="flex h-14 items-center gap-2 px-5">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
             {(() => {
@@ -41,6 +43,29 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           </div>
         </div>
       </div>
+      {user && (
+        <div className="px-5 py-4">
+          <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Logged in as
+            </div>
+            <div className="flex min-w-0 flex-col items-start gap-1.5">
+              <Badge
+                variant="secondary"
+                className="w-fit border border-primary/20 bg-primary/10 px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide leading-tight text-primary"
+              >
+                {ROLE_LABELS[user.role]}
+              </Badge>
+              <span
+                className="max-w-full truncate text-[13px] font-semibold leading-tight text-foreground"
+                title={user.fullName}
+              >
+                {user.fullName}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4 scrollbar-thin">
         {navGroups.map((group) => {
           const visibleItems = group.items.filter((item) =>
