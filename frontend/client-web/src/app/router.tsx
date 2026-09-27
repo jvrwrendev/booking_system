@@ -7,8 +7,6 @@ import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 
 import { ProductsListPage } from "@/features/products/pages/ProductsListPage";
 import { ProductDetailPage } from "@/features/products/pages/ProductDetailPage";
-import { ProductAddPage } from "@/features/products/pages/ProductAddPage";
-import { ProductEditPage } from "@/features/products/pages/ProductEditPage";
 import { ProductsProvider } from "@/features/products/hooks/useProductsStore";
 
 import { CategoriesListPage } from "@/features/categories/pages/CategoriesListPage";
@@ -106,26 +104,10 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "products/add",
-        element: (
-          <PermissionRoute permission="products.create">
-            <ProductAddPage />
-          </PermissionRoute>
-        ),
-      },
-      {
         path: "products/:id",
         element: (
           <PermissionRoute permission="products.view">
             <ProductDetailPage />
-          </PermissionRoute>
-        ),
-      },
-      {
-        path: "products/:id/edit",
-        element: (
-          <PermissionRoute permission="products.update">
-            <ProductEditPage />
           </PermissionRoute>
         ),
       },

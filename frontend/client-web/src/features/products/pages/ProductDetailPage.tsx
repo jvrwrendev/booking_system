@@ -1,4 +1,5 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Edit, Package } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { NotFound } from "@/components/common/NotFound";
 
 import { useProductsStore } from "../hooks/useProductsStore";
+import { ProductFormSheet } from "../components/ProductFormSheet";
 import { mockCategories } from "@/data/mock-categories";
 import { getProductStockStatus } from "@/types/product";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -24,6 +26,7 @@ export function ProductDetailPage() {
   const { getProduct } = useProductsStore();
   const { can } = usePermissions();
   const navigate = useNavigate();
+  const [editOpen, setEditOpen] = useState(false);
 
   const product = id ? getProduct(id) : undefined;
   if (!product) {
@@ -60,11 +63,9 @@ export function ProductDetailPage() {
         ]}
         actions={
           can("products.update") && (
-            <Button asChild>
-              <Link to={`/products/${product.id}/edit`}>
-                <Edit className="h-4 w-4" />
-                Edit
-              </Link>
+            <Button onClick={() => setEditOpen(true)}>
+              <Edit className="h-4 w-4" />
+              Edit
             </Button>
           )
         }
@@ -160,6 +161,12 @@ export function ProductDetailPage() {
           </Card>
         </div>
       </div>
+
+      <ProductFormSheet
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        product={product}
+      />
     </div>
   );
 }

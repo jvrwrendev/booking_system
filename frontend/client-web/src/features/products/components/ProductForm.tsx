@@ -19,6 +19,7 @@ import { ImageUpload } from "@/components/common/ImageUpload";
 
 import type { Product, ProductFormValues } from "@/types/product";
 import { mockCategories } from "@/data/mock-categories";
+import { cn } from "@/lib/utils";
 
 interface ProductFormProps {
   initial?: Product;
@@ -27,6 +28,7 @@ interface ProductFormProps {
   onCancel?: () => void;
   hideFooter?: boolean;
   formId?: string;
+  dense?: boolean;
 }
 
 export function ProductForm({
@@ -36,6 +38,7 @@ export function ProductForm({
   onCancel,
   hideFooter = false,
   formId,
+  dense = false,
 }: ProductFormProps) {
   const [values, setValues] = useState<ProductFormValues>(
     initial
@@ -85,13 +88,22 @@ export function ProductForm({
   };
 
   return (
-    <form id={formId} onSubmit={handleSubmit} className="space-y-12">
+    <form
+      id={formId}
+      onSubmit={handleSubmit}
+      className={cn(dense && "space-y-6", !dense && "space-y-12")}
+    >
       <FormSection
         title="Product image"
         description="Upload a photo of the product. Shown in listings and detail views."
       >
         <div className="flex items-start gap-6">
-          <div className="flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed bg-muted/40">
+          <div
+            className={cn(
+              "flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed bg-muted/40",
+              dense ? "h-32 w-32" : "h-40 w-40"
+            )}
+          >
             <ImageUpload
               value={values.image}
               onChange={(img) => setValues((v) => ({ ...v, image: img }))}
@@ -118,7 +130,12 @@ export function ProductForm({
         title="Product information"
         description="Name, identifier, and classification details."
       >
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={cn(
+            "grid gap-5 sm:grid-cols-2",
+            !dense && "lg:grid-cols-3"
+          )}
+        >
           <FormField label="Product name" required htmlFor="name">
             <Input
               id="name"
@@ -210,7 +227,12 @@ export function ProductForm({
         title="Pricing"
         description="Set the cost and selling price for this product."
       >
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={cn(
+            "grid gap-5 sm:grid-cols-2",
+            !dense && "lg:grid-cols-3"
+          )}
+        >
           <FormField
             label="Cost price (₱)"
             required
@@ -272,7 +294,12 @@ export function ProductForm({
         title="Inventory"
         description="Current stock levels and minimum thresholds."
       >
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={cn(
+            "grid gap-5 sm:grid-cols-2",
+            !dense && "lg:grid-cols-3"
+          )}
+        >
           <FormField
             label="Stock quantity"
             required

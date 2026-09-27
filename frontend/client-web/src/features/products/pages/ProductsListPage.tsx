@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Eye, MoreHorizontal, Package, Plus, Trash2, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
 import { PageHeader } from "@/components/common/PageHeader";
+import { ProductFormSheet } from "../components/ProductFormSheet";
 import {
   StatusBadge,
   getStatusVariantFromGeneric,
@@ -36,11 +37,12 @@ import { usePermissions } from "@/hooks/usePermissions";
 export function ProductsListPage() {
   const { products, deleteProduct } = useProductsStore();
   const { can } = usePermissions();
-  const navigate = useNavigate();
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<Product | null>(null);
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
@@ -183,11 +185,9 @@ export function ProductsListPage() {
               </Link>
             </DropdownMenuItem>
             {can("products.update") && (
-              <DropdownMenuItem asChild>
-                <Link to={`/products/${p.id}/edit`}>
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </Link>
+              <DropdownMenuItem onSelect={() => setEditing(p)}>
+                <Pencil className="h-4 w-4" />
+                Edit
               </DropdownMenuItem>
             )}
             {can("products.delete") && (
@@ -213,7 +213,7 @@ export function ProductsListPage() {
         breadcrumbs={[{ label: "Operations" }, { label: "Products" }]}
         actions={
           can("products.create") && (
-            <Button onClick={() => navigate("/products/add")}>
+            <Button onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4" />
               Add Product
             </Button>
@@ -255,6 +255,13 @@ export function ProductsListPage() {
             </Select>
           </>
         }
+      />
+
+      <ProductFormSheet open={addOpen} onOpenChange={setAddOpen} />
+      <ProductFormSheet
+        open={!!editing}
+        onOpenChange={(o) => !o && setEditing(null)}
+        product={editing ?? undefined}
       />
 
       <ConfirmDialog
