@@ -111,6 +111,7 @@ export function AgentTrackingTab() {
           initialCenter={initialCenter}
           initialZoom={hasFix ? 13 : DEFAULT_MAP_ZOOM}
           selectedZoom={14}
+          fitSignal={fitSignal}
           className="h-[420px] border"
           onRecenterClick={() => setFitSignal((n) => n + 1)}
         />

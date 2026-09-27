@@ -64,6 +64,7 @@ export function AllLocationsTab() {
           initialCenter={DEFAULT_MAP_CENTER}
           initialZoom={DEFAULT_MAP_ZOOM}
           selectedZoom={12}
+          fitSignal={fitSignal}
           className="h-[560px] border"
           onRecenterClick={() => setFitSignal((n) => n + 1)}
           recenterLabel="Recenter Map"

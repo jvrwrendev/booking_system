@@ -1,17 +1,24 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Crosshair, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { MapStyleToggle, type MapStyleId } from "./map-styles";
 import type { MapMarker } from "./MapCanvas";
 
 export type { MapMarker } from "./MapCanvas";
 
-/** Split point: everything Mapbox ships lands in its own chunk. */
+/** Split point: everything the map engine ships lands in its own chunk. */
 const MapCanvas = lazy(() => import("./MapCanvas"));
 
-export function hasMapboxToken(): boolean {
-  return Boolean(import.meta.env.VITE_MAPBOX_TOKEN);
+const STYLE_KEY = "agrivet-map-style";
+
+function readStoredStyle(): MapStyleId {
+  try {
+    return localStorage.getItem(STYLE_KEY) === "street" ? "street" : "satellite";
+  } catch {
+    return "satellite";
+  }
 }
 
 interface AgentLocationMapProps {
@@ -21,6 +28,8 @@ interface AgentLocationMapProps {
   initialCenter: { latitude: number; longitude: number };
   initialZoom: number;
   selectedZoom?: number;
+  /** Bump to force a refit — powers the Recenter control. */
+  fitSignal?: number;
   className?: string;
   showRecenter?: boolean;
   onRecenterClick?: () => void;
@@ -34,33 +43,22 @@ export function AgentLocationMap({
   initialCenter,
   initialZoom,
   selectedZoom,
+  fitSignal = 0,
   className,
   showRecenter = true,
   onRecenterClick,
   recenterLabel = "Recenter Map",
 }: AgentLocationMapProps) {
-  const [tokenMissing] = useState(() => !hasMapboxToken());
+  const [styleId, setStyleId] = useState<MapStyleId>(readStoredStyle);
 
-  // Gate before the lazy import resolves so Mapbox is never fetched without a
-  // configured token.
-  if (tokenMissing) {
-    return (
-      <div
-        className={cn(
-          "flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/40 p-8 text-center",
-          className
-        )}
-      >
-        <Crosshair className="h-6 w-6 text-muted-foreground" />
-        <p className="text-sm font-medium">Map not configured</p>
-        <p className="max-w-sm text-xs text-muted-foreground">
-          Set <code className="font-mono">VITE_MAPBOX_TOKEN</code> in{" "}
-          <code className="font-mono">.env.local</code> and restart the dev
-          server to display the map. Location data below is still live.
-        </p>
-      </div>
-    );
-  }
+  // Remember the base layer choice across visits.
+  useEffect(() => {
+    try {
+      localStorage.setItem(STYLE_KEY, styleId);
+    } catch {
+      // Non-critical: a blocked storage just means the choice won't persist.
+    }
+  }, [styleId]);
 
   return (
     <div className={cn("relative overflow-hidden rounded-lg", className)}>
@@ -78,6 +76,8 @@ export function AgentLocationMap({
           initialCenter={initialCenter}
           initialZoom={initialZoom}
           selectedZoom={selectedZoom}
+          fitSignal={fitSignal}
+          styleId={styleId}
           className="h-full w-full"
         />
       </Suspense>
@@ -94,6 +94,8 @@ export function AgentLocationMap({
           {recenterLabel}
         </Button>
       )}
+
+      <MapStyleToggle value={styleId} onChange={setStyleId} />
     </div>
   );
 }

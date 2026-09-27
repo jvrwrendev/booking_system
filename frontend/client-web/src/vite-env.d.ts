@@ -1,7 +1,10 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_MAPBOX_TOKEN?: string;
+  /** Override the satellite raster tile URL template. */
+  readonly VITE_SATELLITE_TILE_URL?: string;
+  /** Override the street raster tile URL template. */
+  readonly VITE_STREET_TILE_URL?: string;
 }
 
 interface ImportMeta {

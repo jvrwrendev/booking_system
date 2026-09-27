@@ -4,16 +4,18 @@ import Map, {
   NavigationControl,
   Popup,
   type MapRef,
-} from "react-map-gl/mapbox";
-import { LngLatBounds } from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+} from "react-map-gl/maplibre";
+import { LngLatBounds } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 import { cn, relativeTime } from "@/lib/utils";
 import {
   LOCATION_STATUS_LABEL,
   LOCATION_STATUS_MARKER_COLOR,
 } from "./LocationStatusBadge";
+import { mapStyle, type MapStyleId } from "./map-styles";
 import type { LocationStatus } from "../types";
+
 
 export interface MapMarker {
   id: string;
@@ -36,13 +38,15 @@ interface MapCanvasProps {
   selectedZoom?: number;
   /** Bump to force a refit — powers the Recenter control. */
   fitSignal?: number;
+  /** Raster base layer to draw. */
+  styleId?: MapStyleId;
   className?: string;
   onError?: (message: string) => void;
 }
 
 /**
- * The only module that imports Mapbox. It is loaded through a dynamic import
- * (see AgentLocationMap) so `mapbox-gl` never enters the main bundle.
+ * The only module that imports the map engine. It is loaded through a dynamic
+ * import (see AgentLocationMap) so `maplibre-gl` never enters the main bundle.
  */
 export default function MapCanvas({
   markers,
@@ -52,11 +56,21 @@ export default function MapCanvas({
   initialZoom,
   selectedZoom = 14,
   fitSignal = 0,
+  styleId = "satellite",
   className,
   onError,
 }: MapCanvasProps) {
   const mapRef = useRef<MapRef>(null);
+  // The raster style is built locally, so it cannot fail to load. Once it is
+  // up, any error is an individual tile miss, which must not blank the map.
+  const styleReadyRef = useRef(false);
   const [mapError, setMapError] = useState<string | null>(null);
+
+  // A style switch replaces the source, so wait for it to come up before
+  // treating later errors as non-fatal.
+  useEffect(() => {
+    styleReadyRef.current = false;
+  }, [styleId]);
 
   const selected = markers.find((m) => m.id === selectedId) ?? null;
 
@@ -91,8 +105,7 @@ export default function MapCanvas({
     <div className={cn("relative h-full w-full", className)}>
       <Map
         ref={mapRef}
-        mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN ?? ""}
-        mapStyle="mapbox://styles/mapbox/streets-v12"
+        mapStyle={mapStyle(styleId)}
         initialViewState={{
           longitude: initialCenter.longitude,
           latitude: initialCenter.latitude,
@@ -100,7 +113,12 @@ export default function MapCanvas({
         }}
         reuseMaps
         style={{ width: "100%", height: "100%" }}
+        onStyleData={() => {
+          styleReadyRef.current = true;
+          setMapError(null);
+        }}
         onError={(event) => {
+          if (styleReadyRef.current) return;
           const message = event?.error?.message ?? "Map failed to load.";
           setMapError(message);
           onError?.(message);

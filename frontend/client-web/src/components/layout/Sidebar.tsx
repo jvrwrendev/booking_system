@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,6 +18,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const { user, logout } = useAuth();
   const { activeCount } = useMyOrders();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     onNavigate?.();
@@ -79,20 +80,31 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               </div>
               {visibleItems.map((item) => {
                 const Icon = item.icon;
+                // Mirrors NavLink matching (segment aware, honours `end`) but
+                // runs entirely off location so `excludePaths` can win over
+                // both the highlight and aria-current.
+                const isMatch = item.end
+                  ? location.pathname === item.href
+                  : location.pathname === item.href ||
+                    location.pathname.startsWith(`${item.href}/`);
+                const isExcluded = (item.excludePaths ?? []).some(
+                  (path) =>
+                    location.pathname === path ||
+                    location.pathname.startsWith(`${path}/`)
+                );
+                const isCurrent = isMatch && !isExcluded;
                 return (
-                  <NavLink
+                  <Link
                     key={item.href}
                     to={item.href}
-                    end={item.end}
                     onClick={onNavigate}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                        isActive
-                          ? "bg-primary/10 font-medium text-primary"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                      )
-                    }
+                    aria-current={isCurrent ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                      isCurrent
+                        ? "bg-primary/10 font-medium text-primary"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    )}
                   >
                     <Icon className="h-4 w-4" />
                     <span>{item.title}</span>
@@ -101,7 +113,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                           {activeCount}
                         </span>
                       )}
-                  </NavLink>
+                  </Link>
                 );
               })}
             </div>
