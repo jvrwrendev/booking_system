@@ -6,6 +6,7 @@ import {
   Tags,
   Users as UsersIcon,
   UserCog,
+  MapPinned,
   Building2,
   FileBarChart,
   History,
@@ -102,6 +103,13 @@ export const navGroups: NavGroup[] = [
         href: "/agents",
         icon: UserCog,
         permission: "agents.view",
+      },
+      {
+        title: "Location Tracking",
+        href: "/agents/location",
+        icon: MapPinned,
+        permission: "agents.view",
+        end: true,
       },
       {
         title: "Branches",

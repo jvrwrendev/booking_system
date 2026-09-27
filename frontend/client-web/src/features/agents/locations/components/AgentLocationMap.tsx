@@ -1,9 +1,9 @@
-import { Suspense, lazy, useRef, useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { Crosshair, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { MapCanvasHandle, MapMarker } from "./MapCanvas";
+import type { MapMarker } from "./MapCanvas";
 
 export type { MapMarker } from "./MapCanvas";
 
@@ -20,10 +20,11 @@ interface AgentLocationMapProps {
   onSelect: (id: string | null) => void;
   initialCenter: { latitude: number; longitude: number };
   initialZoom: number;
+  selectedZoom?: number;
   className?: string;
-  /** Hide the floating Recenter control (e.g. when the map is already fit-to-all). */
   showRecenter?: boolean;
-  onRecenter?: (map: MapCanvasHandle) => void;
+  onRecenterClick?: () => void;
+  recenterLabel?: string;
 }
 
 export function AgentLocationMap({
@@ -32,13 +33,16 @@ export function AgentLocationMap({
   onSelect,
   initialCenter,
   initialZoom,
+  selectedZoom,
   className,
   showRecenter = true,
-  onRecenter,
+  onRecenterClick,
+  recenterLabel = "Recenter Map",
 }: AgentLocationMapProps) {
-  const mapRef = useRef<MapCanvasHandle>(null);
   const [tokenMissing] = useState(() => !hasMapboxToken());
 
+  // Gate before the lazy import resolves so Mapbox is never fetched without a
+  // configured token.
   if (tokenMissing) {
     return (
       <div
@@ -68,12 +72,12 @@ export function AgentLocationMap({
         }
       >
         <MapCanvas
-          ref={mapRef}
           markers={markers}
           selectedId={selectedId}
           onSelect={onSelect}
           initialCenter={initialCenter}
           initialZoom={initialZoom}
+          selectedZoom={selectedZoom}
           className="h-full w-full"
         />
       </Suspense>
@@ -84,10 +88,10 @@ export function AgentLocationMap({
           size="sm"
           variant="secondary"
           className="absolute left-3 top-3 z-10 shadow-sm"
-          onClick={() => onRecenter?.(mapRef.current as MapCanvasHandle)}
+          onClick={onRecenterClick}
         >
           <Crosshair className="h-3.5 w-3.5" />
-          Recenter Map
+          {recenterLabel}
         </Button>
       )}
     </div>

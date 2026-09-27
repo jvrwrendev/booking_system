@@ -36,6 +36,7 @@ import { AgentsListPage } from "@/features/agents/pages/AgentsListPage";
 import { AgentAddPage } from "@/features/agents/pages/AgentAddPage";
 import { AgentEditPage } from "@/features/agents/pages/AgentEditPage";
 import { AgentDetailPage } from "@/features/agents/pages/AgentDetailPage";
+import { AgentLocationPage } from "@/features/agents/pages/AgentLocationPage";
 import { AgentsProvider } from "@/features/agents/hooks/useAgentsStore";
 
 import { BranchesListPage } from "@/features/branches/pages/BranchesPages";
@@ -260,6 +261,15 @@ export const router = createBrowserRouter([
         element: (
           <PermissionRoute permission="agents.manage">
             <AgentAddPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        // Must stay above agents/:id or "location" is captured as an id.
+        path: "agents/location",
+        element: (
+          <PermissionRoute permission="agents.view">
+            <AgentLocationPage />
           </PermissionRoute>
         ),
       },
