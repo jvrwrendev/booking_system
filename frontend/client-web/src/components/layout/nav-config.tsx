@@ -26,6 +26,11 @@ export interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   permission: Permission;
   end?: boolean;
+  /**
+   * Paths that must not activate this item, even though they are nested under
+   * its `href`. Used when a sub-route has its own dedicated nav entry.
+   */
+  excludePaths?: string[];
 }
 
 export interface NavGroup {
@@ -103,6 +108,8 @@ export const navGroups: NavGroup[] = [
         href: "/agents",
         icon: UserCog,
         permission: "agents.view",
+        // Location Tracking is its own nav entry, so it must not light this up.
+        excludePaths: ["/agents/location"],
       },
       {
         title: "Location Tracking",
