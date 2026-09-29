@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, Link } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -80,7 +80,7 @@ function AccessDenied() {
         contact your administrator if you believe this is a mistake.
       </p>
       <Button asChild className="mt-5" variant="outline">
-        <a href="/dashboard">Return to dashboard</a>
+        <Link to="/dashboard">Return to dashboard</Link>
       </Button>
     </div>
   );

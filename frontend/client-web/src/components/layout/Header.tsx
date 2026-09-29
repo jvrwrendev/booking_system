@@ -28,8 +28,8 @@ export function Header({ onMenuClick }: HeaderProps) {
   if (!user) return null;
 
   const handleLogout = () => {
-    logout();
     navigate("/login", { replace: true });
+    void logout();
   };
 
   return (

@@ -19,21 +19,25 @@ import {
 import { ImageUpload } from "@/components/common/ImageUpload";
 import { BUSINESS_NAME } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
+import { changePassword } from "@/features/auth/services/auth.service";
+import { ApiError } from "@/lib/api-client";
+
+/** Mirrors `api/src/modules/auth/dto/change-password.dto.ts`. */
+const MIN_PASSWORD_LENGTH = 8;
+
+const EMPTY_PASSWORD = { current: "", newPassword: "", confirm: "" };
 
 export function SettingsPage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState({
     fullName: user?.fullName ?? "",
     email: user?.email ?? "",
-    username: user?.username ?? "",
     contactNumber: user?.contactNumber ?? "",
     avatar: user?.avatar,
   });
-  const [password, setPassword] = useState({
-    current: "",
-    newPassword: "",
-    confirm: "",
-  });
+  const [password, setPassword] = useState(EMPTY_PASSWORD);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [general, setGeneral] = useState({
     businessName: BUSINESS_NAME,
     contactNumber: "+63 2 8123 4567",
@@ -63,6 +67,44 @@ export function SettingsPage() {
 
   const handleSave = (section: string) => {
     toast.success(`${section} settings saved`);
+  };
+
+  const handleChangePassword = async () => {
+    if (!password.current) {
+      setPasswordError("Current password is required.");
+      return;
+    }
+    if (password.newPassword.length < MIN_PASSWORD_LENGTH) {
+      setPasswordError(
+        `New password must be at least ${MIN_PASSWORD_LENGTH} characters.`
+      );
+      return;
+    }
+    if (password.newPassword !== password.confirm) {
+      setPasswordError("New password and confirmation do not match.");
+      return;
+    }
+
+    setPasswordError(null);
+    setChangingPassword(true);
+    try {
+      await changePassword({
+        currentPassword: password.current,
+        newPassword: password.newPassword,
+      });
+      setPassword(EMPTY_PASSWORD);
+      toast.success("Password updated", {
+        description: "Other devices have been signed out.",
+      });
+    } catch (error) {
+      setPasswordError(
+        error instanceof ApiError
+          ? error.message
+          : "Could not change your password. Please try again."
+      );
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   return (
@@ -116,15 +158,6 @@ export function SettingsPage() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Username</Label>
-                      <Input
-                        value={profile.username}
-                        onChange={(e) =>
-                          setProfile((p) => ({ ...p, username: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1.5">
                       <Label>Email</Label>
                       <Input
                         type="email"
@@ -148,10 +181,12 @@ export function SettingsPage() {
                   <Separator />
                   <div className="flex justify-end">
                     <Button
-                      onClick={() => {
-                        toast.success("Profile updated");
-                        setPassword({ current: "", newPassword: "", confirm: "" });
-                      }}
+                      onClick={() =>
+                        toast.info("Profile editing is not available yet", {
+                          description:
+                            "The API has no self-profile update endpoint. Ask a super admin to change your name or email.",
+                        })
+                      }
                     >
                       <Save className="h-4 w-4" />
                       Save changes
@@ -168,67 +203,64 @@ export function SettingsPage() {
             <CardHeader>
               <CardTitle>Change Password</CardTitle>
               <CardDescription>
-                Update your account password. For this demo, the current password is "password".
+                Changing your password signs you out on every other device.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-1 max-w-md">
                 <div className="space-y-1.5">
-                  <Label>Current Password</Label>
+                  <Label htmlFor="current-password">Current Password</Label>
                   <Input
+                    id="current-password"
                     type="password"
                     value={password.current}
                     onChange={(e) =>
                       setPassword((p) => ({ ...p, current: e.target.value }))
                     }
                     placeholder="••••••••"
+                    autoComplete="current-password"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>New Password</Label>
+                  <Label htmlFor="new-password">New Password</Label>
                   <Input
+                    id="new-password"
                     type="password"
                     value={password.newPassword}
                     onChange={(e) =>
                       setPassword((p) => ({ ...p, newPassword: e.target.value }))
                     }
                     placeholder="••••••••"
+                    autoComplete="new-password"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    At least {MIN_PASSWORD_LENGTH} characters.
+                  </p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Confirm New Password</Label>
+                  <Label htmlFor="confirm-new-password">Confirm New Password</Label>
                   <Input
+                    id="confirm-new-password"
                     type="password"
                     value={password.confirm}
                     onChange={(e) =>
                       setPassword((p) => ({ ...p, confirm: e.target.value }))
                     }
                     placeholder="••••••••"
+                    autoComplete="new-password"
                   />
                 </div>
               </div>
+              {passwordError && (
+                <div className="max-w-md rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {passwordError}
+                </div>
+              )}
               <Separator />
               <div className="flex justify-end">
-                <Button
-                  onClick={() => {
-                    if (password.current !== "password") {
-                      toast.error("Current password is incorrect");
-                      return;
-                    }
-                    if (!password.newPassword) {
-                      toast.error("New password is required");
-                      return;
-                    }
-                    if (password.newPassword !== password.confirm) {
-                      toast.error("New password and confirmation do not match");
-                      return;
-                    }
-                    toast.success("Password updated");
-                    setPassword({ current: "", newPassword: "", confirm: "" });
-                  }}
-                >
+                <Button onClick={handleChangePassword} disabled={changingPassword}>
                   <Save className="h-4 w-4" />
-                  Update password
+                  {changingPassword ? "Updating..." : "Update password"}
                 </Button>
               </div>
             </CardContent>

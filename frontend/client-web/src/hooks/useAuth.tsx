@@ -1,26 +1,25 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
-import { findAccountByEmail } from "@/data/mock-users";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ApiError, onUnauthorized } from "@/lib/api-client";
+import { getCurrentUser, login as loginRequest, logout as logoutRequest } from "@/features/auth/services/auth.service";
 import type { AuthUser } from "@/types/auth";
+import { toAuthUser } from "@/features/users/lib/user-mapper";
 
-const STORAGE_KEY = "agrivet-auth-user";
+/**
+ * Session state for the API's cookie-based auth.
+ *
+ * The API issues an httpOnly `agrivet_token` cookie and never returns the JWT
+ * to JavaScript, so there is nothing to persist in localStorage. On boot we ask
+ * `GET /auth/me` who we are; the cookie decides the answer. A 401 anywhere in
+ * the app tears down state through the `onUnauthorized` subscription.
+ */
 
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (
-    email: string,
-    password: string
-  ) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -29,49 +28,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored) as AuthUser);
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-    setLoading(false);
+  const clearSession = useCallback(() => {
+    setUser(null);
   }, []);
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      await new Promise((r) => setTimeout(r, 400));
-      const account = findAccountByEmail(email);
-      if (!account || account.password !== password) {
-        return {
-          success: false,
-          error: "Invalid email or password.",
-        };
-      }
-      if (account.status !== "active") {
-        return {
-          success: false,
-          error: "This account is inactive. Contact a Super Admin.",
-        };
-      }
-      const { password: _password, ...userFields } = account;
-      const loggedIn: AuthUser = {
-        ...userFields,
-        lastLogin: new Date().toISOString(),
-      };
-      setUser(loggedIn);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(loggedIn));
-      return { success: true };
-    },
-    []
-  );
+  useEffect(() => onUnauthorized(clearSession), [clearSession]);
 
-  const logout = useCallback(() => {
-    setUser(null);
-    localStorage.removeItem(STORAGE_KEY);
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { user: dto } = await getCurrentUser();
+        if (!cancelled) setUser(toAuthUser(dto));
+      } catch (error) {
+        // A 401 here just means "no active session" — expected on a cold load
+        // of /login. Anything else is a real problem worth surfacing.
+        if (cancelled) return;
+        if (!(error instanceof ApiError) || !error.isUnauthorized) {
+          console.error("Failed to restore session:", error);
+        }
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const result = await loginRequest({ email, password });
+      setUser(toAuthUser(result.user));
+      return { success: true };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        return { success: false, error: error.message };
+      }
+      return { success: false, error: "Login failed. Please try again." };
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await logoutRequest();
+    } catch {
+      // The cookie is cleared regardless; a failed revoke must not trap the
+      // user in a signed-in shell.
+    } finally {
+      setUser(null);
+    }
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const { user: dto } = await getCurrentUser();
+      setUser(toAuthUser(dto));
+    } catch {
+      setUser(null);
+    }
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -81,8 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       login,
       logout,
+      refreshUser,
     }),
-    [user, isLoading, login, logout]
+    [user, isLoading, login, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

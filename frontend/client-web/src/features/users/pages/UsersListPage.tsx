@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { KeyRound, Mail, MoreHorizontal, Pencil, Plus, ShieldCheck } from "lucide-react";
+import { KeyRound, Mail, MoreHorizontal, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/common/PageHeader";
@@ -8,6 +8,8 @@ import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,36 +24,55 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import type { AuthUser } from "@/types/auth";
 import { useUsersStore } from "../hooks/useUsersStore";
 import { ROLE_LABELS } from "@/lib/permissions";
-import { formatDate, initials } from "@/lib/utils";
+import { formatStatus } from "../lib/user-mapper";
+import { initials } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+
+const MIN_PASSWORD_LENGTH = 8;
 
 export function UsersListPage() {
   const { user: currentUser } = useAuth();
-  const { users, toggleStatus } = useUsersStore();
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [resetTarget, setResetTarget] = useState<AuthUser | null>(null);
+  const {
+    users,
+    total,
+    page,
+    pageSize,
+    loading,
+    error,
+    filters,
+    setSearch,
+    setRoleFilter,
+    setStatusFilter,
+    setPage,
+    setPageSize,
+    setStatus,
+    setPassword,
+    removeUser,
+  } = useUsersStore();
 
-  const filtered = useMemo(
-    () =>
-      users.filter((u) => {
-        if (roleFilter !== "all" && u.role !== roleFilter) return false;
-        if (statusFilter !== "all" && u.status !== statusFilter) return false;
-        return true;
-      }),
-    [users, roleFilter, statusFilter]
-  );
+  const [passwordTarget, setPasswordTarget] = useState<AuthUser | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AuthUser | null>(null);
 
-  const handleToggle = (user: AuthUser) => {
-    if (user.role === "SUPER_ADMIN" && user.id === currentUser?.id) {
-      toast.error("You cannot deactivate your own account");
+  const handleToggle = async (user: AuthUser) => {
+    if (user.id === currentUser?.id) {
+      toast.error("You cannot change your own account status");
       return;
     }
-    toggleStatus(user.id, user.status === "active" ? "inactive" : "active");
+    await setStatus(user.id, user.status === "active" ? "inactive" : "active").catch(
+      () => {}
+    );
   };
 
   const columns: DataTableColumn<AuthUser>[] = [
@@ -65,23 +86,21 @@ export function UsersListPage() {
           </Avatar>
           <div>
             <div className="text-sm font-medium">{u.fullName}</div>
-            <div className="text-xs text-muted-foreground">@{u.username}</div>
+            <div className="text-xs text-muted-foreground">{u.email}</div>
           </div>
         </div>
       ),
-      sortable: true,
-      sortKey: "fullName",
     },
     {
       id: "email",
-      header: "Email",
+      header: "Contact",
       cell: (u) => (
         <div className="flex items-center gap-1.5 text-sm">
           <Mail className="h-3.5 w-3.5 text-muted-foreground" />
           {u.email}
         </div>
       ),
-      className: "hidden md:table-cell",
+      className: "hidden lg:table-cell",
     },
     {
       id: "role",
@@ -97,22 +116,28 @@ export function UsersListPage() {
       id: "status",
       header: "Status",
       cell: (u) => (
-        <Badge variant={u.status === "active" ? "success" : "muted"}>
-          {u.status === "active" ? "Active" : "Inactive"}
+        <Badge
+          variant={
+            u.status === "active"
+              ? "success"
+              : u.status === "suspended"
+                ? "destructive"
+                : "muted"
+          }
+        >
+          {formatStatus(u.status)}
         </Badge>
       ),
     },
     {
-      id: "lastLogin",
-      header: "Last Login",
+      id: "created",
+      header: "Created",
       cell: (u) => (
         <span className="text-xs text-muted-foreground">
-          {u.lastLogin ? formatDate(u.lastLogin) : "Never"}
+          {new Date(u.createdAt).toLocaleDateString()}
         </span>
       ),
-      sortable: true,
-      sortKey: "lastLogin",
-      className: "hidden md:table-cell",
+      className: "hidden lg:table-cell",
     },
     {
       id: "actions",
@@ -132,12 +157,23 @@ export function UsersListPage() {
                 Edit
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setResetTarget(u)}>
+            <DropdownMenuItem onSelect={() => setPasswordTarget(u)}>
               <KeyRound className="h-4 w-4" />
-              Reset password
+              Set password
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => handleToggle(u)}>
+            <DropdownMenuItem
+              onSelect={() => handleToggle(u)}
+              disabled={u.id === currentUser?.id}
+            >
               {u.status === "active" ? "Deactivate" : "Activate"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => setDeleteTarget(u)}
+              disabled={u.id === currentUser?.id}
+              className="text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -161,15 +197,44 @@ export function UsersListPage() {
         }
       />
 
+      {error && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       <DataTable<AuthUser>
-        data={filtered}
+        data={users}
         columns={columns}
-        searchPlaceholder="Search users..."
-        searchKeys={["fullName", "email", "username"]}
+        loading={loading}
+        searchPlaceholder="Search by name or email..."
         rowKey={(u) => u.id}
+        emptyState={
+          <div className="px-6 py-12 text-center">
+            <p className="text-sm font-medium">
+              {filters.search || filters.role !== "all" || filters.status !== "all"
+                ? "No users match your filters"
+                : "No users yet"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {filters.search || filters.role !== "all" || filters.status !== "all"
+                ? "Try a different search term or clear the filters."
+                : "Add the first admin account to get started."}
+            </p>
+          </div>
+        }
+        serverMode={{
+          search: filters.search,
+          onSearchChange: setSearch,
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
         toolbar={
           <>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <Select value={filters.role} onValueChange={setRoleFilter}>
               <SelectTrigger className="h-9 w-[150px]">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
@@ -179,7 +244,7 @@ export function UsersListPage() {
                 <SelectItem value="ADMIN">Admin</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={filters.status} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-9 w-[140px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -187,25 +252,138 @@ export function UsersListPage() {
                 <SelectItem value="all">All status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
               </SelectContent>
             </Select>
           </>
         }
       />
 
+      <SetPasswordDialog
+        user={passwordTarget}
+        onOpenChange={(open) => !open && setPasswordTarget(null)}
+        onSubmit={async (password) => {
+          if (!passwordTarget) return;
+          await setPassword(passwordTarget.id, password);
+          setPasswordTarget(null);
+        }}
+      />
+
       <ConfirmDialog
-        open={!!resetTarget}
-        onOpenChange={(o) => !o && setResetTarget(null)}
-        title="Reset password"
-        description="A reset link would be emailed to the user. (Mock action — connect a backend to enable.)"
-        confirmText="Send reset link"
-        onConfirm={() => {
-          toast.success("Password reset email sent (mock)", {
-            description: `${resetTarget?.email} will receive reset instructions.`,
-          });
-          setResetTarget(null);
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Delete user"
+        description={
+          deleteTarget
+            ? `${deleteTarget.fullName} (${deleteTarget.email}) will be permanently removed and signed out everywhere. This cannot be undone.`
+            : ""
+        }
+        confirmText="Delete user"
+        destructive
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          const name = deleteTarget.fullName;
+          const id = deleteTarget.id;
+          setDeleteTarget(null);
+          await removeUser(id, name).catch(() => {});
         }}
       />
     </div>
+  );
+}
+
+interface SetPasswordDialogProps {
+  user: AuthUser | null;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (password: string) => Promise<void>;
+}
+
+function SetPasswordDialog({ user, onOpenChange, onSubmit }: SetPasswordDialogProps) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Reset the form each time a different user is opened.
+  const [lastUserId, setLastUserId] = useState<string | null>(null);
+  if (user && user.id !== lastUserId) {
+    setLastUserId(user.id);
+    setPassword("");
+    setConfirm("");
+    setError(null);
+  }
+
+  const handleConfirm = async () => {
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+    if (password !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      await onSubmit(password);
+      setLastUserId(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!user} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Set password</DialogTitle>
+          <DialogDescription>
+            Set a new password for {user?.fullName}. Their existing sessions stay
+            active, so ask them to sign out and back in.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {error && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="new-password">New password</Label>
+            <Input
+              id="new-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              className="h-10"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm-new-password">Confirm password</Label>
+            <Input
+              id="confirm-new-password"
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              className="h-10"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirm} disabled={saving} className="min-w-[130px]">
+            {saving ? "Saving..." : "Set password"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

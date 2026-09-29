@@ -17,7 +17,8 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   destructive?: boolean;
-  onConfirm: () => void;
+  /** May be async; the dialog does not await it, so close the dialog yourself. */
+  onConfirm: () => void | Promise<void>;
 }
 
 export function ConfirmDialog({

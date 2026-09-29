@@ -12,5 +12,13 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    proxy: {
+      // Keeps API calls same-origin in dev so the httpOnly session cookie
+      // is sent without CORS or SameSite=None complications.
+      "/api": {
+        target: "http://localhost:4000",
+        changeOrigin: true,
+      },
+    },
   },
 });

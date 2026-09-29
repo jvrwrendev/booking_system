@@ -22,8 +22,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const handleLogout = () => {
     onNavigate?.();
-    logout();
+    // Navigate immediately; `logout` clears the server session and local state
+    // in the background.
     navigate("/login", { replace: true });
+    void logout();
   };
 
   return (

@@ -9,11 +9,18 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { APP_FULL_NAME, BUSINESS_NAME } from "@/lib/constants";
-import { cn } from "@/lib/utils";
 
 interface LocationState {
   from?: { pathname?: string };
 }
+
+/**
+ * Seeded by `api/prisma/seed.ts`. The password is intentionally not surfaced
+ * here — it lives in `api/.env` as SEED_ADMIN_PASSWORD and must not be baked
+ * into a client bundle.
+ */
+const DEV_ADMIN_EMAIL =
+  import.meta.env.VITE_DEV_ADMIN_EMAIL || "admin@agrivet.local";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -45,14 +52,7 @@ export function LoginPage() {
     }
   };
 
-  const useCredential = (cred: { email: string; password: string; label: string }) => {
-    setEmail(cred.email);
-    setPassword(cred.password);
-    setError(null);
-  };
-
-  return (
-    <div className="grid h-screen w-screen overflow-hidden lg:grid-cols-2">
+  return (    <div className="grid h-screen w-screen overflow-hidden lg:grid-cols-2">
       <div className="flex h-full w-full items-center justify-center overflow-y-auto p-6 md:p-10">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-2.5">
@@ -96,8 +96,8 @@ export function LoginPage() {
                   type="button"
                   className="text-xs text-muted-foreground hover:text-foreground"
                   onClick={() =>
-                    toast.info("Password reset is mocked", {
-                      description: "Connect a backend to enable real password resets.",
+                    toast.info("Password reset is unavailable", {
+                      description: "Ask a Super Admin to set a new password for you.",
                     })
                   }
                 >
@@ -152,36 +152,30 @@ export function LoginPage() {
           <div className="mt-8 rounded-lg border bg-muted/30 p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Demo credentials
+              Development account
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {[
-                {
-                  label: "Super Admin",
-                  email: "superadmin@example.com",
-                  password: "password",
-                },
-                {
-                  label: "Admin",
-                  email: "admin@example.com",
-                  password: "password",
-                },
-              ].map((cred) => (
-                <button
-                  key={cred.email}
-                  type="button"
-                  onClick={() => useCredential(cred)}
-                  className={cn(
-                    "rounded-md border bg-card p-2.5 text-left text-xs transition-colors hover:border-primary/40 hover:bg-primary/5"
-                  )}
-                >
-                  <div className="font-medium">{cred.label}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {cred.email}
-                  </div>
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail(DEV_ADMIN_EMAIL);
+                setError(null);
+              }}
+              className="w-full rounded-md border bg-card p-2.5 text-left text-xs transition-colors hover:border-primary/40 hover:bg-primary/5"
+            >
+              <div className="font-medium">Seeded Super Admin</div>
+              <div className="text-[11px] text-muted-foreground">
+                {DEV_ADMIN_EMAIL}
+              </div>
+            </button>
+            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+              Click to fill the email. The password is the{" "}
+              <code className="rounded bg-muted px-1 py-0.5">
+                SEED_ADMIN_PASSWORD
+              </code>{" "}
+              value in <code className="rounded bg-muted px-1 py-0.5">api/.env</code>.
+              Create it with <code className="rounded bg-muted px-1 py-0.5">npm run db:seed</code>{" "}
+              in the api folder.
+            </p>
           </div>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Info, UserPlus } from "lucide-react";
 
@@ -8,11 +9,14 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { NotFound } from "@/components/common/NotFound";
 import { FormPageLayout } from "@/components/common/FormPageLayout";
 import { DetailsPanel } from "@/components/common/DetailsPanel";
+import { ApiError } from "@/lib/api-client";
 
 export function UserAddPage() {
   const navigate = useNavigate();
   const { addUser } = useUsersStore();
   const { can } = usePermissions();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (!can("users.manage")) {
     return <NotFound permission title="Permission denied" />;
@@ -35,12 +39,18 @@ export function UserAddPage() {
             type="button"
             variant="outline"
             onClick={() => navigate("/users")}
+            disabled={submitting}
           >
             Cancel
           </Button>
-          <Button type="submit" form="user-add-form" className="min-w-[140px]">
+          <Button
+            type="submit"
+            form="user-add-form"
+            className="min-w-[140px]"
+            disabled={submitting}
+          >
             <UserPlus className="h-4 w-4" />
-            Create account
+            {submitting ? "Creating..." : "Create account"}
           </Button>
         </>
       }
@@ -57,7 +67,7 @@ export function UserAddPage() {
             {
               label: "Login method",
               value: "Email + password",
-              hint: "Password must be at least 6 characters.",
+              hint: "Password must be at least 8 characters.",
             },
             {
               label: "Access",
@@ -70,15 +80,15 @@ export function UserAddPage() {
             <div className="flex items-start gap-2.5">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <p className="text-xs text-muted-foreground">
-                Use the user's official first, middle, and last name so audit
-                logs and orders stay consistent.
+                Use the user&apos;s official full name so audit logs and orders stay
+                consistent. Accounts are created active and can sign in immediately.
               </p>
             </div>
             <div className="flex items-start gap-2.5">
               <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <p className="text-xs text-muted-foreground">
-                Inactive accounts cannot sign in until a super admin re-enables
-                them.
+                Inactive and suspended accounts cannot sign in until a super admin
+                re-enables them.
               </p>
             </div>
           </div>
@@ -88,9 +98,20 @@ export function UserAddPage() {
       <UserForm
         formId="user-add-form"
         hideFooter
-        onSubmit={(data) => {
-          addUser(data);
-          navigate("/users");
+        submitting={submitting}
+        submitError={submitError}
+        onSubmit={async (data) => {
+          setSubmitting(true);
+          setSubmitError(null);
+          try {
+            await addUser(data);
+            navigate("/users");
+          } catch (error) {
+            setSubmitError(
+              error instanceof ApiError ? error.message : "Could not create the account."
+            );
+            setSubmitting(false);
+          }
         }}
         onCancel={() => navigate("/users")}
       />

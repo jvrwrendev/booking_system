@@ -16,40 +16,23 @@ import {
 } from "@/components/common/FormPageLayout";
 
 import type { AuthUser } from "@/types/auth";
-import type { UserFormValues } from "../hooks/useUsersStore";
+import type { UserFormValues } from "../lib/user-mapper";
 
 interface UserFormProps {
   initial?: AuthUser;
   submitLabel?: string;
-  onSubmit: (data: UserFormValues) => void;
+  onSubmit: (data: UserFormValues) => void | Promise<void>;
   onCancel?: () => void;
   hideFooter?: boolean;
   formId?: string;
+  /** Set while the parent is awaiting the API so inputs can be locked. */
+  submitting?: boolean;
+  /** Server-side error to surface above the fields. */
+  submitError?: string | null;
 }
 
-function splitFullName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) {
-    return { firstName: "", middleName: "", lastName: "", suffix: "" };
-  }
-  if (parts.length === 1) {
-    return { firstName: parts[0], middleName: "", lastName: "", suffix: "" };
-  }
-  if (parts.length === 2) {
-    return {
-      firstName: parts[0],
-      middleName: "",
-      lastName: parts[1],
-      suffix: "",
-    };
-  }
-  return {
-    firstName: parts[0],
-    middleName: parts.slice(1, -1).join(" "),
-    lastName: parts[parts.length - 1],
-    suffix: "",
-  };
-}
+/** Mirrors the API's `createUserDto` minimum, so the UI never under-promises. */
+const MIN_PASSWORD_LENGTH = 8;
 
 export function UserForm({
   initial,
@@ -58,66 +41,48 @@ export function UserForm({
   onCancel,
   hideFooter = false,
   formId,
+  submitting = false,
+  submitError = null,
 }: UserFormProps) {
   const [values, setValues] = useState<UserFormValues>(
     initial
       ? {
-          ...splitFullName(initial.fullName),
+          name: initial.fullName,
           email: initial.email,
-          username: initial.username,
           role: initial.role,
           status: initial.status,
         }
-      : {
-          firstName: "",
-          middleName: "",
-          lastName: "",
-          suffix: "",
-          email: "",
-          username: "",
-          role: "ADMIN",
-          status: "active",
-          password: "",
-        }
+      : { name: "", email: "", role: "ADMIN", status: "active", password: "" }
   );
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      !values.firstName.trim() ||
-      !values.lastName.trim() ||
-      !values.email.trim() ||
-      !values.username.trim()
-    ) {
-      setError("All fields are required.");
+    if (submitting) return;
+
+    const localError = validate(values, confirmPassword, Boolean(initial));
+    if (localError) {
+      setError(localError);
       return;
     }
-    if (!initial) {
-      if (!values.password) {
-        setError("Password is required.");
-        return;
-      }
-      if (values.password.length < 6) {
-        setError("Password must be at least 6 characters.");
-        return;
-      }
-      if (values.password !== confirmPassword) {
-        setError("Passwords do not match.");
-        return;
-      }
-    }
-    const { password: _password, ...payload } = values;
-    onSubmit(_password ? { ...payload, password: _password } : payload);
+
+    setError(null);
+    // Drop the password on edit; changing it is a separate, admin-only action.
+    const payload = initial
+      ? { name: values.name, email: values.email, role: values.role, status: values.status }
+      : values;
+    await onSubmit(payload);
   };
+
+  const visibleError = error ?? submitError;
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-12">
-      {error && (
+      {visibleError && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
+          {visibleError}
         </div>
       )}
 
@@ -126,87 +91,30 @@ export function UserForm({
         description="The account's name, login credentials, and the role it can access."
       >
         <div className="grid gap-5 sm:grid-cols-2">
-          <FormField
-            label="First name"
-            required
-            htmlFor="firstName"
-          >
-            <Input
-              id="firstName"
-              value={values.firstName}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, firstName: e.target.value }))
-              }
-              placeholder="e.g., Juan"
-              autoComplete="given-name"
-              className="h-10"
-            />
-          </FormField>
-          <FormField
-            label="Middle name"
-            htmlFor="middleName"
-            hint="Leave blank if not applicable."
-          >
-            <Input
-              id="middleName"
-              value={values.middleName}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, middleName: e.target.value }))
-              }
-              placeholder="e.g., Santos"
-              autoComplete="additional-name"
-              className="h-10"
-            />
-          </FormField>
-          <FormField
-            label="Last name"
-            required
-            htmlFor="lastName"
-          >
-            <Input
-              id="lastName"
-              value={values.lastName}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, lastName: e.target.value }))
-              }
-              placeholder="e.g., Dela Cruz"
-              autoComplete="family-name"
-              className="h-10"
-            />
-          </FormField>
-          <FormField
-            label="Suffix"
-            htmlFor="suffix"
-            hint="e.g., Jr., Sr., III"
-          >
-            <Input
-              id="suffix"
-              value={values.suffix}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, suffix: e.target.value }))
-              }
-              placeholder="e.g., Jr."
-              autoComplete="honorific-suffix"
-              className="h-10"
-            />
-          </FormField>
-          <FormField label="Username" required htmlFor="username">
-            <Input
-              id="username"
-              value={values.username}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, username: e.target.value }))
-              }
-              placeholder="username"
-              autoComplete="username"
-              className="h-10"
-            />
-          </FormField>
+          <div className="sm:col-span-2">
+            <FormField
+              label="Full name"
+              required
+              htmlFor="name"
+              hint="As it should appear on audit logs and orders."
+            >
+              <Input
+                id="name"
+                value={values.name}
+                onChange={(e) =>
+                  setValues((v) => ({ ...v, name: e.target.value }))
+                }
+                placeholder="e.g., Juan Dela Cruz"
+                autoComplete="name"
+                className="h-10"
+              />
+            </FormField>
+          </div>
           <FormField
             label="Email"
             required
             htmlFor="email"
-            hint="Used for signing in and notifications."
+            hint="Used for signing in. Must be unique."
           >
             <Input
               id="email"
@@ -241,7 +149,11 @@ export function UserForm({
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Account status" htmlFor="status">
+          <FormField
+            label="Account status"
+            htmlFor="status"
+            hint="Inactive and suspended accounts cannot sign in."
+          >
             <Select
               value={values.status}
               onValueChange={(v) =>
@@ -257,6 +169,7 @@ export function UserForm({
               <SelectContent>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
               </SelectContent>
             </Select>
           </FormField>
@@ -273,7 +186,7 @@ export function UserForm({
               label="Password"
               required
               htmlFor="password"
-              hint="At least 6 characters."
+              hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
             >
               <div className="relative">
                 <Input
@@ -323,9 +236,33 @@ export function UserForm({
       {!hideFooter && (
         <FormFooter
           onCancel={onCancel}
+          isSubmitting={submitting}
           submitLabel={submitLabel ?? (initial ? "Save changes" : "Create account")}
         />
       )}
     </form>
   );
+}
+
+function validate(
+  values: UserFormValues,
+  confirmPassword: string,
+  isEdit: boolean
+): string | null {
+  if (!values.name.trim()) return "Full name is required.";
+  if (!values.email.trim()) return "Email is required.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
+    return "Enter a valid email address.";
+  }
+
+  if (isEdit) return null;
+
+  if (!values.password) return "Password is required.";
+  if (values.password.length < MIN_PASSWORD_LENGTH) {
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+  if (values.password !== confirmPassword) {
+    return "Passwords do not match.";
+  }
+  return null;
 }

@@ -5,6 +5,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  RefreshCw,
   Search,
   X,
 } from "lucide-react";
@@ -33,6 +34,23 @@ export interface DataTableColumn<T> {
   hideOnMobile?: boolean;
 }
 
+/**
+ * Opt-in server-driven mode. When supplied, the table stops filtering,
+ * sorting, and slicing locally and defers entirely to the parent — the API
+ * owns those concerns and exposes no `sort` parameter.
+ *
+ * Leave it undefined to keep the default in-memory behaviour.
+ */
+export interface DataTableServerMode {
+  search: string;
+  onSearchChange: (value: string) => void;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}
+
 interface DataTableProps<T> {
   data: T[];
   columns: DataTableColumn<T>[];
@@ -46,6 +64,7 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   globalActions?: ReactNode;
   showSearch?: boolean;
+  serverMode?: DataTableServerMode;
 }
 
 export function DataTable<T>({
@@ -61,7 +80,9 @@ export function DataTable<T>({
   onRowClick,
   globalActions,
   showSearch = true,
+  serverMode,
 }: DataTableProps<T>) {
+  const isServer = Boolean(serverMode);
   const [search, setSearch] = useState("");
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(initialPageSize);
@@ -71,6 +92,7 @@ export function DataTable<T>({
   } | null>(null);
 
   const filtered = useMemo(() => {
+    if (isServer) return data;
     if (!search || !searchKeys || searchKeys.length === 0) return data;
     const lower = search.toLowerCase();
     return data.filter((row) =>
@@ -79,9 +101,10 @@ export function DataTable<T>({
         return value != null && String(value).toLowerCase().includes(lower);
       })
     );
-  }, [data, search, searchKeys]);
+  }, [data, search, searchKeys, isServer]);
 
   const sorted = useMemo(() => {
+    if (isServer) return filtered;
     if (!sort) return filtered;
     const sortedCopy = [...filtered];
     sortedCopy.sort((a, b) => {
@@ -100,17 +123,39 @@ export function DataTable<T>({
       return 0;
     });
     return sortedCopy;
-  }, [filtered, sort]);
+  }, [filtered, sort, isServer]);
 
-  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const safePageIndex = Math.min(pageIndex, pageCount - 1);
-  const paginated = sorted.slice(
-    safePageIndex * pageSize,
-    safePageIndex * pageSize + pageSize
-  );
+  // In server mode the API's ordering stands, so rows render as received.
+  const paginated = isServer
+    ? sorted
+    : sorted.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
+
+  const rowCount = isServer ? (serverMode?.total ?? data.length) : sorted.length;
+  const effectivePageSize = isServer ? (serverMode?.pageSize ?? pageSize) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(rowCount / effectivePageSize));
+  const currentPage = isServer ? (serverMode?.page ?? 1) : pageIndex + 1;
+  const safePageIndex = isServer ? currentPage - 1 : Math.min(pageIndex, totalPages - 1);
+
+  const goToPage = (next: number) => {
+    const clamped = Math.max(0, Math.min(next, totalPages - 1));
+    if (isServer) {
+      serverMode?.onPageChange(clamped + 1);
+    } else {
+      setPageIndex(clamped);
+    }
+  };
+
+  const changePageSize = (next: number) => {
+    if (isServer) {
+      serverMode?.onPageSizeChange(next);
+    } else {
+      setPageSize(next);
+      setPageIndex(0);
+    }
+  };
 
   const handleSort = (col: DataTableColumn<T>) => {
-    if (!col.sortable || !col.sortKey) return;
+    if (!col.sortable || !col.sortKey || isServer) return;
     const key = col.sortKey as string;
     setSort((prev) => {
       if (!prev || prev.key !== key) return { key, direction: "asc" };
@@ -119,10 +164,13 @@ export function DataTable<T>({
     });
   };
 
-  const start = sorted.length === 0 ? 0 : safePageIndex * pageSize + 1;
-  const end = Math.min(sorted.length, (safePageIndex + 1) * pageSize);
+  const start = rowCount === 0 ? 0 : safePageIndex * effectivePageSize + 1;
+  const end = Math.min(rowCount, (safePageIndex + 1) * effectivePageSize);
 
-  if (loading) {
+  // A full skeleton is fine for a first load, but in server mode it would
+  // unmount the toolbar on every keystroke and steal focus from the search
+  // box. There the table stays mounted and is marked busy instead.
+  if (loading && !isServer) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-9 w-64" />
@@ -140,18 +188,28 @@ export function DataTable<T>({
               <div className="relative max-w-xs flex-1">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  value={search}
+                  value={isServer ? (serverMode?.search ?? "") : search}
                   onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPageIndex(0);
+                    if (isServer) {
+                      serverMode?.onSearchChange(e.target.value);
+                    } else {
+                      setSearch(e.target.value);
+                      setPageIndex(0);
+                    }
                   }}
                   placeholder={searchPlaceholder}
                   className="pl-8 pr-8"
                 />
-                {search && (
+                {(isServer ? serverMode?.search : search) && (
                   <button
                     type="button"
-                    onClick={() => setSearch("")}
+                    onClick={() => {
+                      if (isServer) {
+                        serverMode?.onSearchChange("");
+                      } else {
+                        setSearch("");
+                      }
+                    }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     aria-label="Clear search"
                   >
@@ -168,8 +226,20 @@ export function DataTable<T>({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border bg-card">
-        <div className="overflow-x-auto">
+      <div className="relative overflow-hidden rounded-lg border bg-card">
+        {isServer && loading && (
+          <div
+            className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 bg-background/70 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur"
+            role="status"
+          >
+            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+            Updating…
+          </div>
+        )}
+        <div
+          className="overflow-x-auto"
+          aria-busy={isServer && loading ? true : undefined}
+        >
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -186,7 +256,13 @@ export function DataTable<T>({
                       <button
                         type="button"
                         onClick={() => handleSort(col)}
-                        className="inline-flex items-center gap-1 hover:text-foreground"
+                        disabled={isServer}
+                        title={
+                          isServer
+                            ? "Sorting is handled by the server"
+                            : undefined
+                        }
+                        className="inline-flex items-center gap-1 hover:text-foreground disabled:cursor-default disabled:opacity-70"
                       >
                         {col.header}
                         {sort && sort.key === col.sortKey && (
@@ -242,20 +318,17 @@ export function DataTable<T>({
             </tbody>
           </table>
         </div>
-        {sorted.length > 0 && (
+        {rowCount > 0 && (
           <div className="flex flex-col gap-3 border-t px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-xs text-muted-foreground">
               Showing <span className="font-medium text-foreground">{start}</span>–
               <span className="font-medium text-foreground">{end}</span> of{" "}
-              <span className="font-medium text-foreground">{sorted.length}</span>
+              <span className="font-medium text-foreground">{rowCount}</span>
             </div>
             <div className="flex items-center gap-2">
               <Select
-                value={String(pageSize)}
-                onValueChange={(v) => {
-                  setPageSize(Number(v));
-                  setPageIndex(0);
-                }}
+                value={String(effectivePageSize)}
+                onValueChange={(v) => changePageSize(Number(v))}
               >
                 <SelectTrigger className="h-8 w-[110px]">
                   <SelectValue />
@@ -273,7 +346,7 @@ export function DataTable<T>({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => setPageIndex(0)}
+                  onClick={() => goToPage(0)}
                   disabled={safePageIndex === 0}
                   aria-label="First page"
                 >
@@ -283,21 +356,21 @@ export function DataTable<T>({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+                  onClick={() => goToPage(safePageIndex - 1)}
                   disabled={safePageIndex === 0}
                   aria-label="Previous page"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <span className="px-2 text-xs text-muted-foreground">
-                  Page {safePageIndex + 1} of {pageCount}
+                  Page {currentPage} of {totalPages}
                 </span>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => setPageIndex((p) => Math.min(pageCount - 1, p + 1))}
-                  disabled={safePageIndex >= pageCount - 1}
+                  onClick={() => goToPage(safePageIndex + 1)}
+                  disabled={safePageIndex >= totalPages - 1}
                   aria-label="Next page"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -306,8 +379,8 @@ export function DataTable<T>({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => setPageIndex(pageCount - 1)}
-                  disabled={safePageIndex >= pageCount - 1}
+                  onClick={() => goToPage(totalPages - 1)}
+                  disabled={safePageIndex >= totalPages - 1}
                   aria-label="Last page"
                 >
                   <ChevronsRight className="h-4 w-4" />

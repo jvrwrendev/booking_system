@@ -10,7 +10,7 @@ import {
 
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: 20,
   legacyHeaders: false,
   standardHeaders: "draft-7",
   message: {
