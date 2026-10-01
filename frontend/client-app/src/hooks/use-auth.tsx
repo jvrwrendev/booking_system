@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (stored) {
           setUser(JSON.parse(stored) as AuthUser);
         }
-      } catch (err) {
+      } catch {
         await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_USER);
       } finally {
         setLoading(false);

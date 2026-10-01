@@ -85,6 +85,7 @@ export async function login(
   });
 
   const { passwordHash: _passwordHash, ...user } = account;
+  
   return {
     accessToken,
     user,

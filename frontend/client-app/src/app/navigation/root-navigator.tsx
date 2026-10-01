@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, type Theme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { LoginScreen } from "@/features/auth/screens/login-screen";
@@ -10,7 +10,7 @@ import type { RootStackParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const navTheme = {
+const navTheme: Theme = {
   dark: false,
   colors: {
     primary: "#16A34A",
@@ -21,10 +21,10 @@ const navTheme = {
     notification: "#DC2626",
   },
   fonts: {
-    regular: { fontFamily: "System", fontWeight: "400" as const },
-    medium: { fontFamily: "System", fontWeight: "500" as const },
-    bold: { fontFamily: "System", fontWeight: "700" as const },
-    heavy: { fontFamily: "System", fontWeight: "800" as const },
+    regular: { fontFamily: "System", fontWeight: "400" },
+    medium: { fontFamily: "System", fontWeight: "500" },
+    bold: { fontFamily: "System", fontWeight: "700" },
+    heavy: { fontFamily: "System", fontWeight: "800" },
   },
 };
 

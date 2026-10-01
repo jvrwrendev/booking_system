@@ -1,11 +1,5 @@
-import React, { useCallback, useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  View,
-} from "react-native";
+import React, { useState } from "react";
+import { Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Leaf, Mail, Lock, Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "@/hooks/use-auth";
@@ -13,9 +7,6 @@ import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { APP_FULL_NAME, BUSINESS_NAME } from "@/constants";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "@/app/navigation/types";
 
 const demoAccounts = [
   {
@@ -31,8 +22,6 @@ const demoAccounts = [
 ];
 
 export function LoginScreen() {
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { login, isLoading: authLoading } = useAuth();
 
   const [email, setEmail] = useState("");

@@ -19,6 +19,7 @@ type Tone =
   | "primary"
   | "success"
   | "warning"
+  | "info"
   | "danger"
   | "muted";
 
@@ -54,6 +55,7 @@ const toneClass: Record<Tone, string> = {
   primary: "text-primary",
   success: "text-success",
   warning: "text-warning",
+  info: "text-info",
   danger: "text-danger",
   muted: "text-muted-foreground",
 };

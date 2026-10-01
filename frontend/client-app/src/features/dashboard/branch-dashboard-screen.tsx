@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Boxes, ShoppingBag, Clock, PackageCheck, CheckCircle2 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
@@ -30,7 +31,10 @@ export function BranchDashboardScreen() {
   const branchId = user?.branchId ?? "";
 
   const load = useCallback(async () => {
-    if (!branchId) return;
+    if (!branchId) {
+      setLoading(false);
+      return;
+    }
     const [o, p] = await Promise.all([
       listOrdersForBranch(branchId),
       listProducts(),
@@ -42,30 +46,48 @@ export function BranchDashboardScreen() {
   }, [branchId]);
 
   useEffect(() => {
-    load();
+    void (async () => {
+      await load();
+    })();
   }, [load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    load();
+    void load();
   }, [load]);
 
-  const counts = {
-    pending: orders.filter((o) => o.status === "pending").length,
-    processing: orders.filter(
-      (o) => o.status === "processing" || o.status === "assigned"
-    ).length,
-    ready: orders.filter((o) => o.status === "ready").length,
-    completed: orders.filter((o) => o.status === "completed").length,
-  };
+  const counts = useMemo(
+    () => ({
+      pending: orders.filter((o) => o.status === "pending").length,
+      processing: orders.filter(
+        (o) => o.status === "processing" || o.status === "assigned",
+      ).length,
+      ready: orders.filter((o) => o.status === "ready").length,
+      completed: orders.filter((o) => o.status === "completed").length,
+    }),
+    [orders],
+  );
 
-  const recent = [...orders]
-    .sort((a, b) => a.createdAt < b.createdAt ? 1 : -1)
-    .slice(0, 5);
+  const recent = useMemo(
+    () =>
+      [...orders]
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+        .slice(0, 5),
+    [orders],
+  );
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-background">
-      <View className="px-4 pt-3 pb-2">
+      <ScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#16A34A"
+          />
+        }
+      >
         <View className="flex-row items-center justify-between mb-3">
           <Text variant="small" tone="muted">
             Welcome
@@ -74,44 +96,95 @@ export function BranchDashboardScreen() {
             {user?.fullName ?? "Branch"}
           </Text>
         </View>
-      </View>
 
-      <View className="flex-row gap-2">
-        <StatCard label="Products" value={productCount} tone="primary" icon={<Boxes size={16} color="#16A34A" />} />
-        <StatCard label="Orders" value={orders.length} tone="info" icon={<ShoppingBag size={16} color="#2563EB" />} />
-      </View>
-      <View className="flex-row gap-2 mt-2">
-        <StatCard label="Pending" value={counts.pending} tone="warning" icon={<Clock size={16} color="#D97706" />} />
-        <StatCard label="Processing" value={counts.processing} tone="info" icon={<PackageCheck size={16} color="#2563EB" />} />
-        <StatCard label="Ready" value={counts.ready} tone="info" icon={<PackageCheck size={16} color="#2563EB" />} />
-        <StatCard label="Completed" value={counts.completed} tone="success" icon={<CheckCircle2 size={16} color="#16A34A" />} />
-      </View>
-
-      <Card className="mt-4">
-        <View className="flex-row items-center justify-between">
-          <Text variant="semibold">Quick actions</Text>
-          <Text variant="small" tone="muted" className="mt-0.5">Browse inventory and create a new order.</Text>
+        <View className="flex-row gap-2">
+          <StatCard
+            label="Products"
+            value={productCount}
+            tone="primary"
+            icon={<Boxes size={16} color="#16A34A" />}
+          />
+          <StatCard
+            label="Orders"
+            value={orders.length}
+            tone="info"
+            icon={<ShoppingBag size={16} color="#2563EB" />}
+          />
         </View>
-        <View className="flex-row gap-2 mt-3">
-          <Button label="Create Order" size="md" onPress={() => navigation.navigate("OrderReview")} className="flex-1" />
+        <View className="flex-row gap-2 mt-2">
+          <StatCard
+            label="Pending"
+            value={counts.pending}
+            tone="warning"
+            icon={<Clock size={16} color="#D97706" />}
+          />
+          <StatCard
+            label="Processing"
+            value={counts.processing}
+            tone="info"
+            icon={<PackageCheck size={16} color="#2563EB" />}
+          />
+          <StatCard
+            label="Ready"
+            value={counts.ready}
+            tone="info"
+            icon={<PackageCheck size={16} color="#2563EB" />}
+          />
+          <StatCard
+            label="Completed"
+            value={counts.completed}
+            tone="success"
+            icon={<CheckCircle2 size={16} color="#16A34A" />}
+          />
         </View>
-      </Card>
 
-      <View className="mt-6">
-        <SectionHeader title="Recent Orders" subtitle="Latest orders from your branch" />
-      </View>
+        <Card className="mt-4">
+          <View className="flex-row items-center justify-between">
+            <Text weight="semibold">Quick actions</Text>
+            <Text variant="small" tone="muted" className="mt-0.5">
+              Browse inventory and create a new order.
+            </Text>
+          </View>
+          <View className="flex-row gap-2 mt-3">
+            <Button
+              label="Create Order"
+              size="md"
+              className="flex-1"
+              onPress={() => navigation.navigate("OrderReview")}
+            />
+          </View>
+        </Card>
 
-      {loading ? (
-        <LoadingState label="Loading orders..." />
-      ) : recent.length === 0 ? (
-        <EmptyState title="No orders yet" description="Create your first order from the inventory." actionLabel="Create Order" onAction={() => navigation.navigate("OrderReview")} />
-      ) : (
-        <View>
-          {recent.map((o) => (
-            <OrderCard key={o.id} order={o} onPress={() => navigation.navigate("OrderDetail", { orderId: o.id })} />
-          ))}
+        <View className="mt-6">
+          <SectionHeader
+            title="Recent Orders"
+            subtitle="Latest orders from your branch"
+          />
         </View>
-      )}
+
+        {loading ? (
+          <LoadingState label="Loading orders..." />
+        ) : recent.length === 0 ? (
+          <EmptyState
+            title="No orders yet"
+            description="Create your first order from the inventory."
+            actionLabel="Create Order"
+            onAction={() => navigation.navigate("OrderReview")}
+          />
+        ) : (
+          <View>
+            {recent.map((o) => (
+              <OrderCard
+                key={o.id}
+                order={o}
+                onPress={() =>
+                  navigation.navigate("OrderDetail", { orderId: o.id })
+                }
+              />
+            ))}
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }

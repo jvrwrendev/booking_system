@@ -1,12 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
-import {
-  RefreshControl,
-  FlatList,
-  View,
-  Text,
-  Button,
-  StyleSheet,
-} from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, RefreshControl, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Plus } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,6 +12,10 @@ import type { AgentStackParamList } from "@/app/navigation/types";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
+import { Card } from "@/components/ui/card";
+import { Text } from "@/components/ui/text";
+import { Button } from "@/components/ui/button";
+import { SectionHeader } from "@/components/ui/section-header";
 
 export function AgentDashboardScreen() {
   const navigation =
@@ -49,108 +48,102 @@ export function AgentDashboardScreen() {
   }, [agentId]);
 
   useEffect(() => {
-    load();
+    void (async () => {
+      await load();
+    })();
   }, [load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    load();
+    void load();
   }, [load]);
 
-  const recent = [...bookings]
-    .sort((a, b) => a.createdAt < b.createdAt ? 1 : -1)
-    .slice(0, 5);
-
-  const emptyState = (
-    <EmptyState
-      title="No bookings yet"
-      description="Create your first booking to see it here."
-      actionLabel="Create Booking"
-      onAction={() => navigation.navigate("BookingCreate")}
-    />
-  );
-
-  const listContent = (
-    <FlatList
-      data={recent}
-      keyExtractor={(b) => b.id}
-      contentContainerStyle={{
-        paddingHorizontal: 16,
-        paddingTop: 8,
-        paddingBottom: 24,
-      }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => {
-            setRefreshing(true);
-            load();
-          }}
-          tintColor="#16A34A"
-        />
-      }
-      ListEmptyComponent={emptyState}
-      renderItem={({ item }) => (
-        <Text>{item.customerName}</Text>
-      )}
-    />
+  const recent = useMemo(
+    () =>
+      [...bookings]
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+        .slice(0, 5),
+    [bookings],
   );
 
   return (
-    <View style={styles.container}>
-      <View className="p-4">
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-1">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-background">
+      <FlatList
+        data={recent}
+        keyExtractor={(b) => b.id}
+        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#16A34A"
+          />
+        }
+        ListHeaderComponent={
+          <View className="mb-4">
             <Text variant="small" tone="muted">
               Welcome back
             </Text>
             <Text variant="h1" weight="bold">
               {user?.fullName ?? "Agent"}
             </Text>
+
+            <View className="flex-row gap-2 mt-4">
+              <Card className="flex-1">
+                <Text variant="small" tone="muted">
+                  Customers
+                </Text>
+                <Text variant="h2" weight="bold" tone="primary" className="mt-1">
+                  {customerCount}
+                </Text>
+              </Card>
+              <Card className="flex-1">
+                <Text variant="small" tone="muted">
+                  Bookings
+                </Text>
+                <Text variant="h2" weight="bold" tone="info" className="mt-1">
+                  {bookings.length}
+                </Text>
+              </Card>
+            </View>
+
+            <View className="mt-4">
+              <Button
+                label="New Booking"
+                size="md"
+                leftIcon={<Plus size={16} color="#FFFFFF" />}
+                onPress={() => navigation.navigate("BookingCreate")}
+              />
+            </View>
+
+            <View className="mt-6">
+              <SectionHeader
+                title="Recent Bookings"
+                subtitle="Latest transactions you created"
+              />
+            </View>
           </View>
-          <Button
-            label="New"
-            size="sm"
-            leftIcon={<Text variant="small">➕</Text>}
-            onPress={() => navigation.navigate("BookingCreate")}
-          />
-        </View>
-      </View>
-
-      <View className="p-2 border-t border-gray-200">
-        <View className="flex-row gap-2 mb-2">
-          <Text variant="semibold">Customers</Text>
-          <Text variant="small" tone="muted">{customerCount}</Text>
-        </View>
-        <View className="flex-row gap-2 mb-3">
-          <Text variant="semibold">Bookings</Text>
-          <Text variant="small" tone="info">{bookings.length}</Text>
-        </View>
-      </View>
-
-      <View className="p-4">
-        <Text variant="h2" weight="bold">Recent Bookings</Text>
-        <Text variant="small" tone="muted" className="mb-2">
-          Latest transactions you created
-        </Text>
-      </View>
-
-      {loading ? (
-        <LoadingState label="Loading bookings..." />
-      ) : error ? (
-        <ErrorState description={error} onRetry={load} />
-      ) : recent.length === 0 ? (
-        <EmptyState
-          title="No bookings yet"
-          description="Create your first booking to see it here."
-          actionLabel="Create Booking"
-          onAction={() => navigation.navigate("BookingCreate")}
-        />
-      ) : listContent}
-    </View>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <LoadingState label="Loading bookings..." />
+          ) : error ? (
+            <ErrorState description={error} onRetry={() => void load()} />
+          ) : (
+            <EmptyState
+              title="No bookings yet"
+              description="Create your first booking to see it here."
+              actionLabel="Create Booking"
+              onAction={() => navigation.navigate("BookingCreate")}
+            />
+          )
+        }
+        renderItem={({ item }) => (
+          <Card className="mb-2">
+            <Text weight="semibold">{item.customerName}</Text>
+          </Card>
+        )}
+      />
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-});

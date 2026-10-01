@@ -35,8 +35,4 @@ export type RootStackParamList = {
   Branch: NavigatorScreenParams<BranchStackParamList>;
 };
 
-declare global {
-  namespace ReactNavigation {
-    interface RootParamList extends RootStackParamList {}
-  }
-}
+

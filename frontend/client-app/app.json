@@ -7,12 +7,7 @@
     "icon": "./assets/icon.png",
     "scheme": "agrivet",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
-    },
+    "newArchEnabled": true,
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
@@ -23,7 +18,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "ph.agrivet.mobile"
+      "package": "ph.agrivet.mobile",
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -31,8 +27,7 @@
     },
     "plugins": [],
     "experiments": {
-      "tsconfigPaths": true,
-      "typedRoutes": false
+      "tsconfigPaths": true
     }
   }
 }

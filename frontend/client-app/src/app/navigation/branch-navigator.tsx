@@ -1,74 +1,24 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { BottomTabs } from "@react-navigation/bottom-tabs";
-import { View } from "react-native";
-import { Text } from "@/components/ui/text";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type { BranchStackParamList } from "./types";
-import { BranchDashboardScreen } from "@/features/dashboard/branch-dashboard-screen";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { InventoryListScreen } from "@/features/branch/inventory/screens/inventory-list-screen";
 import { ProductDetailScreen } from "@/features/branch/inventory/screens/product-detail-screen";
 import { OrderListScreen } from "@/features/branch/orders/screens/order-list-screen";
 import { OrderReviewScreen } from "@/features/branch/orders/screens/order-review-screen";
 import { OrderDetailScreen } from "@/features/branch/orders/screens/order-detail-screen";
-import { Tab as TabNav } from "@react-navigation/bottom-tabs";
+import { ProfileScreen } from "@/features/profile/screens/profile-screen";
+import { BranchDashboardScreen } from "@/features/dashboard/branch-dashboard-screen";
 import { OrderCartProvider } from "@/features/branch/orders/hooks/use-order-cart";
+import { branchNavItems } from "./nav-items";
+import type { BranchTabParamList } from "./types";
 
-const Tab = createBottomTabNavigator<BranchStackParamList["BranchTabs"]>();
-
-function makeTabLabel(
-  name: string,
-  options: { focused: boolean; color: string }
-) {
-  const item = [
-    { name: "Dashboard", label: "Dashboard", Icon: null },
-    { name: "Inventory", label: "Inventory", Icon: null },
-    { name: "Orders", label: "Orders", Icon: null },
-    { name: "Profile", label: "Profile", Icon: null },
-  ].find((i) => i.name === name);
-  return (
-    <Text
-      variant="small"
-      weight={options.focused ? "semibold" : "medium"}
-      style={{ color: options.color }}
-    >
-      {item?.label ?? name}
-    </Text>
-  );
-}
-
-function makeTabIcon(
-  name: string,
-  options: { focused: boolean; color: string }
-) {
-  const item = [
-    { name: "Dashboard", Icon: "LayoutDashboard" },
-    { name: "Inventory", Icon: "Boxes" },
-    { name: "Orders", Icon: "ShoppingBag" },
-    { name: "Profile", Icon: "UserCircle2" },
-  ].find((i) => i.name === name);
-  if (!item) return null;
-  const Icon = item.Icon;
-  return (
-    <View
-      style={{
-        opacity: options.focused ? 1 : 0.7,
-        transform: [{ scale: options.focused ? 1.05 : 1 }],
-      }}
-    >
-      <Text
-        variant="small"
-        tone={options.focused ? "primary" : "muted"}
-        style={{ width: 20, height: 20 }}
-      >
-        {Icon}
-      </Text>
-    </View>
-  );
-}
+const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator<BranchTabParamList>();
 
 const tabScreenOptions = {
   headerShown: false,
+  tabBarActiveTintColor: "#16A34A",
+  tabBarInactiveTintColor: "#64748B",
   tabBarStyle: {
     borderTopColor: "#E5E7EB",
     borderTopWidth: 1,
@@ -77,19 +27,25 @@ const tabScreenOptions = {
     paddingTop: 6,
     paddingBottom: 8,
   },
-  tabBarActiveTintColor: "#16A34A",
-  tabBarInactiveTintColor: "#64748B",
+  tabBarLabelStyle: { fontSize: 11, fontWeight: "500" as const },
 };
 
 function BranchTabs() {
   return (
     <Tab.Navigator
-      screenOptions={(props) => ({
-        ...tabScreenOptions,
-        tabBarLabel: ({ focused, color }) =>
-          makeTabLabel(props.route.name, { focused, color }),
-        tabBarIcon: ({ focused, color }) => makeTabIcon(props.route.name, { focused, color }),
-      })}
+      screenOptions={({ route }) => {
+        const item = branchNavItems.find((i) => i.name === route.name);
+        const Icon = item?.Icon;
+        return {
+          ...tabScreenOptions,
+          tabBarLabel: item?.label ?? route.name,
+          tabBarIcon: Icon
+            ? ({ focused, color }: { focused: boolean; color: string }) => (
+                <Icon size={20} color={color} opacity={focused ? 1 : 0.7} />
+              )
+            : undefined,
+        };
+      }}
     >
       <Tab.Screen name="Dashboard" component={BranchDashboardScreen} />
       <Tab.Screen name="Inventory" component={InventoryListScreen} />
@@ -102,17 +58,20 @@ function BranchTabs() {
 export function BranchNavigator() {
   return (
     <OrderCartProvider>
-      <Tab.Navigator screenOptions={({ route }) => ({
-        ...tabScreenOptions,
-        tabBarLabel: ({ focused, color }) =>
-          makeTabLabel(route.name, { focused, color }),
-        tabBarIcon: ({ focused, color }) => makeTabIcon(route.name, { focused, color }),
-      })}>
-        <Tab.Screen name="BranchTabs" component={BranchTabs} />
-        <Tab.Screen name="ProductDetail" component={ProductDetailScreen} options={{ gestureEnabled: false }} />
-        <Tab.Screen name="OrderReview" component={OrderReviewScreen} options={{ gestureEnabled: false }} />
-        <Tab.Screen name="OrderDetail" component={OrderDetailScreen} />
-      </Tab.Navigator>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="BranchTabs" component={BranchTabs} />
+        <Stack.Screen
+          name="ProductDetail"
+          component={ProductDetailScreen}
+          options={{ gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="OrderReview"
+          component={OrderReviewScreen}
+          options={{ gestureEnabled: false }}
+        />
+        <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+      </Stack.Navigator>
     </OrderCartProvider>
   );
 }
