@@ -3,10 +3,11 @@ import { LogOut } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyOrders } from "@/features/orders/hooks/useMyOrders";
-import { brandIcon, navGroups } from "./nav-config";
+import { navGroups } from "./nav-config";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { ROLE_LABELS } from "@/lib/permissions";
 
 interface SidebarProps {
@@ -32,12 +33,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     <aside className="flex h-full w-64 shrink-0 flex-col border-r bg-card">
       <div className="flex h-14 items-center gap-2 px-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-            {(() => {
-              const Icon = brandIcon;
-              return <Icon className="h-4 w-4" />;
-            })()}
-          </div>
+          <BrandLogo className="h-8 w-8" />
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-semibold">Agrivet Admin</span>
             <span className="text-[11px] text-muted-foreground">

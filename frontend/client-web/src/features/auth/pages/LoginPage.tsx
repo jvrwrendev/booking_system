@@ -1,12 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Eye, EyeOff, Leaf, Lock, Mail, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { useAuth } from "@/hooks/useAuth";
 import { APP_FULL_NAME, BUSINESS_NAME } from "@/lib/constants";
 
@@ -56,9 +57,7 @@ export function LoginPage() {
       <div className="flex h-full w-full items-center justify-center overflow-y-auto p-6 md:p-10">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Leaf className="h-4 w-4" />
-            </div>
+            <BrandLogo className="h-9 w-9" />
             <div className="leading-tight">
               <div className="text-sm font-semibold">{BUSINESS_NAME}</div>
               <div className="text-[11px] text-muted-foreground">
@@ -189,7 +188,7 @@ export function LoginPage() {
         />
         <div className="relative flex h-full w-full flex-col justify-between p-12 text-primary-foreground">
           <div className="flex items-center gap-2">
-            <Leaf className="h-5 w-5" />
+            <BrandLogo className="h-10 w-10" />
             <span className="text-sm font-semibold">Agrivet Supply Co.</span>
           </div>
           <div className="max-w-md space-y-3">

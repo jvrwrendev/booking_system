@@ -12,7 +12,6 @@ import {
   History,
   Settings,
   ShieldCheck,
-  Leaf,
   ClipboardList,
   KeyRound,
   Radio,
@@ -167,5 +166,3 @@ export const navGroups: NavGroup[] = [
     ],
   },
 ];
-
-export const brandIcon = Leaf;
