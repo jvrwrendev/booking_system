@@ -29,9 +29,7 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": [
-      "expo-status-bar"
-    ],
+    "plugins": [],
     "experiments": {
       "tsconfigPaths": true,
       "typedRoutes": false
