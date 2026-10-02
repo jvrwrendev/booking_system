@@ -192,7 +192,10 @@ export function RegisterScreen() {
                         key={option.value}
                         onPress={() => onChangeRole(option.value)}
                         accessibilityRole="radio"
-                        accessibilityState={{ selected }}
+                        accessibilityState={{
+                          checked: selected,
+                          selected,
+                        }}
                         accessibilityLabel={`Register as ${option.label}`}
                         className={cn(
                           "flex-row items-center gap-3 rounded-md border p-3",
@@ -417,7 +420,6 @@ export function RegisterScreen() {
                     void onSubmit();
                   }}
                   loading={submitting}
-                  disabled={!canSubmit}
                   fullWidth
                 />
               </View>
