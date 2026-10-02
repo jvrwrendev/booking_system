@@ -10,22 +10,40 @@ import { Text } from "./text";
 
 interface InputProps extends TextInputProps {
   label?: string;
+  labelAction?: React.ReactNode;
   hint?: string;
   error?: string;
+  size?: "sm" | "md" | "control";
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   containerClassName?: string;
   inputClassName?: string;
+  inputRef?: React.Ref<TextInput>;
 }
+
+const sizeClass: Record<NonNullable<InputProps["size"]>, string> = {
+  sm: "h-9",
+  md: "h-11",
+  control: "h-control",
+};
+
+const sizeFontSize: Record<NonNullable<InputProps["size"]>, number> = {
+  sm: 13,
+  md: 14,
+  control: 15,
+};
 
 export function Input({
   label,
+  labelAction,
   hint,
   error,
+  size = "md",
   leftIcon,
   rightIcon,
   containerClassName,
   inputClassName,
+  inputRef,
   multiline,
   style,
   ...rest
@@ -33,27 +51,34 @@ export function Input({
   return (
     <View className={cn("w-full", containerClassName)}>
       {label && (
-        <Text variant="label" tone="muted" className="mb-1.5">
-          {label}
-        </Text>
+        <View className="flex-row items-center justify-between mb-1.5">
+          <Text variant="label" tone="muted">
+            {label}
+          </Text>
+          {labelAction}
+        </View>
       )}
       <View
         className={cn(
           "flex-row items-center rounded-md border bg-background px-3",
-          error ? "border-danger" : "border-border",
-          multiline ? "py-2" : "h-11",
-          rest.editable === false && "opacity-60",
+          error
+            ? "border-danger focus-within:border-danger"
+            : "border-border hover:border-primary focus-within:border-primary",
+          multiline ? "py-2" : sizeClass[size],
+          rest.editable === false && "opacity-60"
         )}
       >
         {leftIcon && <View className="mr-2">{leftIcon}</View>}
         <TextInput
           {...rest}
+          ref={inputRef}
           multiline={multiline}
+          accessibilityState={{ disabled: rest.editable === false }}
           placeholderTextColor="#94A3B8"
           style={[
             {
               flex: 1,
-              fontSize: 14,
+              fontSize: sizeFontSize[size],
               color: "#0F172A",
               paddingVertical: multiline ? 4 : 0,
             },

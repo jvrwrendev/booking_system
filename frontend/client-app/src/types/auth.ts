@@ -38,3 +38,13 @@ export interface LoginCredentials {
   password: string;
   remember?: boolean;
 }
+
+export interface RegisterCredentials {
+  role: Role;
+  name: string;
+  email: string;
+  contactNumber: string;
+  address: string;
+  password: string;
+  confirmPassword: string;
+}

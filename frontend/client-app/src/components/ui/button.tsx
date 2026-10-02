@@ -10,7 +10,9 @@ import { cn } from "@/lib/utils";
 import { Text } from "./text";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive";
-type Size = "sm" | "md" | "lg";
+type Size = "sm" | "md" | "lg" | "control";
+
+const MUTED_FOREGROUND = "#64748B";
 
 interface ButtonProps extends Omit<PressableProps, "children" | "style"> {
   label?: string;
@@ -27,7 +29,7 @@ interface ButtonProps extends Omit<PressableProps, "children" | "style"> {
 }
 
 const baseClass =
-  "flex-row items-center justify-center gap-2 rounded-md active:opacity-80 disabled:opacity-50";
+  "flex-row items-center justify-center gap-2 rounded-md active:opacity-80 hover:opacity-90";
 
 const variantClass: Record<Variant, string> = {
   primary: "bg-primary",
@@ -45,16 +47,34 @@ const variantTextClass: Record<Variant, string> = {
   destructive: "text-destructive-foreground",
 };
 
+const variantDisabledClass: Record<Variant, string> = {
+  primary: "disabled:bg-secondary",
+  secondary: "disabled:bg-muted",
+  outline: "disabled:bg-secondary",
+  ghost: "disabled:bg-secondary",
+  destructive: "disabled:bg-secondary",
+};
+
+const variantDisabledTextClass: Record<Variant, string> = {
+  primary: "disabled:text-muted-foreground",
+  secondary: "disabled:text-muted-foreground",
+  outline: "disabled:text-muted-foreground",
+  ghost: "disabled:text-muted-foreground",
+  destructive: "disabled:text-muted-foreground",
+};
+
 const sizeClass: Record<Size, string> = {
   sm: "h-9 px-3",
   md: "h-11 px-4",
   lg: "h-12 px-5",
+  control: "h-control px-5",
 };
 
 const textSizeClass: Record<Size, string> = {
   sm: "text-sm",
   md: "text-sm",
   lg: "text-base",
+  control: "text-[15px]",
 };
 
 export function Button({
@@ -71,24 +91,35 @@ export function Button({
   disabled,
   ...rest
 }: ButtonProps) {
+  const isDisabled = Boolean(disabled);
+  const isBusy = Boolean(loading);
+  const blocked = isDisabled || isBusy;
+  const dimmed = isDisabled && !isBusy;
+
   return (
     <Pressable
       {...rest}
-      disabled={disabled || loading}
+      disabled={blocked}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: blocked, busy: isBusy }}
       className={cn(
         baseClass,
         variantClass[variant],
+        dimmed && variantDisabledClass[variant],
+        isBusy && "opacity-90",
         sizeClass[size],
         fullWidth && "w-full",
-        className,
+        className
       )}
     >
-      {loading ? (
+      {isBusy ? (
         <ActivityIndicator
           color={
-            variant === "primary" || variant === "destructive"
-              ? "#fff"
-              : "#0F172A"
+            dimmed
+              ? MUTED_FOREGROUND
+              : variant === "primary" || variant === "destructive"
+                ? "#FFFFFF"
+                : "#0F172A"
           }
         />
       ) : (
@@ -99,8 +130,9 @@ export function Button({
               className={cn(
                 textSizeClass[size],
                 variantTextClass[variant],
+                dimmed && variantDisabledTextClass[variant],
                 "font-semibold",
-                textClassName,
+                textClassName
               )}
             >
               {label}

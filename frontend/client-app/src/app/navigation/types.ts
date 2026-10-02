@@ -31,6 +31,7 @@ export type BranchTabParamList = {
 
 export type RootStackParamList = {
   Login: undefined;
+  Register: undefined;
   Agent: NavigatorScreenParams<AgentStackParamList>;
   Branch: NavigatorScreenParams<BranchStackParamList>;
 };

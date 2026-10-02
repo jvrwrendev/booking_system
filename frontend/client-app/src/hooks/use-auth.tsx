@@ -7,8 +7,12 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { loginRequest } from "@/services/auth.service";
-import type { AuthUser, LoginCredentials } from "@/types/auth";
+import { loginRequest, registerRequest } from "@/services/auth.service";
+import type {
+  AuthUser,
+  LoginCredentials,
+  RegisterCredentials,
+} from "@/types/auth";
 import { STORAGE_KEYS } from "@/constants";
 
 interface AuthContextValue {
@@ -17,6 +21,9 @@ interface AuthContextValue {
   isLoading: boolean;
   login: (
     credentials: LoginCredentials,
+  ) => Promise<{ success: boolean; error?: string }>;
+  register: (
+    credentials: RegisterCredentials,
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -59,6 +66,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const register = useCallback(
+    async (credentials: RegisterCredentials) => {
+      const result = await registerRequest(credentials);
+      if (result.success && result.user) {
+        setUser(result.user);
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.AUTH_USER,
+          JSON.stringify(result.user),
+        );
+        return { success: true };
+      }
+      return { success: false, error: result.error };
+    },
+    [],
+  );
+
   const logout = useCallback(async () => {
     setUser(null);
     await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_USER);
@@ -80,10 +103,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: Boolean(user),
       isLoading,
       login,
+      register,
       logout,
       refresh,
     }),
-    [user, isLoading, login, logout, refresh],
+    [user, isLoading, login, register, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -4,6 +4,7 @@ import { NavigationContainer, type Theme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { LoginScreen } from "@/features/auth/screens/login-screen";
+import { RegisterScreen } from "@/features/auth/screens/register-screen";
 import { AgentNavigator } from "./agent-navigator";
 import { BranchNavigator } from "./branch-navigator";
 import type { RootStackParamList } from "./types";
@@ -43,7 +44,10 @@ export function RootNavigator() {
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
         ) : user.role === "AGENT" ? (
           <Stack.Screen name="Agent" component={AgentNavigator} />
         ) : (
