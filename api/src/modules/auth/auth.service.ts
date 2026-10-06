@@ -158,7 +158,7 @@ export async function changePassword(
   const account = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!account) {
-    throw Errors.unauthorized("Account no longer existss");
+    throw Errors.unauthorized("Account no longer exists");
   }
 
   const currentPasswordMatches = await verifyPassword(
