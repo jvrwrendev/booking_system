@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AlertCircle,
+  ArrowLeft,
   Building2,
   Eye,
   EyeOff,
@@ -28,12 +29,12 @@ import { cn, validateEmail } from "@/lib/utils";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { APP_FULL_NAME, BUSINESS_NAME } from "@/constants";
 import type { Role } from "@/types/role";
 import type { RootStackParamList } from "@/app/navigation/types";
 
 const MUTED_ICON = "#64748B";
+const PRIMARY_ICON = "#0F172A";
 const CONTENT_MAX_WIDTH = 420;
 
 const roleOptions: { value: Role; label: string; description: string }[] = [
@@ -133,12 +134,10 @@ export function RegisterScreen() {
     if (!result.success) {
       setError(result.error ?? "Registration failed. Please try again.");
     }
-    // On success the auth provider sets the user and the root navigator
-    // swaps to the role home screen.
   };
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-secondary">
+    <SafeAreaView edges={["top", "bottom"]} className="flex-1">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
@@ -148,7 +147,7 @@ export function RegisterScreen() {
           contentContainerStyle={{
             flexGrow: 1,
             justifyContent: isWideViewport ? "center" : "flex-start",
-            paddingHorizontal: 20,
+            paddingHorizontal: 24,
             paddingVertical: 32,
           }}
           keyboardShouldPersistTaps="handled"
@@ -158,261 +157,237 @@ export function RegisterScreen() {
             className="w-full self-center"
             style={{ maxWidth: CONTENT_MAX_WIDTH }}
           >
-            <Card className="p-6">
-              <View className="items-center">
-                <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary">
-                  <Leaf size={24} color="#FFFFFF" />
-                </View>
-                <Text weight="semibold" className="mt-3 tracking-tight">
-                  {BUSINESS_NAME}
-                </Text>
-                <Text variant="small" tone="muted" className="mt-1 text-[11px]">
-                  {APP_FULL_NAME}
-                </Text>
-              </View>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              className="mb-6 h-10 w-10 items-center justify-center rounded-full border border-border bg-background"
+            >
+              <ArrowLeft size={18} color="#0F172A" />
+            </Pressable>
 
-              <View className="mt-8">
-                <Text variant="h1" className="tracking-tight">
-                  Create your account
-                </Text>
-                <Text tone="muted" className="mt-1.5 leading-relaxed">
-                  Register as an agent or a branch to get started.
-                </Text>
+            {/* Header Section */}
+            <View className="mb-8 items-center">
+              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-border">
+                <Leaf size={22} color={PRIMARY_ICON} />
               </View>
+              <Text weight="semibold" className="mt-3 text-base tracking-tight">
+                {BUSINESS_NAME}
+              </Text>
+              <Text variant="small" tone="muted" className="mt-0.5 text-xs">
+                {APP_FULL_NAME}
+              </Text>
+            </View>
 
-              <View className="mt-8">
-                <Text variant="label" tone="muted" className="mb-1.5">
-                  Register as
-                </Text>
-                <View className="gap-3">
-                  {roleOptions.map((option) => {
-                    const selected = role === option.value;
-                    return (
-                      <Pressable
-                        key={option.value}
-                        onPress={() => onChangeRole(option.value)}
-                        accessibilityRole="radio"
-                        accessibilityState={{
-                          checked: selected,
-                          selected,
-                        }}
-                        accessibilityLabel={`Register as ${option.label}`}
-                        className={cn(
-                          "flex-row items-center gap-3 rounded-md border p-3",
-                          "active:opacity-80 hover:opacity-90",
-                          selected
-                            ? "border-primary bg-primary/5"
-                            : "border-border bg-background"
-                        )}
+            {/* Title Section */}
+            <View className="mb-6">
+              <Text variant="h1" className="text-2xl font-bold tracking-tight">
+                Create account
+              </Text>
+              <Text tone="muted" className="mt-1 text-sm leading-relaxed">
+                Select your role and enter your details to get started.
+              </Text>
+            </View>
+
+            {/* Role Switcher (Flat Segmented Control) */}
+            <View className="mb-6">
+              <Text variant="label" tone="muted" className="mb-2 text-xs font-medium uppercase tracking-wider">
+                Account Role
+              </Text>
+              <View className="flex-row rounded-lg border border-border p-1">
+                {roleOptions.map((option) => {
+                  const selected = role === option.value;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      onPress={() => onChangeRole(option.value)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selected, selected }}
+                      className={cn(
+                        "flex-1 flex-row items-center justify-center gap-2 rounded-md py-2.5",
+                        selected ? "border border-border" : "border-transparent"
+                      )}
+                    >
+                      {option.value === "AGENT" ? (
+                        <UserRound size={16} color={selected ? PRIMARY_ICON : MUTED_ICON} />
+                      ) : (
+                        <Building2 size={16} color={selected ? PRIMARY_ICON : MUTED_ICON} />
+                      )}
+                      <Text
+                        weight={selected ? "semibold" : "regular"}
+                        className={cn("text-sm", selected ? "text-foreground" : "text-muted-foreground")}
                       >
-                        <View
-                          className={cn(
-                            "h-9 w-9 items-center justify-center rounded-md",
-                            selected ? "bg-primary" : "bg-secondary"
-                          )}
-                        >
-                          {option.value === "AGENT" ? (
-                            <UserRound
-                              size={18}
-                              color={selected ? "#FFFFFF" : MUTED_ICON}
-                            />
-                          ) : (
-                            <Building2
-                              size={18}
-                              color={selected ? "#FFFFFF" : MUTED_ICON}
-                            />
-                          )}
-                        </View>
-                        <View className="flex-1">
-                          <Text weight="semibold">{option.label}</Text>
-                          <Text
-                            variant="small"
-                            tone="muted"
-                            className="mt-0.5 leading-relaxed"
-                          >
-                            {option.description}
-                          </Text>
-                        </View>
-                        <View
-                          className={cn(
-                            "h-5 w-5 items-center justify-center rounded-full border",
-                            selected ? "border-primary" : "border-border"
-                          )}
-                        >
-                          {selected && (
-                            <View className="h-2.5 w-2.5 rounded-full bg-primary" />
-                          )}
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
+            </View>
 
-              <View className="mt-6 gap-5">
+            {/* Form Section */}
+            <View className="gap-4">
+              <Input
+                size="control"
+                label={nameLabel}
+                accessibilityLabel={nameLabel}
+                value={name}
+                onChangeText={(value) => {
+                  setName(value);
+                  resetFeedback();
+                }}
+                error={nameError}
+                autoCapitalize="words"
+                textContentType="name"
+                autoComplete="name"
+                placeholder={
+                  role === "AGENT"
+                    ? "Juan Dela Cruz"
+                    : "Quezon City Main Branch"
+                }
+                leftIcon={
+                  role === "AGENT" ? (
+                    <UserRound size={18} color={MUTED_ICON} />
+                  ) : (
+                    <Building2 size={18} color={MUTED_ICON} />
+                  )
+                }
+              />
+
+              <Input
+                size="control"
+                label="Email address"
+                accessibilityLabel="Email address"
+                value={email}
+                onChangeText={(value) => {
+                  setEmail(value);
+                  resetFeedback();
+                }}
+                error={emailError}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                autoComplete="email"
+                placeholder="you@agrivet.ph"
+                leftIcon={<Mail size={18} color={MUTED_ICON} />}
+              />
+
+              <Input
+                size="control"
+                label="Contact number"
+                accessibilityLabel="Contact number"
+                value={contactNumber}
+                onChangeText={(value) => {
+                  setContactNumber(value);
+                  resetFeedback();
+                }}
+                error={contactError}
+                keyboardType="phone-pad"
+                textContentType="telephoneNumber"
+                autoComplete="tel"
+                placeholder="+63 917 555 0000"
+                leftIcon={<Phone size={18} color={MUTED_ICON} />}
+              />
+
+              {role === "BRANCH" && (
                 <Input
                   size="control"
-                  label={nameLabel}
-                  accessibilityLabel={nameLabel}
-                  value={name}
+                  label="Address"
+                  accessibilityLabel="Address"
+                  value={address}
                   onChangeText={(value) => {
-                    setName(value);
+                    setAddress(value);
                     resetFeedback();
                   }}
-                  error={nameError}
+                  error={addressError}
                   autoCapitalize="words"
-                  textContentType="name"
-                  autoComplete="name"
-                  placeholder={
-                    role === "AGENT"
-                      ? "Juan Dela Cruz"
-                      : "Quezon City Main Branch"
-                  }
-                  leftIcon={
-                    role === "AGENT" ? (
-                      <UserRound size={18} color={MUTED_ICON} />
+                  textContentType="fullStreetAddress"
+                  autoComplete="street-address"
+                  placeholder="123 EDSA, Quezon City"
+                  leftIcon={<MapPin size={18} color={MUTED_ICON} />}
+                />
+              )}
+
+              <Input
+                size="control"
+                label="Password"
+                accessibilityLabel="Password"
+                value={password}
+                onChangeText={(value) => {
+                  setPassword(value);
+                  resetFeedback();
+                }}
+                error={passwordError}
+                secureTextEntry={!showPassword}
+                textContentType="newPassword"
+                autoComplete="new-password"
+                placeholder="At least 6 characters"
+                leftIcon={<Lock size={18} color={MUTED_ICON} />}
+                rightIcon={
+                  <Pressable
+                    onPress={() => setShowPassword((s) => !s)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeOff size={18} color={MUTED_ICON} />
                     ) : (
-                      <Building2 size={18} color={MUTED_ICON} />
-                    )
-                  }
-                />
+                      <Eye size={18} color={MUTED_ICON} />
+                    )}
+                  </Pressable>
+                }
+              />
 
-                <Input
-                  size="control"
-                  label="Email"
-                  accessibilityLabel="Email"
-                  value={email}
-                  onChangeText={(value) => {
-                    setEmail(value);
-                    resetFeedback();
-                  }}
-                  error={emailError}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  autoComplete="email"
-                  placeholder="you@agrivet.ph"
-                  leftIcon={<Mail size={18} color={MUTED_ICON} />}
-                />
+              <Input
+                size="control"
+                label="Confirm password"
+                accessibilityLabel="Confirm password"
+                value={confirmPassword}
+                onChangeText={(value) => {
+                  setConfirmPassword(value);
+                  resetFeedback();
+                }}
+                error={confirmError}
+                secureTextEntry={!showConfirmPassword}
+                textContentType="newPassword"
+                autoComplete="new-password"
+                placeholder="Re-enter your password"
+                leftIcon={<Lock size={18} color={MUTED_ICON} />}
+                rightIcon={
+                  <Pressable
+                    onPress={() => setShowConfirmPassword((s) => !s)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      showConfirmPassword
+                        ? "Hide confirm password"
+                        : "Show confirm password"
+                    }
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff size={18} color={MUTED_ICON} />
+                    ) : (
+                      <Eye size={18} color={MUTED_ICON} />
+                    )}
+                  </Pressable>
+                }
+              />
 
-                <Input
-                  size="control"
-                  label="Contact number"
-                  accessibilityLabel="Contact number"
-                  value={contactNumber}
-                  onChangeText={(value) => {
-                    setContactNumber(value);
-                    resetFeedback();
-                  }}
-                  error={contactError}
-                  keyboardType="phone-pad"
-                  textContentType="telephoneNumber"
-                  autoComplete="tel"
-                  placeholder="+63 917 555 0000"
-                  leftIcon={<Phone size={18} color={MUTED_ICON} />}
-                />
+              {error ? (
+                <View className="flex-row items-center gap-2 rounded-md border border-destructive/20 p-3">
+                  <AlertCircle size={16} color="#DC2626" />
+                  <Text variant="small" tone="danger" className="flex-1 text-xs">
+                    {error}
+                  </Text>
+                </View>
+              ) : null}
 
-                {role === "BRANCH" && (
-                  <Input
-                    size="control"
-                    label="Address"
-                    accessibilityLabel="Address"
-                    value={address}
-                    onChangeText={(value) => {
-                      setAddress(value);
-                      resetFeedback();
-                    }}
-                    error={addressError}
-                    autoCapitalize="words"
-                    textContentType="fullStreetAddress"
-                    autoComplete="street-address"
-                    placeholder="123 EDSA, Quezon City"
-                    leftIcon={<MapPin size={18} color={MUTED_ICON} />}
-                  />
-                )}
-
-                <Input
-                  size="control"
-                  label="Password"
-                  accessibilityLabel="Password"
-                  value={password}
-                  onChangeText={(value) => {
-                    setPassword(value);
-                    resetFeedback();
-                  }}
-                  error={passwordError}
-                  secureTextEntry={!showPassword}
-                  textContentType="newPassword"
-                  autoComplete="new-password"
-                  placeholder="At least 6 characters"
-                  leftIcon={<Lock size={18} color={MUTED_ICON} />}
-                  rightIcon={
-                    <Pressable
-                      onPress={() => setShowPassword((s) => !s)}
-                      hitSlop={8}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        showPassword ? "Hide password" : "Show password"
-                      }
-                    >
-                      {showPassword ? (
-                        <EyeOff size={18} color={MUTED_ICON} />
-                      ) : (
-                        <Eye size={18} color={MUTED_ICON} />
-                      )}
-                    </Pressable>
-                  }
-                />
-
-                <Input
-                  size="control"
-                  label="Confirm password"
-                  accessibilityLabel="Confirm password"
-                  value={confirmPassword}
-                  onChangeText={(value) => {
-                    setConfirmPassword(value);
-                    resetFeedback();
-                  }}
-                  error={confirmError}
-                  secureTextEntry={!showConfirmPassword}
-                  textContentType="newPassword"
-                  autoComplete="new-password"
-                  placeholder="Re-enter your password"
-                  leftIcon={<Lock size={18} color={MUTED_ICON} />}
-                  rightIcon={
-                    <Pressable
-                      onPress={() => setShowConfirmPassword((s) => !s)}
-                      hitSlop={8}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        showConfirmPassword
-                          ? "Hide confirm password"
-                          : "Show confirm password"
-                      }
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff size={18} color={MUTED_ICON} />
-                      ) : (
-                        <Eye size={18} color={MUTED_ICON} />
-                      )}
-                    </Pressable>
-                  }
-                />
-
-                {error ? (
-                  <View className="flex-row items-start gap-2.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-2.5">
-                    <AlertCircle
-                      size={14}
-                      color="#DC2626"
-                      style={{ marginTop: 2 }}
-                    />
-                    <Text variant="small" tone="danger" className="flex-1">
-                      {error}
-                    </Text>
-                  </View>
-                ) : null}
-
+              <View className="mt-2">
                 <Button
                   size="control"
                   label="Create account"
@@ -423,9 +398,10 @@ export function RegisterScreen() {
                   fullWidth
                 />
               </View>
-            </Card>
+            </View>
 
-            <View className="mt-6 items-center">
+            {/* Footer Navigation Link */}
+            <View className="mt-8 items-center">
               <Pressable
                 onPress={() => navigation.navigate("Login")}
                 hitSlop={8}
@@ -434,7 +410,7 @@ export function RegisterScreen() {
               >
                 <Text variant="small" tone="muted">
                   Already have an account?{" "}
-                  <Text variant="small" weight="medium" tone="primary">
+                  <Text variant="small" weight="semibold" tone="primary">
                     Sign in
                   </Text>
                 </Text>

@@ -66,6 +66,25 @@ export function AgentDashboardScreen() {
     [bookings],
   );
 
+  const todaysBookings = useMemo(() => {
+    const today = new Date().toDateString();
+    return bookings.filter(
+      (b) => new Date(b.bookingDate || b.createdAt).toDateString() === today,
+    ).length;
+  }, [bookings]);
+
+  const pendingBookings = useMemo(
+    () => bookings.filter((b) => b.status === "pending").length,
+    [bookings],
+  );
+
+  const statCards = [
+    { label: "Today's Bookings", value: todaysBookings, color: "#16A34A" },
+    { label: "Pending Bookings", value: pendingBookings, color: "#D97706" },
+    { label: "Customers", value: customerCount, color: "#2563EB" },
+    { label: "Total Bookings", value: bookings.length, color: "#0F172A" },
+  ];
+
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-background">
       <FlatList
@@ -88,26 +107,24 @@ export function AgentDashboardScreen() {
               {user?.fullName ?? "Agent"}
             </Text>
 
-            <View className="flex-row gap-2 mt-4">
-              <Card className="flex-1">
-                <Text variant="small" tone="muted">
-                  Customers
-                </Text>
-                <Text variant="h2" weight="bold" tone="primary" className="mt-1">
-                  {customerCount}
-                </Text>
-              </Card>
-              <Card className="flex-1">
-                <Text variant="small" tone="muted">
-                  Bookings
-                </Text>
-                <Text variant="h2" weight="bold" tone="info" className="mt-1">
-                  {bookings.length}
-                </Text>
-              </Card>
+            <View className="mt-5 flex-row flex-wrap gap-3">
+              {statCards.map((stat) => (
+                <Card key={stat.label} className="min-w-[45%] flex-1">
+                  <View
+                    style={{ backgroundColor: stat.color }}
+                    className="mb-3 h-1 w-8 rounded-full"
+                  />
+                  <Text variant="small" tone="muted">
+                    {stat.label}
+                  </Text>
+                  <Text variant="h2" weight="bold" className="mt-1" style={{ color: stat.color }}>
+                    {stat.value}
+                  </Text>
+                </Card>
+              ))}
             </View>
 
-            <View className="mt-4">
+            <View className="mt-5">
               <Button
                 label="New Booking"
                 size="md"
@@ -140,7 +157,17 @@ export function AgentDashboardScreen() {
         }
         renderItem={({ item }) => (
           <Card className="mb-2">
-            <Text weight="semibold">{item.customerName}</Text>
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text weight="semibold">{item.customerName}</Text>
+                <Text variant="small" tone="muted" className="mt-0.5">
+                  {item.reference}
+                </Text>
+              </View>
+              <Text weight="semibold" tone="primary">
+                {item.status}
+              </Text>
+            </View>
           </Card>
         )}
       />
