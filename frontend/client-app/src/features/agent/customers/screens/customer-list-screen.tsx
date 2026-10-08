@@ -100,6 +100,7 @@ export function CustomerListScreen() {
 
             <View className="mt-4">
               <Input
+                size="control"
                 value={query}
                 onChangeText={setQuery}
                 placeholder="Search by name, email, or contact"

@@ -204,6 +204,7 @@ export function BookingCreateScreen() {
         {step === "customer" ? (
           <View className="flex-1 px-6 pt-4">
             <Input
+              size="control"
               value={customerQuery}
               onChangeText={setCustomerQuery}
               placeholder="Search customers"
@@ -261,6 +262,7 @@ export function BookingCreateScreen() {
               </Card>
             ) : null}
             <Input
+              size="control"
               value={productQuery}
               onChangeText={setProductQuery}
               placeholder="Search products"
