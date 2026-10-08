@@ -8,6 +8,9 @@ export type AgentStackParamList = {
     | { customerId?: string; initialStep?: "customer" | "products" | "cart" }
     | undefined;
   BookingDetail: { bookingId: string };
+  ProfileEdit: undefined;
+  ProfileChangePassword: undefined;
+  ProfileTerms: undefined;
 };
 
 export type AgentTabParamList = {
@@ -22,6 +25,15 @@ export type BranchStackParamList = {
   ProductDetail: { productId: string };
   OrderReview: undefined;
   OrderDetail: { orderId: string };
+  ProfileEdit: undefined;
+  ProfileChangePassword: undefined;
+  ProfileTerms: undefined;
+};
+
+export type ProfileStackParamList = {
+  ProfileEdit: undefined;
+  ProfileChangePassword: undefined;
+  ProfileTerms: undefined;
 };
 
 export type BranchTabParamList = {
@@ -38,5 +50,3 @@ export type RootStackParamList = {
   Agent: NavigatorScreenParams<AgentStackParamList>;
   Branch: NavigatorScreenParams<BranchStackParamList>;
 };
-
-

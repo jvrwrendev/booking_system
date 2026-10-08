@@ -5,6 +5,7 @@ import type {
   AuthUser,
   LoginCredentials,
   RegisterCredentials,
+  UpdateProfileInput,
 } from "@/types/auth";
 import { NETWORK_DELAY_MS } from "@/constants";
 import { sleep } from "@/lib/utils";
@@ -15,11 +16,11 @@ const combinedAccounts: AuthAccount[] = [
 ];
 
 export async function loginRequest(
-  credentials: LoginCredentials,
+  credentials: LoginCredentials
 ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
   await sleep(NETWORK_DELAY_MS);
   const account = combinedAccounts.find(
-    (a) => a.email.toLowerCase() === credentials.email.trim().toLowerCase(),
+    (a) => a.email.toLowerCase() === credentials.email.trim().toLowerCase()
   );
 
   if (!account || account.password !== credentials.password) {
@@ -59,13 +60,16 @@ export async function loginRequest(
 }
 
 export async function registerRequest(
-  credentials: RegisterCredentials,
+  credentials: RegisterCredentials
 ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
   await sleep(NETWORK_DELAY_MS);
 
   const email = credentials.email.trim().toLowerCase();
   if (combinedAccounts.some((a) => a.email.toLowerCase() === email)) {
-    return { success: false, error: "An account with this email already exists." };
+    return {
+      success: false,
+      error: "An account with this email already exists.",
+    };
   }
 
   const now = new Date().toISOString();
@@ -94,10 +98,105 @@ export async function registerRequest(
   return { success: true, user: userFields };
 }
 
-export async function fetchCurrentUser(userId: string): Promise<AuthUser | null> {
+export async function fetchCurrentUser(
+  userId: string
+): Promise<AuthUser | null> {
   await sleep(NETWORK_DELAY_MS);
   const account = combinedAccounts.find((a) => a.id === userId);
   if (!account) return null;
   const { password: _password, ...userFields } = account;
   return userFields;
+}
+
+export async function updateAccountRequest(
+  userId: string,
+  patch: UpdateProfileInput
+): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+  await sleep(NETWORK_DELAY_MS);
+
+  const account = combinedAccounts.find((a) => a.id === userId);
+  if (!account) {
+    return { success: false, error: "Account not found." };
+  }
+
+  const fullName = patch.fullName.trim();
+  const email = patch.email.trim();
+  const contactNumber = patch.contactNumber.trim();
+  const address = patch.address.trim();
+
+  if (!fullName) {
+    return { success: false, error: "Full name is required." };
+  }
+  if (
+    combinedAccounts.some(
+      (a) => a.id !== userId && a.email.toLowerCase() === email.toLowerCase()
+    )
+  ) {
+    return {
+      success: false,
+      error: "An account with this email already exists.",
+    };
+  }
+
+  account.fullName = fullName;
+  account.email = email;
+  account.username = email.split("@")[0];
+  account.contactNumber = contactNumber;
+  account.address = address;
+
+  if (account.role === "AGENT") {
+    const agent = mockAgents.find((a) => a.id === account.agentId);
+    if (agent) {
+      agent.fullName = fullName;
+      agent.email = email;
+      agent.contactNumber = contactNumber;
+      agent.address = address;
+      const [first, ...rest] = fullName.split(" ");
+      agent.firstName = first ?? agent.firstName;
+      agent.lastName = rest.join(" ") || agent.lastName;
+    }
+  } else if (account.role === "BRANCH") {
+    const branch = mockBranches.find((b) => b.id === account.branchId);
+    if (branch) {
+      branch.name = fullName;
+      branch.email = email;
+      branch.contactNumber = contactNumber;
+      branch.address = address;
+    }
+  }
+
+  const { password: _password, ...userFields } = account;
+  return { success: true, user: userFields };
+}
+
+export async function changePasswordRequest(
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  await sleep(NETWORK_DELAY_MS);
+
+  const account = combinedAccounts.find((a) => a.id === userId);
+  if (!account) {
+    return { success: false, error: "Account not found." };
+  }
+  if (account.password !== currentPassword) {
+    return { success: false, error: "Your current password is incorrect." };
+  }
+  if (currentPassword === newPassword) {
+    return {
+      success: false,
+      error: "New password must be different from your current password.",
+    };
+  }
+
+  account.password = newPassword;
+
+  const agent = mockAgents.find((a) => a.id === account.agentId);
+  if (agent) agent.password = newPassword;
+
+  const branch = mockBranches.find((b) => b.id === account.branchId);
+  if (branch) branch.password = newPassword;
+
+  return { success: true };
 }

@@ -7,11 +7,17 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { loginRequest, registerRequest } from "@/services/auth.service";
+import {
+  changePasswordRequest,
+  loginRequest,
+  registerRequest,
+  updateAccountRequest,
+} from "@/services/auth.service";
 import type {
   AuthUser,
   LoginCredentials,
   RegisterCredentials,
+  UpdateProfileInput,
 } from "@/types/auth";
 import { STORAGE_KEYS } from "@/constants";
 
@@ -20,10 +26,17 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (
-    credentials: LoginCredentials,
+    credentials: LoginCredentials
   ) => Promise<{ success: boolean; error?: string }>;
   register: (
-    credentials: RegisterCredentials,
+    credentials: RegisterCredentials
+  ) => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (
+    patch: UpdateProfileInput
+  ) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -50,42 +63,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const login = useCallback(
-    async (credentials: LoginCredentials) => {
-      const result = await loginRequest(credentials);
-      if (result.success && result.user) {
-        setUser(result.user);
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.AUTH_USER,
-          JSON.stringify(result.user),
-        );
-        return { success: true };
-      }
-      return { success: false, error: result.error };
-    },
-    [],
-  );
+  const login = useCallback(async (credentials: LoginCredentials) => {
+    const result = await loginRequest(credentials);
+    if (result.success && result.user) {
+      setUser(result.user);
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.AUTH_USER,
+        JSON.stringify(result.user)
+      );
+      return { success: true };
+    }
+    return { success: false, error: result.error };
+  }, []);
 
-  const register = useCallback(
-    async (credentials: RegisterCredentials) => {
-      const result = await registerRequest(credentials);
-      if (result.success && result.user) {
-        setUser(result.user);
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.AUTH_USER,
-          JSON.stringify(result.user),
-        );
-        return { success: true };
-      }
-      return { success: false, error: result.error };
-    },
-    [],
-  );
+  const register = useCallback(async (credentials: RegisterCredentials) => {
+    const result = await registerRequest(credentials);
+    if (result.success && result.user) {
+      setUser(result.user);
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.AUTH_USER,
+        JSON.stringify(result.user)
+      );
+      return { success: true };
+    }
+    return { success: false, error: result.error };
+  }, []);
 
   const logout = useCallback(async () => {
     setUser(null);
     await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_USER);
   }, []);
+
+  const updateProfile = useCallback(
+    async (patch: UpdateProfileInput) => {
+      if (!user) return { success: false, error: "No active session." };
+      const result = await updateAccountRequest(user.id, patch);
+      if (result.success && result.user) {
+        setUser(result.user);
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.AUTH_USER,
+          JSON.stringify(result.user)
+        );
+        return { success: true };
+      }
+      return { success: false, error: result.error };
+    },
+    [user]
+  );
+
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      if (!user) return { success: false, error: "No active session." };
+      const result = await changePasswordRequest(
+        user.id,
+        currentPassword,
+        newPassword
+      );
+      if (!result.success) return { success: false, error: result.error };
+      return { success: true };
+    },
+    [user]
+  );
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -104,10 +142,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       login,
       register,
+      updateProfile,
+      changePassword,
       logout,
       refresh,
     }),
-    [user, isLoading, login, register, logout, refresh],
+    [
+      user,
+      isLoading,
+      login,
+      register,
+      updateProfile,
+      changePassword,
+      logout,
+      refresh,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -7,6 +7,9 @@ import { OrderListScreen } from "@/features/branch/orders/screens/order-list-scr
 import { OrderReviewScreen } from "@/features/branch/orders/screens/order-review-screen";
 import { OrderDetailScreen } from "@/features/branch/orders/screens/order-detail-screen";
 import { ProfileScreen } from "@/features/profile/screens/profile-screen";
+import { ProfileEditScreen } from "@/features/profile/screens/profile-edit-screen";
+import { ProfileChangePasswordScreen } from "@/features/profile/screens/profile-change-password-screen";
+import { ProfileTermsScreen } from "@/features/profile/screens/profile-terms-screen";
 import { BranchDashboardScreen } from "@/features/dashboard/branch-dashboard-screen";
 import { OrderCartProvider } from "@/features/branch/orders/hooks/use-order-cart";
 import { branchNavItems } from "./nav-items";
@@ -71,6 +74,12 @@ export function BranchNavigator() {
           options={{ gestureEnabled: false }}
         />
         <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+        <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
+        <Stack.Screen
+          name="ProfileChangePassword"
+          component={ProfileChangePasswordScreen}
+        />
+        <Stack.Screen name="ProfileTerms" component={ProfileTermsScreen} />
       </Stack.Navigator>
     </OrderCartProvider>
   );

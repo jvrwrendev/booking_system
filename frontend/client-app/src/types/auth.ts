@@ -48,3 +48,10 @@ export interface RegisterCredentials {
   password: string;
   confirmPassword: string;
 }
+
+export interface UpdateProfileInput {
+  fullName: string;
+  email: string;
+  contactNumber: string;
+  address: string;
+}

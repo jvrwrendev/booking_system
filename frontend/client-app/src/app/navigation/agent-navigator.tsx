@@ -8,6 +8,9 @@ import { BookingListScreen } from "@/features/agent/bookings/screens/booking-lis
 import { BookingCreateScreen } from "@/features/agent/bookings/screens/booking-create-screen";
 import { BookingDetailScreen } from "@/features/agent/bookings/screens/booking-detail-screen";
 import { ProfileScreen } from "@/features/profile/screens/profile-screen";
+import { ProfileEditScreen } from "@/features/profile/screens/profile-edit-screen";
+import { ProfileChangePasswordScreen } from "@/features/profile/screens/profile-change-password-screen";
+import { ProfileTermsScreen } from "@/features/profile/screens/profile-terms-screen";
 import { AgentDashboardScreen } from "@/features/dashboard/agent-dashboard-screen";
 import { agentNavItems } from "./nav-items";
 import type { AgentTabParamList } from "./types";
@@ -67,6 +70,12 @@ export function AgentNavigator() {
         options={{ gestureEnabled: false }}
       />
       <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
+      <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
+      <Stack.Screen
+        name="ProfileChangePassword"
+        component={ProfileChangePasswordScreen}
+      />
+      <Stack.Screen name="ProfileTerms" component={ProfileTermsScreen} />
     </Stack.Navigator>
   );
 }
