@@ -46,7 +46,7 @@ export function CustomerAddScreen() {
   const [city, setCity] = useState("");
   const [province, setProvince] = useState("");
   const [region, setRegion] = useState("");
-  const [notes, setNotes] = useState("");
+  const [gender, setGender] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -102,7 +102,7 @@ export function CustomerAddScreen() {
             province: { code: "", name: province.trim() },
             region: { code: "", name: region.trim() },
           },
-          notes: notes.trim(),
+          gender,
         },
         user?.agentId ?? "",
         user?.fullName ?? "Agent",
@@ -265,14 +265,36 @@ export function CustomerAddScreen() {
                   </View>
                 </View>
 
-                <Input
-                  size="control"
-                  label="Notes (optional)"
-                  value={notes}
-                  onChangeText={setNotes}
-                  placeholder="Delivery preferences, etc."
-                  multiline
-                />
+                <View>
+                  <Text variant="label" tone="muted" className="mb-2">
+                    GENDER
+                  </Text>
+                  <View className="flex-row gap-3">
+                    {["Male", "Female", "Other"].map((option) => {
+                      const selected = gender === option;
+                      return (
+                        <Pressable
+                          key={option}
+                          onPress={() => setGender(option)}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
+                          className={`flex-1 items-center rounded-md border px-3 py-3 ${
+                            selected
+                              ? "border-primary bg-primary/5"
+                              : "border-border bg-background"
+                          }`}
+                        >
+                          <Text
+                            weight="semibold"
+                            className={selected ? "text-primary" : "text-foreground"}
+                          >
+                            {option}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
 
                 {error ? (
                   <View className="flex-row items-start gap-2.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-2.5">
@@ -290,6 +312,8 @@ export function CustomerAddScreen() {
                 <Button
                   size="control"
                   label="Save Customer"
+                  className="bg-primary disabled:bg-primary/40"
+                  textClassName="text-white"
                   onPress={() => {
                     void onSubmit();
                   }}

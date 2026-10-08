@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, RefreshControl, View } from "react-native";
+import { FlatList, RefreshControl, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Plus, ShoppingCart } from "lucide-react-native";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { Plus } from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { listBookingsForAgent } from "@/services/booking.service";
 import { listCustomersForAgent } from "@/services/customer.service";
-import { readAgentCart } from "@/hooks/use-agent-cart";
 import type { Booking } from "@/types/booking";
 import type { AgentStackParamList } from "@/app/navigation/types";
 import { LoadingState } from "@/components/shared/loading-state";
@@ -28,20 +27,7 @@ export function AgentDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cartCount, setCartCount] = useState(0);
-  const [cartTotal, setCartTotal] = useState(0);
-
   const agentId = user?.agentId ?? "";
-
-  useFocusEffect(
-    useCallback(() => {
-      void (async () => {
-        const cart = await readAgentCart();
-        setCartCount(cart.items.reduce((acc, i) => acc + i.quantity, 0));
-        setCartTotal(cart.items.reduce((acc, i) => acc + i.subtotal, 0));
-      })();
-    }, []),
-  );
 
   const load = useCallback(async () => {
     setError(null);

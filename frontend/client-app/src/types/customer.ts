@@ -9,6 +9,7 @@ export interface Customer {
   fullName: string;
   email: string;
   contactNumber: string;
+  gender?: string;
   address: string;
   addressParts: AddressParts;
   assignedAgentId: string;
@@ -27,6 +28,7 @@ export interface CustomerFormValues {
   suffix: string;
   email: string;
   contactNumber: string;
+  gender?: string;
   addressParts: AddressParts;
   notes?: string;
 }

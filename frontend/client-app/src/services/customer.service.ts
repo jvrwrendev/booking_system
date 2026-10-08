@@ -64,6 +64,7 @@ export async function createCustomerForAgent(
     fullName: buildFullName(values),
     email: values.email,
     contactNumber: values.contactNumber,
+    gender: values.gender,
     address: buildAddress(values),
     addressParts: values.addressParts,
     assignedAgentId: agentId,
@@ -76,4 +77,33 @@ export async function createCustomerForAgent(
   };
   customersState = [customer, ...customersState];
   return customer;
+}
+
+export async function updateCustomerForAgent(
+  id: string,
+  values: CustomerFormValues,
+  agentId: string,
+): Promise<Customer | null> {
+  await sleep(NETWORK_DELAY_MS);
+  const index = customersState.findIndex(
+    (c) => c.id === id && c.assignedAgentId === agentId,
+  );
+  if (index === -1) return null;
+  const existing = customersState[index];
+  const updated: Customer = {
+    ...existing,
+    firstName: values.firstName,
+    middleName: values.middleName,
+    lastName: values.lastName,
+    suffix: values.suffix,
+    fullName: buildFullName(values),
+    email: values.email,
+    contactNumber: values.contactNumber,
+    gender: values.gender,
+    address: buildAddress(values),
+    addressParts: values.addressParts,
+    notes: values.notes ?? existing.notes,
+  };
+  customersState = customersState.map((c) => (c.id === id ? updated : c));
+  return updated;
 }

@@ -11,7 +11,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AlertCircle,
   ArrowLeft,
-  Check,
   Search,
   ShoppingCart,
   Trash2,
@@ -160,7 +159,15 @@ export function BookingCreateScreen() {
         <View className="px-6 pt-4">
           <View className="flex-row items-center justify-between">
             <Pressable
-              onPress={() => navigation.goBack()}
+              onPress={() => {
+                const order: Step[] = ["customer", "products", "cart", "review"];
+                const index = order.indexOf(step);
+                if (index > 0) {
+                  setStep(order[index - 1]);
+                } else {
+                  navigation.goBack();
+                }
+              }}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="Go back"
@@ -325,7 +332,7 @@ export function BookingCreateScreen() {
               />
             )}
             {canContinueFromProducts ? (
-              <View className="pb-2 pt-3">
+              <View className="py-4">
                 <Button
                   label={`View cart (${cart.totalQuantity})`}
                   size="control"
@@ -387,7 +394,7 @@ export function BookingCreateScreen() {
                 </Card>
               )}
             />
-            <View className="gap-3 pb-2 pt-3">
+            <View className="gap-3 py-4">
               <View className="flex-row items-center justify-between">
                 <Text tone="muted">Subtotal</Text>
                 <Text weight="bold">₱{cart.subtotal.toLocaleString()}</Text>
@@ -411,6 +418,7 @@ export function BookingCreateScreen() {
         ) : null}
 
         {step === "review" ? (
+          <View className="flex-1">
           <ScrollView className="flex-1 px-6 pt-4">
             <Card>
               <Text variant="label" tone="muted">
@@ -463,11 +471,11 @@ export function BookingCreateScreen() {
 
             <View className="mt-4">
               <Input
+                size="control"
                 label="Notes (optional)"
                 value={notes}
                 onChangeText={setNotes}
                 placeholder="Delivery notes..."
-                multiline
               />
             </View>
 
@@ -480,27 +488,30 @@ export function BookingCreateScreen() {
               </View>
             ) : null}
 
-            <View className="mt-6 gap-3 pb-8">
-              <Button
-                label="Confirm order"
-                size="control"
-                fullWidth
-                loading={submitting}
-                disabled={!cart.customer || cart.items.length === 0}
-                leftIcon={<Check size={18} color="#FFFFFF" />}
-                onPress={() => {
-                  void onConfirm();
-                }}
-              />
-              <Button
-                label="Back to cart"
-                variant="outline"
-                size="control"
-                fullWidth
-                onPress={() => setStep("cart")}
-              />
-            </View>
           </ScrollView>
+          <View className="gap-3 px-6 py-4">
+            <Button
+              label="Confirm order"
+              size="control"
+              fullWidth
+              loading={submitting}
+              disabled={!cart.customer || cart.items.length === 0}
+              onPress={() => {
+                void onConfirm();
+              }}
+            />
+            <Button
+              label="Discard"
+              variant="outline"
+              size="control"
+              fullWidth
+              onPress={() => {
+                cart.clear();
+                navigation.goBack();
+              }}
+            />
+          </View>
+          </View>
         ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
