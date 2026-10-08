@@ -12,8 +12,6 @@ import {
   AlertCircle,
   ArrowLeft,
   Check,
-  Minus,
-  Plus,
   Search,
   ShoppingCart,
   Trash2,
