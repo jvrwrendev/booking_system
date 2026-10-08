@@ -4,7 +4,9 @@ export type AgentStackParamList = {
   AgentTabs: undefined;
   CustomerAdd: undefined;
   CustomerDetail: { customerId: string };
-  BookingCreate: { customerId?: string } | undefined;
+  BookingCreate:
+    | { customerId?: string; initialStep?: "customer" | "products" | "cart" }
+    | undefined;
   BookingDetail: { bookingId: string };
 };
 
