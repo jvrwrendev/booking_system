@@ -25,7 +25,7 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": [],
+    "plugins": [["expo-image-picker", {"photosPermission": "Agrivet needs access to your photos so you can set a profile picture."}]],
     "experiments": {
       "tsconfigPaths": true
     }

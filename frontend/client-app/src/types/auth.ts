@@ -47,6 +47,7 @@ export interface RegisterCredentials {
   address: string;
   password: string;
   confirmPassword: string;
+  avatar?: string;
 }
 
 export interface UpdateProfileInput {
@@ -54,4 +55,11 @@ export interface UpdateProfileInput {
   email: string;
   contactNumber: string;
   address: string;
+  avatar?: string;
+}
+
+export interface GoogleProfile {
+  id: string;
+  email: string;
+  fullName: string;
 }

@@ -13,6 +13,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Building2,
+  Camera,
   Eye,
   EyeOff,
   Leaf,
@@ -26,10 +27,15 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { cn, validateEmail } from "@/lib/utils";
+import { pickProfileImage } from "@/lib/image-picker";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
+import { GoogleButton } from "@/features/auth/components/google-button";
+import { GoogleSignInModal } from "@/features/auth/components/google-sign-in-modal";
 import { APP_FULL_NAME, BUSINESS_NAME } from "@/constants";
+import type { GoogleProfile } from "@/types/auth";
 import type { Role } from "@/types/role";
 import type { RootStackParamList } from "@/app/navigation/types";
 
@@ -51,13 +57,14 @@ const roleOptions: { value: Role; label: string; description: string }[] = [
 ];
 
 export function RegisterScreen() {
-  const { register } = useAuth();
+  const { register, googleSignUp } = useAuth();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { height } = useWindowDimensions();
 
   const [role, setRole] = useState<Role>("AGENT");
   const [name, setName] = useState("");
+  const [avatar, setAvatar] = useState<string | undefined>(undefined);
   const [email, setEmail] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [address, setAddress] = useState("");
@@ -68,6 +75,8 @@ export function RegisterScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [googleVisible, setGoogleVisible] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const isWideViewport = Platform.OS === "web" && height >= 640;
   const nameLabel = role === "AGENT" ? "Full name" : "Branch name";
@@ -109,6 +118,18 @@ export function RegisterScreen() {
     setError(null);
   };
 
+  const onChangePhoto = async () => {
+    const { uri, error: pickError } = await pickProfileImage();
+    if (pickError) {
+      setError(pickError);
+      return;
+    }
+    if (uri) {
+      setError(null);
+      setAvatar(uri);
+    }
+  };
+
   const onSubmit = async () => {
     if (submitting) return;
     setSubmitted(true);
@@ -128,11 +149,23 @@ export function RegisterScreen() {
       address: address.trim(),
       password,
       confirmPassword,
+      avatar: role === "AGENT" ? avatar : undefined,
     });
     setSubmitting(false);
 
     if (!result.success) {
       setError(result.error ?? "Registration failed. Please try again.");
+    }
+  };
+
+  const onGoogleSignUp = async (profile: GoogleProfile, signUpRole: Role) => {
+    if (googleLoading) return;
+    setGoogleLoading(true);
+    const result = await googleSignUp(profile, signUpRole);
+    setGoogleLoading(false);
+    setGoogleVisible(false);
+    if (!result.success) {
+      setError(result.error ?? "Google sign-up failed. Please try again.");
     }
   };
 
@@ -192,7 +225,11 @@ export function RegisterScreen() {
 
             {/* Role Switcher (Flat Segmented Control) */}
             <View className="mb-6">
-              <Text variant="label" tone="muted" className="mb-2 text-xs font-medium uppercase tracking-wider">
+              <Text
+                variant="label"
+                tone="muted"
+                className="mb-2 text-xs font-medium uppercase tracking-wider"
+              >
                 Account Role
               </Text>
               <View className="flex-row rounded-lg border border-border p-1">
@@ -210,13 +247,22 @@ export function RegisterScreen() {
                       )}
                     >
                       {option.value === "AGENT" ? (
-                        <UserRound size={16} color={selected ? PRIMARY_ICON : MUTED_ICON} />
+                        <UserRound
+                          size={16}
+                          color={selected ? PRIMARY_ICON : MUTED_ICON}
+                        />
                       ) : (
-                        <Building2 size={16} color={selected ? PRIMARY_ICON : MUTED_ICON} />
+                        <Building2
+                          size={16}
+                          color={selected ? PRIMARY_ICON : MUTED_ICON}
+                        />
                       )}
                       <Text
                         weight={selected ? "semibold" : "regular"}
-                        className={cn("text-sm", selected ? "text-foreground" : "text-muted-foreground")}
+                        className={cn(
+                          "text-sm",
+                          selected ? "text-foreground" : "text-muted-foreground"
+                        )}
                       >
                         {option.label}
                       </Text>
@@ -225,6 +271,54 @@ export function RegisterScreen() {
                 })}
               </View>
             </View>
+
+            {/* Profile Photo (agents) */}
+            {role === "AGENT" ? (
+              <View className="mb-6 items-center">
+                <View className="relative">
+                  <Avatar
+                    name={name || "?"}
+                    size="xl"
+                    uri={avatar}
+                    className="border border-border"
+                  />
+                  <Pressable
+                    onPress={() => {
+                      void onChangePhoto();
+                    }}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add profile photo"
+                    className="absolute -bottom-1 -right-1 h-9 w-9 items-center justify-center rounded-full border border-border bg-background active:bg-accent/10"
+                  >
+                    <Camera size={15} color={PRIMARY_ICON} />
+                  </Pressable>
+                </View>
+                <View className="mt-3 flex-row items-center gap-2">
+                  <Button
+                    label={avatar ? "Change photo" : "Add photo"}
+                    variant="outline"
+                    size="sm"
+                    disabled={submitting}
+                    onPress={() => {
+                      void onChangePhoto();
+                    }}
+                  />
+                  {avatar ? (
+                    <Button
+                      label="Remove"
+                      variant="ghost"
+                      size="sm"
+                      disabled={submitting}
+                      onPress={() => setAvatar(undefined)}
+                    />
+                  ) : null}
+                </View>
+                <Text variant="small" tone="muted" className="mt-2 text-center">
+                  Optional — you can add it later from your profile.
+                </Text>
+              </View>
+            ) : null}
 
             {/* Form Section */}
             <View className="gap-4">
@@ -381,7 +475,11 @@ export function RegisterScreen() {
               {error ? (
                 <View className="flex-row items-center gap-2 rounded-md border border-destructive/20 p-3">
                   <AlertCircle size={16} color="#DC2626" />
-                  <Text variant="small" tone="danger" className="flex-1 text-xs">
+                  <Text
+                    variant="small"
+                    tone="danger"
+                    className="flex-1 text-xs"
+                  >
                     {error}
                   </Text>
                 </View>
@@ -398,6 +496,25 @@ export function RegisterScreen() {
                   fullWidth
                 />
               </View>
+
+              {/* Divider - or sign up with Google */}
+              <View className="mt-1 flex-row items-center gap-3">
+                <View className="h-px flex-1 bg-border" />
+                <Text variant="small" tone="muted">
+                  or
+                </Text>
+                <View className="h-px flex-1 bg-border" />
+              </View>
+
+              <GoogleButton
+                label="Sign up with Google"
+                loading={googleLoading}
+                disabled={submitting}
+                onPress={() => {
+                  setError(null);
+                  setGoogleVisible(true);
+                }}
+              />
             </View>
 
             {/* Footer Navigation Link */}
@@ -419,6 +536,17 @@ export function RegisterScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <GoogleSignInModal
+        visible={googleVisible}
+        mode="register"
+        loading={googleLoading}
+        onCancel={() => setGoogleVisible(false)}
+        onSignIn={() => {}}
+        onSignUp={(profile, signUpRole) => {
+          void onGoogleSignUp(profile, signUpRole);
+        }}
+      />
     </SafeAreaView>
   );
 }

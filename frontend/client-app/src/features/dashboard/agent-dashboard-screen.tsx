@@ -12,10 +12,15 @@ import type { AgentStackParamList } from "@/app/navigation/types";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
+import {
+  NotificationBell,
+  type NotificationItem,
+} from "@/components/shared/notification-bell";
 import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
+import { formatDateTime } from "@/lib/utils";
 
 export function AgentDashboardScreen() {
   const navigation =
@@ -84,6 +89,46 @@ export function AgentDashboardScreen() {
     { label: "Total Bookings", value: bookings.length, color: "#0F172A" },
   ];
 
+  const notifications = useMemo<NotificationItem[]>(() => {
+    const items: NotificationItem[] = [];
+
+    if (pendingBookings > 0) {
+      items.push({
+        id: "pending-bookings",
+        title: "Pending bookings",
+        description: `${pendingBookings} booking${pendingBookings === 1 ? "" : "s"} awaiting your confirmation.`,
+        tone: "warning",
+      });
+    }
+
+    recent.slice(0, 4).forEach((booking) => {
+      items.push({
+        id: booking.id,
+        title: booking.reference,
+        description: `${booking.customerName} · ${booking.status}`,
+        time: formatDateTime(booking.createdAt),
+        tone:
+          booking.status === "pending"
+            ? "warning"
+            : booking.status === "ready" || booking.status === "completed"
+              ? "primary"
+              : "info",
+      });
+    });
+
+    if (items.length === 0) {
+      items.push({
+        id: "all-clear",
+        title: "You're all caught up",
+        description: "No recent activity on your bookings.",
+        tone: "muted",
+        unread: false,
+      });
+    }
+
+    return items;
+  }, [pendingBookings, recent]);
+
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-background">
       <FlatList
@@ -99,12 +144,17 @@ export function AgentDashboardScreen() {
         }
         ListHeaderComponent={
           <View className="mb-4">
-            <Text variant="small" tone="muted">
-              Welcome back
-            </Text>
-            <Text variant="h1" weight="bold">
-              {user?.fullName ?? "Agent"}
-            </Text>
+            <View className="flex-row items-start justify-between">
+              <View className="flex-1 pr-3">
+                <Text variant="small" tone="muted">
+                  Welcome back
+                </Text>
+                <Text variant="h1" weight="bold">
+                  {user?.fullName ?? "Agent"}
+                </Text>
+              </View>
+              <NotificationBell items={notifications} />
+            </View>
 
             <View className="mt-5 flex-row flex-wrap gap-3">
               {statCards.map((stat) => (

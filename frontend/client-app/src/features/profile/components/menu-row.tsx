@@ -25,17 +25,11 @@ export function MenuRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className="flex-row items-center gap-3 py-3 active:opacity-70"
+      className="flex-row items-center gap-3 py-3.5 active:opacity-70"
     >
-      <View
-        className={`h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-          danger ? "bg-danger/10" : "bg-primary/10"
-        }`}
-      >
-        <Icon size={17} color={danger ? "#DC2626" : "#16A34A"} />
-      </View>
+      <Icon size={17} color={danger ? "#DC2626" : "#64748B"} />
       <View className="flex-1">
-        <Text weight="semibold" tone={danger ? "danger" : "default"}>
+        <Text weight="medium" tone={danger ? "danger" : "default"}>
           {label}
         </Text>
         {subtitle ? (

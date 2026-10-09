@@ -1,5 +1,5 @@
 import React from "react";
-import { View } from "react-native";
+import { Image, View } from "react-native";
 import { cn } from "@/lib/utils";
 import { Text } from "./text";
 
@@ -7,6 +7,7 @@ interface AvatarProps {
   name: string;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
+  uri?: string;
 }
 
 const sizeClass: Record<NonNullable<AvatarProps["size"]>, string> = {
@@ -23,7 +24,7 @@ const textSize: Record<NonNullable<AvatarProps["size"]>, string> = {
   xl: "text-2xl",
 };
 
-export function Avatar({ name, size = "md", className }: AvatarProps) {
+export function Avatar({ name, size = "md", className, uri }: AvatarProps) {
   const initials = name
     .split(" ")
     .filter(Boolean)
@@ -31,6 +32,17 @@ export function Avatar({ name, size = "md", className }: AvatarProps) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  if (uri) {
+    return (
+      <Image
+        source={{ uri }}
+        resizeMode="cover"
+        accessibilityLabel="Profile photo"
+        className={cn("rounded-full bg-secondary", sizeClass[size], className)}
+      />
+    );
+  }
 
   return (
     <View

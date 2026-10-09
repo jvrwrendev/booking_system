@@ -1,12 +1,15 @@
 import { mockAgentAuthAccounts, mockAgents } from "./mock/agents";
 import { mockBranchAuthAccounts, mockBranches } from "./mock/branches";
+import { mockGoogleAccounts } from "./mock/google-accounts";
 import type {
   AuthAccount,
   AuthUser,
+  GoogleProfile,
   LoginCredentials,
   RegisterCredentials,
   UpdateProfileInput,
 } from "@/types/auth";
+import type { Role } from "@/types/role";
 import { NETWORK_DELAY_MS } from "@/constants";
 import { sleep } from "@/lib/utils";
 
@@ -15,25 +18,7 @@ const combinedAccounts: AuthAccount[] = [
   ...mockBranchAuthAccounts,
 ];
 
-export async function loginRequest(
-  credentials: LoginCredentials
-): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
-  await sleep(NETWORK_DELAY_MS);
-  const account = combinedAccounts.find(
-    (a) => a.email.toLowerCase() === credentials.email.trim().toLowerCase()
-  );
-
-  if (!account || account.password !== credentials.password) {
-    return { success: false, error: "Invalid email or password." };
-  }
-
-  if (account.status !== "active") {
-    return {
-      success: false,
-      error: "This account is inactive. Contact your administrator.",
-    };
-  }
-
+function buildSessionUser(account: AuthAccount): AuthUser {
   const { password: _password, ...userFields } = account;
   const user: AuthUser = {
     ...userFields,
@@ -56,7 +41,29 @@ export async function loginRequest(
     }
   }
 
-  return { success: true, user };
+  return user;
+}
+
+export async function loginRequest(
+  credentials: LoginCredentials
+): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+  await sleep(NETWORK_DELAY_MS);
+  const account = combinedAccounts.find(
+    (a) => a.email.toLowerCase() === credentials.email.trim().toLowerCase()
+  );
+
+  if (!account || account.password !== credentials.password) {
+    return { success: false, error: "Invalid email or password." };
+  }
+
+  if (account.status !== "active") {
+    return {
+      success: false,
+      error: "This account is inactive. Contact your administrator.",
+    };
+  }
+
+  return { success: true, user: buildSessionUser(account) };
 }
 
 export async function registerRequest(
@@ -90,6 +97,7 @@ export async function registerRequest(
     agentId: credentials.role === "AGENT" ? id : undefined,
     branchId: credentials.role === "BRANCH" ? id : undefined,
     password: credentials.password,
+    avatar: credentials.avatar || undefined,
   };
 
   combinedAccounts.push(account);
@@ -143,6 +151,7 @@ export async function updateAccountRequest(
   account.username = email.split("@")[0];
   account.contactNumber = contactNumber;
   account.address = address;
+  account.avatar = patch.avatar || undefined;
 
   if (account.role === "AGENT") {
     const agent = mockAgents.find((a) => a.id === account.agentId);
@@ -199,4 +208,79 @@ export async function changePasswordRequest(
   if (branch) branch.password = newPassword;
 
   return { success: true };
+}
+
+export function listGoogleAccounts(): GoogleProfile[] {
+  return mockGoogleAccounts;
+}
+
+export async function googleSignInRequest(
+  profile: GoogleProfile
+): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+  await sleep(NETWORK_DELAY_MS);
+
+  const account = combinedAccounts.find(
+    (a) => a.email.toLowerCase() === profile.email.trim().toLowerCase()
+  );
+
+  if (!account) {
+    return {
+      success: false,
+      error:
+        "No Agrivet account is linked to this Google account. Create one first.",
+    };
+  }
+
+  if (account.status !== "active") {
+    return {
+      success: false,
+      error: "This account is inactive. Contact your administrator.",
+    };
+  }
+
+  return { success: true, user: buildSessionUser(account) };
+}
+
+function generateGooglePassword(): string {
+  return `G-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export async function googleSignUpRequest(
+  profile: GoogleProfile,
+  role: Role
+): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+  await sleep(NETWORK_DELAY_MS);
+
+  const email = profile.email.trim().toLowerCase();
+  if (combinedAccounts.some((a) => a.email.toLowerCase() === email)) {
+    return {
+      success: false,
+      error: "An account with this email already exists. Sign in instead.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const suffix = Date.now().toString(36).toUpperCase();
+  const id = role === "AGENT" ? `AGT-${suffix}` : `BR-${suffix}`;
+
+  const account: AuthAccount = {
+    id,
+    fullName: profile.fullName.trim(),
+    email: profile.email.trim(),
+    username: email.split("@")[0],
+    role,
+    status: "active",
+    contactNumber: "",
+    address: "",
+    lastLogin: now,
+    createdAt: now,
+    agentId: role === "AGENT" ? id : undefined,
+    branchId: role === "BRANCH" ? id : undefined,
+    password: generateGooglePassword(),
+  };
+
+  combinedAccounts.push(account);
+
+  const { password: _password, ...userFields } = account;
+  return { success: true, user: userFields };
 }

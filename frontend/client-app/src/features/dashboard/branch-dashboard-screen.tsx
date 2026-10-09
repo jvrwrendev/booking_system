@@ -13,8 +13,13 @@ import { Button } from "@/components/ui/button";
 import { OrderCard } from "@/components/shared/order-card";
 import { LoadingState } from "@/components/shared/loading-state";
 import { EmptyState } from "@/components/shared/empty-state";
+import {
+  NotificationBell,
+  type NotificationItem,
+} from "@/components/shared/notification-bell";
 import { listOrdersForBranch } from "@/services/branch-order.service";
 import { listProducts } from "@/services/product.service";
+import { formatDateTime } from "@/lib/utils";
 import type { BranchOrder } from "@/types/branch-order";
 import type { BranchStackParamList } from "@/app/navigation/types";
 
@@ -76,6 +81,55 @@ export function BranchDashboardScreen() {
     [orders],
   );
 
+  const notifications = useMemo<NotificationItem[]>(() => {
+    const items: NotificationItem[] = [];
+
+    if (counts.pending > 0) {
+      items.push({
+        id: "pending-orders",
+        title: "Pending orders",
+        description: `${counts.pending} order${counts.pending === 1 ? "" : "s"} waiting to be processed.`,
+        tone: "warning",
+      });
+    }
+
+    if (counts.ready > 0) {
+      items.push({
+        id: "ready-orders",
+        title: "Orders ready",
+        description: `${counts.ready} order${counts.ready === 1 ? "" : "s"} ready for pickup or delivery.`,
+        tone: "primary",
+      });
+    }
+
+    recent.slice(0, 3).forEach((order) => {
+      items.push({
+        id: order.id,
+        title: order.reference,
+        description: `${order.totalQuantity} item${order.totalQuantity === 1 ? "" : "s"} · ${order.status}`,
+        time: formatDateTime(order.createdAt),
+        tone:
+          order.status === "pending"
+            ? "warning"
+            : order.status === "ready"
+              ? "primary"
+              : "info",
+      });
+    });
+
+    if (items.length === 0) {
+      items.push({
+        id: "all-clear",
+        title: "You're all caught up",
+        description: "No recent activity on your orders.",
+        tone: "muted",
+        unread: false,
+      });
+    }
+
+    return items;
+  }, [counts, recent]);
+
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-background">
       <ScrollView
@@ -88,13 +142,16 @@ export function BranchDashboardScreen() {
           />
         }
       >
-        <View className="flex-row items-center justify-between mb-3">
-          <Text variant="small" tone="muted">
-            Welcome
-          </Text>
-          <Text variant="h1" weight="bold">
-            {user?.fullName ?? "Branch"}
-          </Text>
+        <View className="mb-3 flex-row items-start justify-between">
+          <View className="flex-1 pr-3">
+            <Text variant="small" tone="muted">
+              Welcome
+            </Text>
+            <Text variant="h1" weight="bold">
+              {user?.fullName ?? "Branch"}
+            </Text>
+          </View>
+          <NotificationBell items={notifications} />
         </View>
 
         <View className="flex-row gap-2">

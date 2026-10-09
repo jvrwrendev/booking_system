@@ -11,17 +11,25 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AlertCircle,
   ArrowLeft,
+  Info,
+  Minus,
+  Plus,
   Search,
   ShoppingCart,
   Trash2,
 } from "lucide-react-native";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { useAgentCart } from "@/hooks/use-agent-cart";
 import { listCustomersForAgent } from "@/services/customer.service";
 import { listProducts } from "@/services/product.service";
 import { createBookingForAgent } from "@/services/booking.service";
+import { cn } from "@/lib/utils";
 import type { Customer } from "@/types/customer";
 import type { Product } from "@/types/product";
 import { Text } from "@/components/ui/text";
@@ -31,6 +39,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { QuantitySelector } from "@/components/shared/quantity-selector";
 import { LoadingState } from "@/components/shared/loading-state";
+import { ProductImage } from "@/components/shared/product-image";
+import { ProductDetailsSheet } from "@/components/shared/product-details-sheet";
 import type { AgentStackParamList } from "@/app/navigation/types";
 
 type Step = "customer" | "products" | "cart" | "review";
@@ -54,14 +64,14 @@ export function BookingCreateScreen() {
       ? "cart"
       : route.params?.initialStep === "products"
         ? "products"
-        : "customer",
+        : "customer"
   );
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [customerQuery, setCustomerQuery] = useState("");
   const [productQuery, setProductQuery] = useState("");
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +82,10 @@ export function BookingCreateScreen() {
   useEffect(() => {
     if (!cart.hydrated || hydratedCart.current) return;
     hydratedCart.current = true;
-    if (route.params?.customerId && cart.customer?.id !== route.params.customerId) {
+    if (
+      route.params?.customerId &&
+      cart.customer?.id !== route.params.customerId
+    ) {
       const found = customers.find((c) => c.id === route.params?.customerId);
       if (found) cart.setCustomer(found);
     }
@@ -110,7 +123,7 @@ export function BookingCreateScreen() {
     return customers.filter(
       (c) =>
         c.fullName.toLowerCase().includes(q) ||
-        c.contactNumber.toLowerCase().includes(q),
+        c.contactNumber.toLowerCase().includes(q)
     );
   }, [customers, customerQuery]);
 
@@ -121,11 +134,23 @@ export function BookingCreateScreen() {
       (p) =>
         p.name.toLowerCase().includes(q) ||
         p.sku.toLowerCase().includes(q) ||
-        p.categoryName.toLowerCase().includes(q),
+        p.categoryName.toLowerCase().includes(q)
     );
   }, [products, productQuery]);
 
   const canContinueFromProducts = cart.items.length > 0;
+
+  const detailInCart = detailProduct
+    ? (cart.items.find((i) => i.productId === detailProduct.id)?.quantity ?? 0)
+    : 0;
+
+  const imageFor = (productId: string) =>
+    products.find((p) => p.id === productId)?.image;
+
+  const onAddFromDetails = (product: Product, quantity: number) => {
+    cart.addItem(product, quantity);
+    setDetailProduct(null);
+  };
 
   const onConfirm = async () => {
     if (submitting || !cart.customer || cart.items.length === 0) return;
@@ -160,7 +185,12 @@ export function BookingCreateScreen() {
           <View className="flex-row items-center justify-between">
             <Pressable
               onPress={() => {
-                const order: Step[] = ["customer", "products", "cart", "review"];
+                const order: Step[] = [
+                  "customer",
+                  "products",
+                  "cart",
+                  "review",
+                ];
                 const index = order.indexOf(step);
                 if (index > 0) {
                   setStep(order[index - 1]);
@@ -276,57 +306,152 @@ export function BookingCreateScreen() {
                 data={filteredProducts}
                 keyExtractor={(p) => p.id}
                 className="mt-4"
+                numColumns={2}
+                columnWrapperStyle={{ gap: 12 }}
+                contentContainerStyle={{ gap: 12 }}
                 ListEmptyComponent={
                   <Text tone="muted" className="mt-8 text-center">
                     No products found.
                   </Text>
                 }
                 renderItem={({ item }) => {
-                  const qty = quantities[item.id] ?? 0;
+                  const inCart =
+                    cart.items.find((i) => i.productId === item.id)?.quantity ??
+                    0;
+                  const outOfStock = item.stockQuantity <= 0;
+                  const atMax = !outOfStock && inCart >= item.stockQuantity;
                   return (
-                    <Card className="mb-2">
-                      <View className="flex-row items-start justify-between gap-3">
-                        <View className="flex-1">
-                          <Text weight="semibold">{item.name}</Text>
-                          <Text variant="small" tone="muted" className="mt-0.5">
-                            {item.sku} • {item.categoryName}
+                    <Card
+                      padded={false}
+                      className="flex-1 justify-between overflow-hidden"
+                    >
+                      <Pressable
+                        onPress={() => {
+                          if (outOfStock || atMax) return;
+                          cart.addItem(item, 1);
+                        }}
+                        disabled={outOfStock}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          outOfStock
+                            ? `${item.name} is out of stock`
+                            : `Add ${item.name} to cart`
+                        }
+                        className={cn(
+                          "active:opacity-80",
+                          outOfStock && "opacity-60"
+                        )}
+                      >
+                        <View>
+                          <ProductImage
+                            source={item.image}
+                            className="h-28 w-full border-b border-border"
+                            iconSize={26}
+                          />
+                          <Pressable
+                            onPress={() => setDetailProduct(item)}
+                            hitSlop={6}
+                            accessibilityRole="button"
+                            accessibilityLabel={`View details for ${item.name}`}
+                            className="absolute right-2 top-2 h-7 w-7 items-center justify-center rounded-full border border-border bg-background/90 active:bg-accent/10"
+                          >
+                            <Info size={13} color="#64748B" />
+                          </Pressable>
+                        </View>
+                        <View className="p-2.5">
+                          <Text
+                            weight="semibold"
+                            numberOfLines={2}
+                            className="text-sm leading-5"
+                          >
+                            {item.name}
                           </Text>
-                          <Text weight="semibold" tone="primary" className="mt-1">
+                          <Text
+                            variant="small"
+                            tone="muted"
+                            numberOfLines={1}
+                            className="mt-0.5"
+                          >
+                            {item.categoryName}
+                          </Text>
+                          <Text
+                            weight="semibold"
+                            tone="primary"
+                            className="mt-1.5 text-sm"
+                          >
                             ₱{item.sellingPrice.toLocaleString()}
                             <Text variant="small" tone="muted">
                               {" "}
                               / {item.unit}
                             </Text>
                           </Text>
+                          <View className="mt-2">
+                            <Badge
+                              label={
+                                outOfStock
+                                  ? "Out of stock"
+                                  : `${item.stockQuantity} in stock`
+                              }
+                              tone={outOfStock ? "danger" : "success"}
+                            />
+                          </View>
                         </View>
-                        <Badge
-                          label={
-                            item.stockQuantity > 0
-                              ? `${item.stockQuantity} in stock`
-                              : "Out of stock"
-                          }
-                          tone={item.stockQuantity > 0 ? "success" : "danger"}
-                        />
-                      </View>
-                      <View className="mt-3 flex-row items-center gap-3">
-                        <View className="w-36">
-                          <QuantitySelector
-                            value={qty}
-                            onChange={(v) =>
-                              setQuantities((prev) => ({ ...prev, [item.id]: v }))
+                      </Pressable>
+                      <View className="px-2.5 pb-2.5">
+                        <View
+                          className={cn(
+                            "flex-row items-center overflow-hidden rounded-lg border",
+                            inCart > 0
+                              ? "border-primary bg-primary/5"
+                              : "border-border bg-background"
+                          )}
+                        >
+                          <Pressable
+                            onPress={() =>
+                              cart.setQuantity(item.id, inCart - 1)
                             }
-                            max={item.stockQuantity}
-                          />
+                            disabled={inCart === 0}
+                            hitSlop={4}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Remove one ${item.name} from cart`}
+                            className={cn(
+                              "h-9 w-9 items-center justify-center active:bg-secondary",
+                              inCart === 0 && "opacity-40"
+                            )}
+                          >
+                            <Minus
+                              size={14}
+                              color={inCart === 0 ? "#CBD5E1" : "#0F172A"}
+                            />
+                          </Pressable>
+                          <View className="flex-1 items-center justify-center">
+                            <Text
+                              variant="small"
+                              weight="semibold"
+                              tone={inCart > 0 ? "primary" : "muted"}
+                            >
+                              {inCart}
+                            </Text>
+                          </View>
+                          <Pressable
+                            onPress={() => cart.addItem(item, 1)}
+                            disabled={outOfStock || atMax}
+                            hitSlop={4}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Add one ${item.name} to cart`}
+                            className={cn(
+                              "h-9 w-9 items-center justify-center active:bg-secondary",
+                              (outOfStock || atMax) && "opacity-40"
+                            )}
+                          >
+                            <Plus
+                              size={14}
+                              color={
+                                outOfStock || atMax ? "#CBD5E1" : "#0F172A"
+                              }
+                            />
+                          </Pressable>
                         </View>
-                        <Button
-                          label="Add to cart"
-                          size="sm"
-                          disabled={qty === 0}
-                          onPress={() => {
-                            cart.addItem(item, qty);
-                            setQuantities((prev) => ({ ...prev, [item.id]: 0 }));
-                          }}
-                        />
                       </View>
                     </Card>
                   );
@@ -369,6 +494,11 @@ export function BookingCreateScreen() {
               renderItem={({ item }) => (
                 <Card className="mb-2">
                   <View className="flex-row items-center justify-between gap-3">
+                    <ProductImage
+                      source={imageFor(item.productId)}
+                      className="h-14 w-14 rounded-lg border border-border"
+                      iconSize={18}
+                    />
                     <View className="flex-1">
                       <Text weight="semibold">{item.productName}</Text>
                       <Text variant="small" tone="muted" className="mt-0.5">
@@ -421,101 +551,111 @@ export function BookingCreateScreen() {
 
         {step === "review" ? (
           <View className="flex-1">
-          <ScrollView className="flex-1 px-6 pt-4">
-            <Card>
-              <Text variant="label" tone="muted">
-                CUSTOMER
-              </Text>
-              <Text weight="semibold" className="mt-1">
-                {cart.customer?.fullName ?? "—"}
-              </Text>
-              <Text variant="small" tone="muted" className="mt-0.5">
-                {cart.customer?.contactNumber}
-              </Text>
-              <Text variant="small" tone="muted" className="mt-0.5">
-                {cart.customer?.address}
-              </Text>
-            </Card>
+            <ScrollView className="flex-1 px-6 pt-4">
+              <Card>
+                <Text variant="label" tone="muted">
+                  CUSTOMER
+                </Text>
+                <Text weight="semibold" className="mt-1">
+                  {cart.customer?.fullName ?? "—"}
+                </Text>
+                <Text variant="small" tone="muted" className="mt-0.5">
+                  {cart.customer?.contactNumber}
+                </Text>
+                <Text variant="small" tone="muted" className="mt-0.5">
+                  {cart.customer?.address}
+                </Text>
+              </Card>
 
-            <Card className="mt-4">
-              <Text variant="label" tone="muted">
-                ITEMS
-              </Text>
-              {cart.items.map((item) => (
-                <View
-                  key={item.productId}
-                  className="mt-3 flex-row items-center justify-between gap-3"
-                >
-                  <View className="flex-1">
-                    <Text weight="medium">{item.productName}</Text>
-                    <Text variant="small" tone="muted">
-                      ₱{item.unitPrice.toLocaleString()} × {item.quantity}
+              <Card className="mt-4">
+                <Text variant="label" tone="muted">
+                  ITEMS
+                </Text>
+                {cart.items.map((item) => (
+                  <View
+                    key={item.productId}
+                    className="mt-3 flex-row items-center justify-between gap-3"
+                  >
+                    <View className="flex-1">
+                      <Text weight="medium">{item.productName}</Text>
+                      <Text variant="small" tone="muted">
+                        ₱{item.unitPrice.toLocaleString()} × {item.quantity}
+                      </Text>
+                    </View>
+                    <Text weight="semibold">
+                      ₱{item.subtotal.toLocaleString()}
                     </Text>
                   </View>
-                  <Text weight="semibold">
-                    ₱{item.subtotal.toLocaleString()}
-                  </Text>
+                ))}
+                <View className="mt-4 border-t border-border pt-3">
+                  <View className="flex-row items-center justify-between">
+                    <Text tone="muted">Total quantity</Text>
+                    <Text weight="semibold">{cart.totalQuantity}</Text>
+                  </View>
+                  <View className="mt-1 flex-row items-center justify-between">
+                    <Text weight="semibold">Total</Text>
+                    <Text variant="h3" weight="bold" tone="primary">
+                      ₱{cart.subtotal.toLocaleString()}
+                    </Text>
+                  </View>
                 </View>
-              ))}
-              <View className="mt-4 border-t border-border pt-3">
-                <View className="flex-row items-center justify-between">
-                  <Text tone="muted">Total quantity</Text>
-                  <Text weight="semibold">{cart.totalQuantity}</Text>
-                </View>
-                <View className="mt-1 flex-row items-center justify-between">
-                  <Text weight="semibold">Total</Text>
-                  <Text variant="h3" weight="bold" tone="primary">
-                    ₱{cart.subtotal.toLocaleString()}
-                  </Text>
-                </View>
-              </View>
-            </Card>
+              </Card>
 
-            <View className="mt-4">
-              <Input
+              <View className="mt-4">
+                <Input
+                  size="control"
+                  label="Notes (optional)"
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Delivery notes..."
+                />
+              </View>
+
+              {error ? (
+                <View className="mt-4 flex-row items-start gap-2.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-2.5">
+                  <AlertCircle
+                    size={14}
+                    color="#DC2626"
+                    style={{ marginTop: 2 }}
+                  />
+                  <Text variant="small" tone="danger" className="flex-1">
+                    {error}
+                  </Text>
+                </View>
+              ) : null}
+            </ScrollView>
+            <View className="gap-3 px-6 py-4">
+              <Button
+                label="Confirm order"
                 size="control"
-                label="Notes (optional)"
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Delivery notes..."
+                fullWidth
+                loading={submitting}
+                disabled={!cart.customer || cart.items.length === 0}
+                onPress={() => {
+                  void onConfirm();
+                }}
+              />
+              <Button
+                label="Discard"
+                variant="outline"
+                size="control"
+                fullWidth
+                onPress={() => {
+                  cart.clear();
+                  navigation.goBack();
+                }}
               />
             </View>
-
-            {error ? (
-              <View className="mt-4 flex-row items-start gap-2.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-2.5">
-                <AlertCircle size={14} color="#DC2626" style={{ marginTop: 2 }} />
-                <Text variant="small" tone="danger" className="flex-1">
-                  {error}
-                </Text>
-              </View>
-            ) : null}
-
-          </ScrollView>
-          <View className="gap-3 px-6 py-4">
-            <Button
-              label="Confirm order"
-              size="control"
-              fullWidth
-              loading={submitting}
-              disabled={!cart.customer || cart.items.length === 0}
-              onPress={() => {
-                void onConfirm();
-              }}
-            />
-            <Button
-              label="Discard"
-              variant="outline"
-              size="control"
-              fullWidth
-              onPress={() => {
-                cart.clear();
-                navigation.goBack();
-              }}
-            />
-          </View>
           </View>
         ) : null}
       </KeyboardAvoidingView>
+
+      <ProductDetailsSheet
+        product={detailProduct}
+        inCart={detailInCart}
+        onClose={() => setDetailProduct(null)}
+        onAdd={onAddFromDetails}
+      />
     </SafeAreaView>
   );
 }

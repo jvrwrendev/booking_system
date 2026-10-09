@@ -30,7 +30,10 @@ import { cn, validateEmail } from "@/lib/utils";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { GoogleButton } from "@/features/auth/components/google-button";
+import { GoogleSignInModal } from "@/features/auth/components/google-sign-in-modal";
 import { APP_FULL_NAME, BUSINESS_NAME } from "@/constants";
+import type { GoogleProfile } from "@/types/auth";
 import type { RootStackParamList } from "@/app/navigation/types";
 
 const MUTED_ICON = "#64748B";
@@ -54,7 +57,7 @@ const demoAccounts = [
 const CONTENT_MAX_WIDTH = 420;
 
 export function LoginScreen() {
-  const { login } = useAuth();
+  const { login, googleSignIn } = useAuth();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { height } = useWindowDimensions();
@@ -67,6 +70,8 @@ export function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [forgot, setForgot] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [googleVisible, setGoogleVisible] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const passwordRef = useRef<TextInput>(null);
 
@@ -122,6 +127,18 @@ export function LoginScreen() {
     }
   };
 
+  const onGoogleSignIn = async (profile: GoogleProfile) => {
+    if (googleLoading) return;
+    setGoogleLoading(true);
+    const result = await googleSignIn(profile);
+    setGoogleLoading(false);
+    setGoogleVisible(false);
+    if (!result.success) {
+      setForgot(false);
+      setError(result.error ?? "Google sign-in failed. Please try again.");
+    }
+  };
+
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-background">
       <KeyboardAvoidingView
@@ -170,14 +187,21 @@ export function LoginScreen() {
               >
                 {BUSINESS_NAME}
               </Text>
-              <Text variant="small" tone="muted" className="mt-0.5 text-center font-medium">
+              <Text
+                variant="small"
+                tone="muted"
+                className="mt-0.5 text-center font-medium"
+              >
                 {APP_FULL_NAME}
               </Text>
             </View>
 
             {/* Title Section */}
             <View className="mt-8">
-              <Text variant="h1" className="text-2xl font-bold tracking-tight text-foreground">
+              <Text
+                variant="h1"
+                className="text-2xl font-bold tracking-tight text-foreground"
+              >
                 Welcome back
               </Text>
               <Text tone="muted" className="mt-1 text-base leading-relaxed">
@@ -220,7 +244,12 @@ export function LoginScreen() {
                     accessibilityRole="button"
                     accessibilityLabel="Forgot password"
                   >
-                    <Text variant="small" weight="medium" tone="primary" className="text-xs">
+                    <Text
+                      variant="small"
+                      weight="medium"
+                      tone="primary"
+                      className="text-xs"
+                    >
                       Forgot password?
                     </Text>
                   </Pressable>
@@ -257,48 +286,56 @@ export function LoginScreen() {
               />
 
               {/* Feedback Banners */}
-                <Pressable
-                  onPress={() => setRememberMe((r) => !r)}
-                  hitSlop={8}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: rememberMe }}
-                  accessibilityLabel="Remember me"
-                  className="flex-row items-center gap-2.5 active:opacity-80"
+              <Pressable
+                onPress={() => setRememberMe((r) => !r)}
+                hitSlop={8}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: rememberMe }}
+                accessibilityLabel="Remember me"
+                className="flex-row items-center gap-2.5 active:opacity-80"
+              >
+                <View
+                  className={cn(
+                    "h-5 w-5 items-center justify-center rounded-md border",
+                    rememberMe
+                      ? "border-primary bg-primary"
+                      : "border-input bg-background"
+                  )}
                 >
-                  <View
-                    className={cn(
-                      "h-5 w-5 items-center justify-center rounded-md border",
-                      rememberMe
-                        ? "border-primary bg-primary"
-                        : "border-input bg-background"
-                    )}
-                  >
-                    {rememberMe ? (
-                      <Text className="text-[12px] font-bold leading-none text-white">
-                        ✓
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Text variant="small" tone="muted">
-                    Remember me
-                  </Text>
-                </Pressable>
+                  {rememberMe ? (
+                    <Text className="text-[12px] font-bold leading-none text-white">
+                      ✓
+                    </Text>
+                  ) : null}
+                </View>
+                <Text variant="small" tone="muted">
+                  Remember me
+                </Text>
+              </Pressable>
 
-                {error ? (
+              {error ? (
                 <View className="flex-row items-start gap-2.5 rounded-xl border border-danger/20 bg-danger/5 p-3.5">
                   <AlertCircle
                     size={16}
                     color="#DC2626"
                     style={{ marginTop: 2 }}
                   />
-                  <Text variant="small" tone="danger" className="flex-1 text-xs leading-5">
+                  <Text
+                    variant="small"
+                    tone="danger"
+                    className="flex-1 text-xs leading-5"
+                  >
                     {error}
                   </Text>
                 </View>
               ) : forgot ? (
                 <View className="flex-row items-start gap-2.5 rounded-xl border border-info/20 bg-info/5 p-3.5">
                   <Info size={16} color="#2563EB" style={{ marginTop: 2 }} />
-                  <Text variant="small" tone="info" className="flex-1 text-xs leading-5">
+                  <Text
+                    variant="small"
+                    tone="info"
+                    className="flex-1 text-xs leading-5"
+                  >
                     Contact your Agrivet administrator to reset your password.
                   </Text>
                 </View>
@@ -314,6 +351,26 @@ export function LoginScreen() {
                 loading={submitting}
                 fullWidth
                 className="mt-1 bg-primary opacity-100"
+              />
+
+              {/* Divider - or continue with Google */}
+              <View className="flex-row items-center gap-3">
+                <View className="h-px flex-1 bg-border" />
+                <Text variant="small" tone="muted">
+                  or
+                </Text>
+                <View className="h-px flex-1 bg-border" />
+              </View>
+
+              <GoogleButton
+                label="Continue with Google"
+                loading={googleLoading}
+                disabled={submitting}
+                onPress={() => {
+                  setForgot(false);
+                  setError(null);
+                  setGoogleVisible(true);
+                }}
               />
             </View>
 
@@ -337,7 +394,11 @@ export function LoginScreen() {
             {/* Quick Demo Access */}
             <View className="mt-8 pt-6 border-t border-border/40">
               <View className="flex-row items-center justify-between">
-                <Text variant="label" tone="muted" className="uppercase tracking-wider text-[11px] font-semibold">
+                <Text
+                  variant="label"
+                  tone="muted"
+                  className="uppercase tracking-wider text-[11px] font-semibold"
+                >
                   Quick Access
                 </Text>
                 <Text variant="small" tone="muted" className="text-xs">
@@ -378,9 +439,7 @@ export function LoginScreen() {
                             {account.label}
                           </Text>
                         </View>
-                        {selected && (
-                          <CheckCircle2 size={12} color="#0F172A" />
-                        )}
+                        {selected && <CheckCircle2 size={12} color="#0F172A" />}
                       </View>
                       <Text
                         variant="small"
@@ -398,6 +457,17 @@ export function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <GoogleSignInModal
+        visible={googleVisible}
+        mode="login"
+        loading={googleLoading}
+        onCancel={() => setGoogleVisible(false)}
+        onSignIn={(profile) => {
+          void onGoogleSignIn(profile);
+        }}
+        onSignUp={() => {}}
+      />
     </SafeAreaView>
   );
 }

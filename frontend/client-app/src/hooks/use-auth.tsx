@@ -9,16 +9,20 @@ import React, {
 } from "react";
 import {
   changePasswordRequest,
+  googleSignInRequest,
+  googleSignUpRequest,
   loginRequest,
   registerRequest,
   updateAccountRequest,
 } from "@/services/auth.service";
 import type {
   AuthUser,
+  GoogleProfile,
   LoginCredentials,
   RegisterCredentials,
   UpdateProfileInput,
 } from "@/types/auth";
+import type { Role } from "@/types/role";
 import { STORAGE_KEYS } from "@/constants";
 
 interface AuthContextValue {
@@ -30,6 +34,13 @@ interface AuthContextValue {
   ) => Promise<{ success: boolean; error?: string }>;
   register: (
     credentials: RegisterCredentials
+  ) => Promise<{ success: boolean; error?: string }>;
+  googleSignIn: (
+    profile: GoogleProfile
+  ) => Promise<{ success: boolean; error?: string }>;
+  googleSignUp: (
+    profile: GoogleProfile,
+    role: Role
   ) => Promise<{ success: boolean; error?: string }>;
   updateProfile: (
     patch: UpdateProfileInput
@@ -63,31 +74,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const login = useCallback(async (credentials: LoginCredentials) => {
-    const result = await loginRequest(credentials);
-    if (result.success && result.user) {
-      setUser(result.user);
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.AUTH_USER,
-        JSON.stringify(result.user)
-      );
-      return { success: true };
-    }
-    return { success: false, error: result.error };
+  const persistSession = useCallback(async (nextUser: AuthUser) => {
+    setUser(nextUser);
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.AUTH_USER,
+      JSON.stringify(nextUser)
+    );
   }, []);
 
-  const register = useCallback(async (credentials: RegisterCredentials) => {
-    const result = await registerRequest(credentials);
-    if (result.success && result.user) {
-      setUser(result.user);
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.AUTH_USER,
-        JSON.stringify(result.user)
-      );
-      return { success: true };
-    }
-    return { success: false, error: result.error };
-  }, []);
+  const login = useCallback(
+    async (credentials: LoginCredentials) => {
+      const result = await loginRequest(credentials);
+      if (result.success && result.user) {
+        await persistSession(result.user);
+        return { success: true };
+      }
+      return { success: false, error: result.error };
+    },
+    [persistSession]
+  );
+
+  const register = useCallback(
+    async (credentials: RegisterCredentials) => {
+      const result = await registerRequest(credentials);
+      if (result.success && result.user) {
+        await persistSession(result.user);
+        return { success: true };
+      }
+      return { success: false, error: result.error };
+    },
+    [persistSession]
+  );
+
+  const googleSignIn = useCallback(
+    async (profile: GoogleProfile) => {
+      const result = await googleSignInRequest(profile);
+      if (result.success && result.user) {
+        await persistSession(result.user);
+        return { success: true };
+      }
+      return { success: false, error: result.error };
+    },
+    [persistSession]
+  );
+
+  const googleSignUp = useCallback(
+    async (profile: GoogleProfile, role: Role) => {
+      const result = await googleSignUpRequest(profile, role);
+      if (result.success && result.user) {
+        await persistSession(result.user);
+        return { success: true };
+      }
+      return { success: false, error: result.error };
+    },
+    [persistSession]
+  );
 
   const logout = useCallback(async () => {
     setUser(null);
@@ -99,16 +140,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!user) return { success: false, error: "No active session." };
       const result = await updateAccountRequest(user.id, patch);
       if (result.success && result.user) {
-        setUser(result.user);
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.AUTH_USER,
-          JSON.stringify(result.user)
-        );
+        await persistSession(result.user);
         return { success: true };
       }
       return { success: false, error: result.error };
     },
-    [user]
+    [user, persistSession]
   );
 
   const changePassword = useCallback(
@@ -142,6 +179,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       login,
       register,
+      googleSignIn,
+      googleSignUp,
       updateProfile,
       changePassword,
       logout,
@@ -152,6 +191,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       login,
       register,
+      googleSignIn,
+      googleSignUp,
       updateProfile,
       changePassword,
       logout,
