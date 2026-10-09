@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   AUTH_USER: "agrivet-mobile-auth-user",
   CART_AGENT: "agrivet-mobile-agent-cart",
   CART_BRANCH: "agrivet-mobile-branch-cart",
+  FAVORITES: "agrivet-mobile-favorites",
 } as const;
 
 export const NETWORK_DELAY_MS = 350;

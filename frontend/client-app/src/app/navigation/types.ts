@@ -5,7 +5,10 @@ export type AgentStackParamList = {
   CustomerAdd: undefined;
   CustomerDetail: { customerId: string };
   BookingCreate:
-    | { customerId?: string; initialStep?: "customer" | "products" | "cart" }
+    | {
+        customerId?: string;
+        initialStep?: "customer" | "products" | "cart" | "review";
+      }
     | undefined;
   BookingDetail: { bookingId: string };
   ProfileEdit: undefined;
@@ -23,7 +26,9 @@ export type AgentTabParamList = {
 export type BranchStackParamList = {
   BranchTabs: undefined;
   ProductDetail: { productId: string };
-  OrderReview: undefined;
+  OrderCreate:
+    | { initialStep?: "products" | "cart" | "review" }
+    | undefined;
   OrderDetail: { orderId: string };
   ProfileEdit: undefined;
   ProfileChangePassword: undefined;

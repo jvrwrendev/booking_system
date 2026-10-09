@@ -207,7 +207,7 @@ export function BranchDashboardScreen() {
               label="Create Order"
               size="md"
               className="flex-1"
-              onPress={() => navigation.navigate("OrderReview")}
+              onPress={() => navigation.navigate("OrderCreate")}
             />
           </View>
         </Card>
@@ -226,7 +226,7 @@ export function BranchDashboardScreen() {
             title="No orders yet"
             description="Create your first order from the inventory."
             actionLabel="Create Order"
-            onAction={() => navigation.navigate("OrderReview")}
+            onAction={() => navigation.navigate("OrderCreate")}
           />
         ) : (
           <View>

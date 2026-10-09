@@ -10,10 +10,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AlertCircle,
-  ArrowLeft,
-  Info,
-  Minus,
-  Plus,
   Search,
   ShoppingCart,
   Trash2,
@@ -26,24 +22,27 @@ import {
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { useAgentCart } from "@/hooks/use-agent-cart";
+import { useFavorites } from "@/hooks/use-favorites";
 import { listCustomersForAgent } from "@/services/customer.service";
 import { listProducts } from "@/services/product.service";
 import { createBookingForAgent } from "@/services/booking.service";
-import { cn } from "@/lib/utils";
 import type { Customer } from "@/types/customer";
 import type { Product } from "@/types/product";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ChipGroup } from "@/components/ui/select";
 import { QuantitySelector } from "@/components/shared/quantity-selector";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ProductImage } from "@/components/shared/product-image";
 import { ProductDetailsSheet } from "@/components/shared/product-details-sheet";
+import { ProductCard } from "@/components/shared/product-card";
+import { WizardHeader } from "@/components/shared/wizard-header";
 import type { AgentStackParamList } from "@/app/navigation/types";
 
 type Step = "customer" | "products" | "cart" | "review";
+type ProductFilter = "all" | "favorites";
 
 const STEPS: { key: Step; label: string }[] = [
   { key: "customer", label: "Customer" },
@@ -58,19 +57,21 @@ export function BookingCreateScreen() {
   const route = useRoute<RouteProp<AgentStackParamList, "BookingCreate">>();
   const { user } = useAuth();
   const cart = useAgentCart();
+  const { isFavorite } = useFavorites();
 
-  const [step, setStep] = useState<Step>(
-    route.params?.initialStep === "cart"
-      ? "cart"
-      : route.params?.initialStep === "products"
-        ? "products"
-        : "customer"
-  );
+  const [step, setStep] = useState<Step>(() => {
+    const initial = route.params?.initialStep;
+    if (initial === "products" || initial === "cart" || initial === "review") {
+      return initial;
+    }
+    return "customer";
+  });
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [customerQuery, setCustomerQuery] = useState("");
   const [productQuery, setProductQuery] = useState("");
+  const [productFilter, setProductFilter] = useState<ProductFilter>("all");
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -129,14 +130,16 @@ export function BookingCreateScreen() {
 
   const filteredProducts = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter(
-      (p) =>
+    return products.filter((p) => {
+      const matchesQuery =
+        !q ||
         p.name.toLowerCase().includes(q) ||
         p.sku.toLowerCase().includes(q) ||
-        p.categoryName.toLowerCase().includes(q)
-    );
-  }, [products, productQuery]);
+        p.categoryName.toLowerCase().includes(q);
+      const matchesFilter = productFilter === "all" || isFavorite(p.id);
+      return matchesQuery && matchesFilter;
+    });
+  }, [products, productQuery, productFilter, isFavorite]);
 
   const canContinueFromProducts = cart.items.length > 0;
 
@@ -173,63 +176,31 @@ export function BookingCreateScreen() {
     }
   };
 
-  const stepIndex = STEPS.findIndex((s) => s.key === step);
-
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-secondary">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
       >
-        <View className="px-6 pt-4">
-          <View className="flex-row items-center justify-between">
-            <Pressable
-              onPress={() => {
-                const order: Step[] = [
-                  "customer",
-                  "products",
-                  "cart",
-                  "review",
-                ];
-                const index = order.indexOf(step);
-                if (index > 0) {
-                  setStep(order[index - 1]);
-                } else {
-                  navigation.goBack();
-                }
-              }}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              className="h-10 w-10 items-center justify-center rounded-full border border-border bg-background"
-            >
-              <ArrowLeft size={18} color="#0F172A" />
-            </Pressable>
-            <Text variant="h3" weight="semibold">
-              New Booking
-            </Text>
-            <View className="h-10 w-10" />
-          </View>
-
-          <View className="mt-4 flex-row items-center gap-2">
-            {STEPS.map((s, i) => (
-              <View key={s.key} className="flex-1 items-center">
-                <View
-                  className={`h-1.5 w-full rounded-full ${
-                    i <= stepIndex ? "bg-primary" : "bg-border"
-                  }`}
-                />
-                <Text
-                  variant="small"
-                  tone={i <= stepIndex ? "primary" : "muted"}
-                  className="mt-1.5"
-                >
-                  {s.label}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        <WizardHeader
+          title="New Booking"
+          steps={STEPS}
+          activeStep={step}
+          onBack={() => {
+            const order: Step[] = [
+              "customer",
+              "products",
+              "cart",
+              "review",
+            ];
+            const index = order.indexOf(step);
+            if (index > 0) {
+              setStep(order[index - 1]);
+            } else {
+              navigation.goBack();
+            }
+          }}
+        />
 
         {step === "customer" ? (
           <View className="flex-1 px-6 pt-4">
@@ -299,6 +270,16 @@ export function BookingCreateScreen() {
               autoCapitalize="none"
               leftIcon={<Search size={18} color="#64748B" />}
             />
+            <View className="mt-3">
+              <ChipGroup<ProductFilter>
+                options={[
+                  { label: "All products", value: "all" },
+                  { label: "Favorites", value: "favorites" },
+                ]}
+                value={productFilter}
+                onChange={setProductFilter}
+              />
+            </View>
             {loading ? (
               <LoadingState label="Loading products..." />
             ) : (
@@ -311,151 +292,29 @@ export function BookingCreateScreen() {
                 contentContainerStyle={{ gap: 12 }}
                 ListEmptyComponent={
                   <Text tone="muted" className="mt-8 text-center">
-                    No products found.
+                    {productFilter === "favorites"
+                      ? "No favorite products yet."
+                      : "No products found."}
                   </Text>
                 }
-                renderItem={({ item }) => {
-                  const inCart =
-                    cart.items.find((i) => i.productId === item.id)?.quantity ??
-                    0;
-                  const outOfStock = item.stockQuantity <= 0;
-                  const atMax = !outOfStock && inCart >= item.stockQuantity;
-                  return (
-                    <Card
-                      padded={false}
-                      className="flex-1 justify-between overflow-hidden"
-                    >
-                      <Pressable
-                        onPress={() => {
-                          if (outOfStock || atMax) return;
-                          cart.addItem(item, 1);
-                        }}
-                        disabled={outOfStock}
-                        accessibilityRole="button"
-                        accessibilityLabel={
-                          outOfStock
-                            ? `${item.name} is out of stock`
-                            : `Add ${item.name} to cart`
-                        }
-                        className={cn(
-                          "active:opacity-80",
-                          outOfStock && "opacity-60"
-                        )}
-                      >
-                        <View>
-                          <ProductImage
-                            source={item.image}
-                            className="h-28 w-full border-b border-border"
-                            iconSize={26}
-                          />
-                          <Pressable
-                            onPress={() => setDetailProduct(item)}
-                            hitSlop={6}
-                            accessibilityRole="button"
-                            accessibilityLabel={`View details for ${item.name}`}
-                            className="absolute right-2 top-2 h-7 w-7 items-center justify-center rounded-full border border-border bg-background/90 active:bg-accent/10"
-                          >
-                            <Info size={13} color="#64748B" />
-                          </Pressable>
-                        </View>
-                        <View className="p-2.5">
-                          <Text
-                            weight="semibold"
-                            numberOfLines={2}
-                            className="text-sm leading-5"
-                          >
-                            {item.name}
-                          </Text>
-                          <Text
-                            variant="small"
-                            tone="muted"
-                            numberOfLines={1}
-                            className="mt-0.5"
-                          >
-                            {item.categoryName}
-                          </Text>
-                          <Text
-                            weight="semibold"
-                            tone="primary"
-                            className="mt-1.5 text-sm"
-                          >
-                            ₱{item.sellingPrice.toLocaleString()}
-                            <Text variant="small" tone="muted">
-                              {" "}
-                              / {item.unit}
-                            </Text>
-                          </Text>
-                          <View className="mt-2">
-                            <Badge
-                              label={
-                                outOfStock
-                                  ? "Out of stock"
-                                  : `${item.stockQuantity} in stock`
-                              }
-                              tone={outOfStock ? "danger" : "success"}
-                            />
-                          </View>
-                        </View>
-                      </Pressable>
-                      <View className="px-2.5 pb-2.5">
-                        <View
-                          className={cn(
-                            "flex-row items-center overflow-hidden rounded-lg border",
-                            inCart > 0
-                              ? "border-primary bg-primary/5"
-                              : "border-border bg-background"
-                          )}
-                        >
-                          <Pressable
-                            onPress={() =>
-                              cart.setQuantity(item.id, inCart - 1)
-                            }
-                            disabled={inCart === 0}
-                            hitSlop={4}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Remove one ${item.name} from cart`}
-                            className={cn(
-                              "h-9 w-9 items-center justify-center active:bg-secondary",
-                              inCart === 0 && "opacity-40"
-                            )}
-                          >
-                            <Minus
-                              size={14}
-                              color={inCart === 0 ? "#CBD5E1" : "#0F172A"}
-                            />
-                          </Pressable>
-                          <View className="flex-1 items-center justify-center">
-                            <Text
-                              variant="small"
-                              weight="semibold"
-                              tone={inCart > 0 ? "primary" : "muted"}
-                            >
-                              {inCart}
-                            </Text>
-                          </View>
-                          <Pressable
-                            onPress={() => cart.addItem(item, 1)}
-                            disabled={outOfStock || atMax}
-                            hitSlop={4}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Add one ${item.name} to cart`}
-                            className={cn(
-                              "h-9 w-9 items-center justify-center active:bg-secondary",
-                              (outOfStock || atMax) && "opacity-40"
-                            )}
-                          >
-                            <Plus
-                              size={14}
-                              color={
-                                outOfStock || atMax ? "#CBD5E1" : "#0F172A"
-                              }
-                            />
-                          </Pressable>
-                        </View>
-                      </View>
-                    </Card>
-                  );
-                }}
+                renderItem={({ item }) => (
+                  <ProductCard
+                    product={item}
+                    inCart={
+                      cart.items.find((i) => i.productId === item.id)
+                        ?.quantity ?? 0
+                    }
+                    onIncrement={() => cart.addItem(item, 1)}
+                    onDecrement={() =>
+                      cart.setQuantity(
+                        item.id,
+                        (cart.items.find((i) => i.productId === item.id)
+                          ?.quantity ?? 0) - 1,
+                      )
+                    }
+                    onInfo={() => setDetailProduct(item)}
+                  />
+                )}
               />
             )}
             {canContinueFromProducts ? (

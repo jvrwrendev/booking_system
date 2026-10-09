@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { InventoryListScreen } from "@/features/branch/inventory/screens/inventory-list-screen";
 import { ProductDetailScreen } from "@/features/branch/inventory/screens/product-detail-screen";
 import { OrderListScreen } from "@/features/branch/orders/screens/order-list-screen";
-import { OrderReviewScreen } from "@/features/branch/orders/screens/order-review-screen";
+import { OrderCreateScreen } from "@/features/branch/orders/screens/order-create-screen";
 import { OrderDetailScreen } from "@/features/branch/orders/screens/order-detail-screen";
 import { ProfileScreen } from "@/features/profile/screens/profile-screen";
 import { ProfileEditScreen } from "@/features/profile/screens/profile-edit-screen";
@@ -13,9 +13,9 @@ import { ProfileTermsScreen } from "@/features/profile/screens/profile-terms-scr
 import { BranchDashboardScreen } from "@/features/dashboard/branch-dashboard-screen";
 import { OrderCartProvider } from "@/features/branch/orders/hooks/use-order-cart";
 import { branchNavItems } from "./nav-items";
-import type { BranchTabParamList } from "./types";
+import type { BranchStackParamList, BranchTabParamList } from "./types";
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<BranchStackParamList>();
 const Tab = createBottomTabNavigator<BranchTabParamList>();
 
 const tabScreenOptions = {
@@ -69,8 +69,8 @@ export function BranchNavigator() {
           options={{ gestureEnabled: false }}
         />
         <Stack.Screen
-          name="OrderReview"
-          component={OrderReviewScreen}
+          name="OrderCreate"
+          component={OrderCreateScreen}
           options={{ gestureEnabled: false }}
         />
         <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
