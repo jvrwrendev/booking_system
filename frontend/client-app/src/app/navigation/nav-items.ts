@@ -2,7 +2,7 @@ import {
   LayoutDashboard,
   Users,
   ClipboardList,
-  Boxes,
+  Heart,
   ShoppingBag,
   Settings,
 } from "lucide-react-native";
@@ -31,7 +31,7 @@ export const agentNavItems: AgentNavItem[] = [
 
 export const branchNavItems: BranchNavItem[] = [
   { name: "Dashboard", label: "Dashboard", Icon: LayoutDashboard },
-  { name: "Inventory", label: "Inventory", Icon: Boxes },
+  { name: "Favorites", label: "My Favorites", Icon: Heart },
   { name: "Orders", label: "Orders", Icon: ShoppingBag },
   { name: "Profile", label: "Settings", Icon: Settings },
 ];

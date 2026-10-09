@@ -16,7 +16,6 @@ import {
 } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
-import { useFavorites } from "@/hooks/use-favorites";
 import { useOrderCart } from "@/features/branch/orders/hooks/use-order-cart";
 import { listProducts } from "@/services/product.service";
 import { createBranchOrder } from "@/services/branch-order.service";
@@ -26,18 +25,17 @@ import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChipGroup } from "@/components/ui/select";
 import { QuantitySelector } from "@/components/shared/quantity-selector";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { ProductImage } from "@/components/shared/product-image";
 import { ProductDetailsSheet } from "@/components/shared/product-details-sheet";
 import { ProductCard } from "@/components/shared/product-card";
+import { CategoryFilterButton } from "@/components/shared/category-filter";
 import { WizardHeader, type WizardStep } from "@/components/shared/wizard-header";
 import type { BranchStackParamList } from "@/app/navigation/types";
 
 type Step = "products" | "cart" | "review";
-type ProductFilter = "all" | "favorites";
 
 const STEPS: WizardStep<Step>[] = [
   { key: "products", label: "Products" },
@@ -63,14 +61,13 @@ export function OrderCreateScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [productQuery, setProductQuery] = useState("");
-  const [productFilter, setProductFilter] = useState<ProductFilter>("all");
+  const [category, setCategory] = useState("all");
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const branchId = user?.branchId ?? "";
-  const { isFavorite } = useFavorites();
 
   const load = async () => {
     setLoadError(null);
@@ -104,6 +101,14 @@ export function OrderCreateScreen() {
     }
   };
 
+  const categories = useMemo(
+    () =>
+      Array.from(new Set(products.map((p) => p.categoryName)))
+        .filter(Boolean)
+        .sort(),
+    [products],
+  );
+
   const filteredProducts = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
     return products.filter((p) => {
@@ -112,11 +117,10 @@ export function OrderCreateScreen() {
         p.name.toLowerCase().includes(q) ||
         p.sku.toLowerCase().includes(q) ||
         p.categoryName.toLowerCase().includes(q);
-      const matchesFilter =
-        productFilter === "all" || isFavorite(p.id);
-      return matchesQuery && matchesFilter;
+      const matchesCategory = category === "all" || p.categoryName === category;
+      return matchesQuery && matchesCategory;
     });
-  }, [products, productQuery, productFilter, isFavorite]);
+  }, [products, productQuery, category]);
 
   const detailInCart = detailProduct
     ? (cart.items.find((i) => i.productId === detailProduct.id)?.quantity ?? 0)
@@ -165,22 +169,20 @@ export function OrderCreateScreen() {
 
         {step === "products" ? (
           <View className="flex-1 px-6 pt-4">
-            <Input
-              size="control"
-              value={productQuery}
-              onChangeText={setProductQuery}
-              placeholder="Search products"
-              autoCapitalize="none"
-              leftIcon={<Search size={18} color="#64748B" />}
-            />
-            <View className="mt-3">
-              <ChipGroup<ProductFilter>
-                options={[
-                  { label: "All products", value: "all" },
-                  { label: "Favorites", value: "favorites" },
-                ]}
-                value={productFilter}
-                onChange={setProductFilter}
+            <View className="flex-row gap-2">
+              <Input
+                size="control"
+                containerClassName="flex-1"
+                value={productQuery}
+                onChangeText={setProductQuery}
+                placeholder="Search products"
+                autoCapitalize="none"
+                leftIcon={<Search size={18} color="#64748B" />}
+              />
+              <CategoryFilterButton
+                categories={categories}
+                value={category}
+                onChange={setCategory}
               />
             </View>
             {loading ? (
@@ -204,8 +206,8 @@ export function OrderCreateScreen() {
                 ListEmptyComponent={
                   <View className="mt-8 items-center">
                     <Text tone="muted">
-                      {productFilter === "favorites"
-                        ? "No favorite products yet."
+                      {category !== "all"
+                        ? `No products in ${category}.`
                         : "No products found."}
                     </Text>
                   </View>

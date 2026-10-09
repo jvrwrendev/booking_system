@@ -1,15 +1,24 @@
-import React, { useEffect, useState } from "react";
-import { Keyboard, Pressable, ScrollView, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AlertCircle,
   Check,
   CheckCircle2,
-  Circle,
   Eye,
   EyeOff,
   KeyRound,
   Lock,
+  ShieldCheck,
+  X,
 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -22,36 +31,55 @@ import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const MUTED_ICON = "#64748B";
+const ICON_COLOR = "#64748B";
 
 export function ProfileChangePasswordScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const { changePassword } = useAuth();
 
+  const newPasswordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  const rules = [
-    { label: "At least 8 characters", met: newPassword.length >= 8 },
-    { label: "One uppercase letter", met: /[A-Z]/.test(newPassword) },
-    { label: "One number", met: /\d/.test(newPassword) },
-  ];
-  const newPasswordValid = rules.every((r) => r.met);
+  // Validation Rules
+  const rules = useMemo(
+    () => [
+      { id: "length", label: "At least 8 characters", met: newPassword.length >= 8 },
+      { id: "uppercase", label: "One uppercase letter", met: /[A-Z]/.test(newPassword) },
+      { id: "number", label: "One number", met: /\d/.test(newPassword) },
+    ],
+    [newPassword]
+  );
 
+  const metCount = useMemo(() => rules.filter((r) => r.met).length, [rules]);
+  const isNewPasswordValid = metCount === rules.length;
+  const isConfirmMatching = confirmPassword.length > 0 && confirmPassword === newPassword;
+
+  // Strength score calculation for visual progress bar
+  const strengthScore = useMemo(() => {
+    if (!newPassword) return 0;
+    return metCount;
+  }, [newPassword, metCount]);
+
+  // Dynamic Error Messaging
   const currentError =
     submitted && !currentPassword ? "Current password is required." : undefined;
   const newError =
-    submitted && !newPasswordValid
-      ? "Password does not meet the requirements below."
+    submitted && !isNewPasswordValid
+      ? "Password must meet all requirements."
       : undefined;
   const confirmError =
     submitted && confirmPassword !== newPassword
@@ -60,199 +88,309 @@ export function ProfileChangePasswordScreen() {
 
   useEffect(() => {
     if (!saved) return;
-    const timer = setTimeout(() => navigation.goBack(), 900);
+    const timer = setTimeout(() => navigation.goBack(), 1000);
     return () => clearTimeout(timer);
   }, [saved, navigation]);
 
   const onSubmit = async () => {
-    if (saving || saved) return;
+    Keyboard.dismiss();
     setSubmitted(true);
-    setError(null);
+    setServerError(null);
 
-    if (
-      !currentPassword ||
-      !newPasswordValid ||
-      confirmPassword !== newPassword
-    ) {
-      Keyboard.dismiss();
+    if (!currentPassword || !isNewPasswordValid || confirmPassword !== newPassword) {
       return;
     }
 
     setSaving(true);
-    const result = await changePassword(currentPassword, newPassword);
-    setSaving(false);
-
-    if (!result.success) {
-      setError(result.error ?? "Failed to change your password.");
-      return;
+    try {
+      const result = await changePassword(currentPassword, newPassword);
+      if (!result.success) {
+        setServerError(result.error ?? "Failed to change your password. Please try again.");
+      } else {
+        setSaved(true);
+      }
+    } catch (err) {
+      setServerError("An unexpected error occurred. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    setSaved(true);
   };
 
-  const toggle = (setter: (value: boolean) => void, value: boolean) => () =>
-    setter(!value);
+  const getStrengthBarColor = () => {
+    if (strengthScore === 1) return "bg-danger";
+    if (strengthScore === 2) return "bg-warning";
+    if (strengthScore === 3) return "bg-success";
+    return "bg-muted";
+  };
 
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-background">
-      <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
       >
-        <ScreenHeader
-          title="Change password"
-          subtitle="Use a strong password you don't reuse"
-        />
-
-        {saved ? (
-          <View className="mb-4 flex-row items-start gap-2.5 rounded-xl border border-success/20 bg-success/5 p-3.5">
-            <CheckCircle2 size={16} color="#16A34A" style={{ marginTop: 2 }} />
-            <Text variant="small" tone="success" className="flex-1 leading-5">
-              Password updated. Use your new password the next time you sign in.
-            </Text>
-          </View>
-        ) : error ? (
-          <View className="mb-4 flex-row items-start gap-2.5 rounded-xl border border-danger/20 bg-danger/5 p-3.5">
-            <AlertCircle size={16} color="#DC2626" style={{ marginTop: 2 }} />
-            <Text variant="small" tone="danger" className="flex-1 leading-5">
-              {error}
-            </Text>
-          </View>
-        ) : null}
-
-        <Card className="gap-4">
-          <Input
-            label="Current password"
-            size="control"
-            value={currentPassword}
-            onChangeText={(v) => {
-              setCurrentPassword(v);
-              setError(null);
-            }}
-            error={currentError}
-            secureTextEntry={!showCurrent}
-            textContentType="password"
-            placeholder="••••••••"
-            leftIcon={<Lock size={18} color={MUTED_ICON} />}
-            rightIcon={
-              <Pressable
-                onPress={toggle(setShowCurrent, showCurrent)}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  showCurrent ? "Hide password" : "Show password"
-                }
-                className="p-1"
-              >
-                {showCurrent ? (
-                  <EyeOff size={18} color={MUTED_ICON} />
-                ) : (
-                  <Eye size={18} color={MUTED_ICON} />
-                )}
-              </Pressable>
-            }
+        <ScrollView
+          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          <ScreenHeader
+            title="Change password"
+            subtitle="Update your security credentials with a strong password"
           />
-          <Input
-            label="New password"
-            size="control"
-            value={newPassword}
-            onChangeText={setNewPassword}
-            error={newError}
-            secureTextEntry={!showNew}
-            textContentType="newPassword"
-            placeholder="••••••••"
-            leftIcon={<KeyRound size={18} color={MUTED_ICON} />}
-            rightIcon={
-              <Pressable
-                onPress={toggle(setShowNew, showNew)}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel={showNew ? "Hide password" : "Show password"}
-                className="p-1"
-              >
-                {showNew ? (
-                  <EyeOff size={18} color={MUTED_ICON} />
-                ) : (
-                  <Eye size={18} color={MUTED_ICON} />
-                )}
-              </Pressable>
-            }
-          />
-          <Input
-            label="Confirm new password"
-            size="control"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            error={confirmError}
-            secureTextEntry={!showConfirm}
-            textContentType="newPassword"
-            placeholder="••••••••"
-            leftIcon={<Lock size={18} color={MUTED_ICON} />}
-            rightIcon={
-              <Pressable
-                onPress={toggle(setShowConfirm, showConfirm)}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  showConfirm ? "Hide password" : "Show password"
-                }
-                className="p-1"
-              >
-                {showConfirm ? (
-                  <EyeOff size={18} color={MUTED_ICON} />
-                ) : (
-                  <Eye size={18} color={MUTED_ICON} />
-                )}
-              </Pressable>
-            }
-          />
-        </Card>
 
-        <Card className="mt-4">
-          <Text variant="label" tone="muted" className="mb-2">
-            Password requirements
-          </Text>
-          <View className="gap-2">
-            {rules.map((rule) => (
-              <View key={rule.label} className="flex-row items-center gap-2">
-                {rule.met ? (
-                  <Check size={14} color="#16A34A" />
-                ) : (
-                  <Circle size={12} color="#94A3B8" />
-                )}
-                <Text
-                  variant="small"
-                  tone={rule.met ? "success" : "muted"}
-                  className={cn(rule.met && "font-medium")}
+          {/* Alert Banners */}
+          {saved ? (
+            <View className="mb-4 flex-row items-center gap-3 rounded-2xl border border-success/30 bg-success/10 p-4">
+              <CheckCircle2 size={20} color="#16A34A" />
+              <Text variant="small" tone="success" className="flex-1 font-medium leading-5">
+                Password updated! Returning to your profile...
+              </Text>
+            </View>
+          ) : serverError ? (
+            <View className="mb-4 flex-row items-center gap-3 rounded-2xl border border-danger/30 bg-danger/10 p-4">
+              <AlertCircle size={20} color="#DC2626" />
+              <Text variant="small" tone="danger" className="flex-1 font-medium leading-5">
+                {serverError}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Input Form Card */}
+          <Card className="gap-5 p-4 rounded-2xl shadow-sm">
+            {/* Current Password */}
+            <Input
+              label="Current password"
+              size="control"
+              value={currentPassword}
+              onChangeText={(v) => {
+                setCurrentPassword(v);
+                if (serverError) setServerError(null);
+              }}
+              error={currentError}
+              secureTextEntry={!showCurrent}
+              textContentType="password"
+              autoComplete="password"
+              returnKeyType="next"
+              onSubmitEditing={() => newPasswordRef.current?.focus()}
+              placeholder="Enter current password"
+              leftIcon={<Lock size={18} color={ICON_COLOR} />}
+              rightIcon={
+                <Pressable
+                  onPress={() => setShowCurrent((prev) => !prev)}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel={showCurrent ? "Hide password" : "Show password"}
+                  className="p-1"
                 >
-                  {rule.label}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </Card>
+                  {showCurrent ? (
+                    <EyeOff size={18} color={ICON_COLOR} />
+                  ) : (
+                    <Eye size={18} color={ICON_COLOR} />
+                  )}
+                </Pressable>
+              }
+            />
 
-        <View className="mt-6 gap-3">
-          <Button
-            label={saved ? "Updated" : "Update password"}
-            size="lg"
-            fullWidth
-            loading={saving}
-            disabled={saved}
-            onPress={() => {
-              void onSubmit();
-            }}
-          />
-          <Button
-            label="Cancel"
-            variant="outline"
-            size="lg"
-            fullWidth
-            disabled={saving || saved}
-            onPress={() => navigation.goBack()}
-          />
-        </View>
-      </ScrollView>
+            {/* New Password */}
+            <View className="gap-2">
+              <Input
+                ref={newPasswordRef}
+                label="New password"
+                size="control"
+                value={newPassword}
+                onChangeText={(v) => {
+                  setNewPassword(v);
+                  if (serverError) setServerError(null);
+                }}
+                error={newError}
+                secureTextEntry={!showNew}
+                textContentType="newPassword"
+                autoComplete="password-new"
+                returnKeyType="next"
+                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                placeholder="Enter new password"
+                leftIcon={<KeyRound size={18} color={ICON_COLOR} />}
+                rightIcon={
+                  <Pressable
+                    onPress={() => setShowNew((prev) => !prev)}
+                    hitSlop={12}
+                    accessibilityRole="button"
+                    accessibilityLabel={showNew ? "Hide password" : "Show password"}
+                    className="p-1"
+                  >
+                    {showNew ? (
+                      <EyeOff size={18} color={ICON_COLOR} />
+                    ) : (
+                      <Eye size={18} color={ICON_COLOR} />
+                    )}
+                  </Pressable>
+                }
+              />
+
+              {/* Dynamic Password Strength Indicator */}
+              {newPassword.length > 0 && (
+                <View className="mt-1 gap-1.5 px-0.5">
+                  <View className="flex-row items-center justify-between">
+                    <Text variant="caption" tone="muted">
+                      Password strength
+                    </Text>
+                    <Text
+                      variant="caption"
+                      className={cn(
+                        "font-semibold",
+                        strengthScore === 1 && "text-danger",
+                        strengthScore === 2 && "text-warning",
+                        strengthScore === 3 && "text-success"
+                      )}
+                    >
+                      {strengthScore === 1 && "Weak"}
+                      {strengthScore === 2 && "Medium"}
+                      {strengthScore === 3 && "Strong"}
+                    </Text>
+                  </View>
+                  <View className="h-1.5 w-full flex-row gap-1 overflow-hidden rounded-full bg-muted/20">
+                    <View
+                      className={cn(
+                        "h-full flex-1 rounded-full transition-all",
+                        strengthScore >= 1 ? getStrengthBarColor() : "bg-transparent"
+                      )}
+                    />
+                    <View
+                      className={cn(
+                        "h-full flex-1 rounded-full transition-all",
+                        strengthScore >= 2 ? getStrengthBarColor() : "bg-transparent"
+                      )}
+                    />
+                    <View
+                      className={cn(
+                        "h-full flex-1 rounded-full transition-all",
+                        strengthScore >= 3 ? getStrengthBarColor() : "bg-transparent"
+                      )}
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Confirm New Password */}
+            <View className="gap-1">
+              <Input
+                ref={confirmPasswordRef}
+                label="Confirm new password"
+                size="control"
+                value={confirmPassword}
+                onChangeText={(v) => {
+                  setConfirmPassword(v);
+                  if (serverError) setServerError(null);
+                }}
+                error={confirmError}
+                secureTextEntry={!showConfirm}
+                textContentType="newPassword"
+                autoComplete="password-new"
+                returnKeyType="done"
+                onSubmitEditing={onSubmit}
+                placeholder="Re-enter new password"
+                leftIcon={<Lock size={18} color={ICON_COLOR} />}
+                rightIcon={
+                  <Pressable
+                    onPress={() => setShowConfirm((prev) => !prev)}
+                    hitSlop={12}
+                    accessibilityRole="button"
+                    accessibilityLabel={showConfirm ? "Hide password" : "Show password"}
+                    className="p-1"
+                  >
+                    {showConfirm ? (
+                      <EyeOff size={18} color={ICON_COLOR} />
+                    ) : (
+                      <Eye size={18} color={ICON_COLOR} />
+                    )}
+                  </Pressable>
+                }
+              />
+
+              {/* Confirm Match Feedback Indicator */}
+              {confirmPassword.length > 0 && (
+                <View className="mt-1 flex-row items-center gap-1.5 px-0.5">
+                  {isConfirmMatching ? (
+                    <>
+                      <Check size={14} color="#16A34A" />
+                      <Text variant="caption" tone="success" className="font-medium">
+                        Passwords match
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <X size={14} color="#DC2626" />
+                      <Text variant="caption" tone="danger" className="font-medium">
+                        Passwords do not match
+                      </Text>
+                    </>
+                  )}
+                </View>
+              )}
+            </View>
+          </Card>
+
+          {/* Password Requirements Checklist */}
+          <Card className="mt-4 p-4 rounded-2xl shadow-sm">
+            <View className="flex-row items-center gap-2 mb-3">
+              <ShieldCheck size={16} color={ICON_COLOR} />
+              <Text variant="label" tone="muted" className="font-semibold uppercase tracking-wider">
+                Requirements
+              </Text>
+            </View>
+            <View className="gap-2.5">
+              {rules.map((rule) => (
+                <View key={rule.id} className="flex-row items-center gap-2.5">
+                  <View
+                    className={cn(
+                      "h-5 w-5 items-center justify-center rounded-full border",
+                      rule.met
+                        ? "border-success/30 bg-success/15"
+                        : "border-muted bg-muted/10"
+                    )}
+                  >
+                    {rule.met ? (
+                      <Check size={12} color="#16A34A" strokeWidth={3} />
+                    ) : (
+                      <View className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                    )}
+                  </View>
+                  <Text
+                    variant="small"
+                    tone={rule.met ? "default" : "muted"}
+                    className={cn("text-xs transition-all", rule.met && "font-medium text-success")}
+                  >
+                    {rule.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+
+          {/* Action Buttons */}
+          <View className="mt-6 gap-3">
+            <Button
+              label={saved ? "Updated" : "Update password"}
+              size="lg"
+              fullWidth
+              loading={saving}
+              disabled={saving || saved || !isNewPasswordValid || !isConfirmMatching}
+              onPress={onSubmit}
+            />
+            <Button
+              label="Cancel"
+              variant="outline"
+              size="lg"
+              fullWidth
+              disabled={saving || saved}
+              onPress={() => navigation.goBack()}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

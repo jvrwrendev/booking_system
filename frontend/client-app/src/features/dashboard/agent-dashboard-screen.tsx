@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Plus } from "lucide-react-native";
+import { Plus, CalendarCheck, Clock, Users, ClipboardList } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,6 +19,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/shared/stat-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { formatDateTime } from "@/lib/utils";
 
@@ -83,10 +84,30 @@ export function AgentDashboardScreen() {
   );
 
   const statCards = [
-    { label: "Today's Bookings", value: todaysBookings, color: "#16A34A" },
-    { label: "Pending Bookings", value: pendingBookings, color: "#D97706" },
-    { label: "Customers", value: customerCount, color: "#2563EB" },
-    { label: "Total Bookings", value: bookings.length, color: "#0F172A" },
+    {
+      label: "Today's Bookings",
+      value: todaysBookings,
+      tone: "primary" as const,
+      icon: <CalendarCheck size={16} color="#16A34A" />,
+    },
+    {
+      label: "Pending",
+      value: pendingBookings,
+      tone: "warning" as const,
+      icon: <Clock size={16} color="#D97706" />,
+    },
+    {
+      label: "Customers",
+      value: customerCount,
+      tone: "info" as const,
+      icon: <Users size={16} color="#2563EB" />,
+    },
+    {
+      label: "Total Bookings",
+      value: bookings.length,
+      tone: "default" as const,
+      icon: <ClipboardList size={16} color="#0F172A" />,
+    },
   ];
 
   const notifications = useMemo<NotificationItem[]>(() => {
@@ -158,18 +179,14 @@ export function AgentDashboardScreen() {
 
             <View className="mt-5 flex-row flex-wrap gap-3">
               {statCards.map((stat) => (
-                <Card key={stat.label} className="min-w-[45%] flex-1">
-                  <View
-                    style={{ backgroundColor: stat.color }}
-                    className="mb-3 h-1 w-8 rounded-full"
-                  />
-                  <Text variant="small" tone="muted">
-                    {stat.label}
-                  </Text>
-                  <Text variant="h2" weight="bold" className="mt-1" style={{ color: stat.color }}>
-                    {stat.value}
-                  </Text>
-                </Card>
+                <StatCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  tone={stat.tone}
+                  icon={stat.icon}
+                  className="min-w-[45%]"
+                />
               ))}
             </View>
 

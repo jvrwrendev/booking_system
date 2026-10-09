@@ -29,6 +29,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  loggedOut: boolean;
   login: (
     credentials: LoginCredentials
   ) => Promise<{ success: boolean; error?: string }>;
@@ -58,6 +59,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [loggedOut, setLoggedOut] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -75,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const persistSession = useCallback(async (nextUser: AuthUser) => {
+    setLoggedOut(false);
     setUser(nextUser);
     await AsyncStorage.setItem(
       STORAGE_KEYS.AUTH_USER,
@@ -131,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    setLoggedOut(true);
     setUser(null);
     await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_USER);
   }, []);
@@ -177,6 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       isAuthenticated: Boolean(user),
       isLoading,
+      loggedOut,
       login,
       register,
       googleSignIn,
@@ -189,6 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [
       user,
       isLoading,
+      loggedOut,
       login,
       register,
       googleSignIn,

@@ -15,6 +15,7 @@ interface ProductCardProps {
   onIncrement: () => void;
   onDecrement: () => void;
   onInfo: () => void;
+  showFavorite?: boolean;
 }
 
 export function ProductCard({
@@ -23,6 +24,7 @@ export function ProductCard({
   onIncrement,
   onDecrement,
   onInfo,
+  showFavorite = true,
 }: ProductCardProps) {
   const outOfStock = product.stockQuantity <= 0;
   const atMax = !outOfStock && inCart >= product.stockQuantity;
@@ -51,7 +53,7 @@ export function ProductCard({
             iconSize={26}
           />
           <View className="absolute left-2 top-2">
-            <FavoriteButton productId={product.id} />
+            {showFavorite ? <FavoriteButton productId={product.id} /> : null}
           </View>
           <Pressable
             onPress={onInfo}

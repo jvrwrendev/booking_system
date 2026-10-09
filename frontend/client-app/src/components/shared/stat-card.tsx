@@ -8,29 +8,56 @@ type Tone = "default" | "primary" | "success" | "warning" | "info" | "danger";
 interface StatCardProps {
   label: string;
   value: number | string;
+  hint?: string;
   tone?: Tone;
   icon?: React.ReactNode;
   className?: string;
 }
 
+const chipToneClass: Record<Tone, string> = {
+  default: "bg-secondary",
+  primary: "bg-primary/10",
+  success: "bg-success/10",
+  warning: "bg-warning/10",
+  info: "bg-info/10",
+  danger: "bg-danger/10",
+};
+
 export function StatCard({
   label,
   value,
+  hint,
   tone = "default",
   icon,
   className,
 }: StatCardProps) {
   return (
     <Card className={`flex-1 ${className ?? ""}`}>
-      <View className="flex-row items-center gap-1.5">
-        {icon}
-        <Text variant="small" tone="muted" className="flex-1">
+      <View className="flex-row items-start justify-between gap-2">
+        <Text
+          variant="label"
+          tone="muted"
+          className="flex-1"
+          numberOfLines={1}
+        >
           {label}
         </Text>
+        {icon ? (
+          <View
+            className={`h-8 w-8 shrink-0 items-center justify-center rounded-lg ${chipToneClass[tone]}`}
+          >
+            {icon}
+          </View>
+        ) : null}
       </View>
-      <Text variant="h2" weight="bold" tone={tone} className="mt-1">
+      <Text variant="h1" weight="bold" className="mt-2.5">
         {value}
       </Text>
+      {hint ? (
+        <Text variant="small" tone="muted" className="mt-0.5">
+          {hint}
+        </Text>
+      ) : null}
     </Card>
   );
 }

@@ -31,7 +31,7 @@ const navTheme: Theme = {
 };
 
 export function RootNavigator() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, loggedOut } = useAuth();
 
   if (isLoading) {
     return (
@@ -43,7 +43,10 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer theme={navTheme}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        screenOptions={{ headerShown: false }}
+        initialRouteName={user ? undefined : loggedOut ? "Login" : "Welcome"}
+      >
         {!user ? (
             <>
               <Stack.Screen name="Welcome" component={WelcomeScreen} />

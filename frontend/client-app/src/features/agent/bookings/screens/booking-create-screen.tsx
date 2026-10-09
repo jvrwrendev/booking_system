@@ -22,7 +22,6 @@ import {
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { useAgentCart } from "@/hooks/use-agent-cart";
-import { useFavorites } from "@/hooks/use-favorites";
 import { listCustomersForAgent } from "@/services/customer.service";
 import { listProducts } from "@/services/product.service";
 import { createBookingForAgent } from "@/services/booking.service";
@@ -32,17 +31,16 @@ import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChipGroup } from "@/components/ui/select";
 import { QuantitySelector } from "@/components/shared/quantity-selector";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ProductImage } from "@/components/shared/product-image";
 import { ProductDetailsSheet } from "@/components/shared/product-details-sheet";
 import { ProductCard } from "@/components/shared/product-card";
+import { CategoryFilterButton } from "@/components/shared/category-filter";
 import { WizardHeader } from "@/components/shared/wizard-header";
 import type { AgentStackParamList } from "@/app/navigation/types";
 
 type Step = "customer" | "products" | "cart" | "review";
-type ProductFilter = "all" | "favorites";
 
 const STEPS: { key: Step; label: string }[] = [
   { key: "customer", label: "Customer" },
@@ -57,7 +55,6 @@ export function BookingCreateScreen() {
   const route = useRoute<RouteProp<AgentStackParamList, "BookingCreate">>();
   const { user } = useAuth();
   const cart = useAgentCart();
-  const { isFavorite } = useFavorites();
 
   const [step, setStep] = useState<Step>(() => {
     const initial = route.params?.initialStep;
@@ -71,7 +68,7 @@ export function BookingCreateScreen() {
   const [loading, setLoading] = useState(true);
   const [customerQuery, setCustomerQuery] = useState("");
   const [productQuery, setProductQuery] = useState("");
-  const [productFilter, setProductFilter] = useState<ProductFilter>("all");
+  const [category, setCategory] = useState("all");
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -128,6 +125,14 @@ export function BookingCreateScreen() {
     );
   }, [customers, customerQuery]);
 
+  const categories = useMemo(
+    () =>
+      Array.from(new Set(products.map((p) => p.categoryName)))
+        .filter(Boolean)
+        .sort(),
+    [products],
+  );
+
   const filteredProducts = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
     return products.filter((p) => {
@@ -136,10 +141,10 @@ export function BookingCreateScreen() {
         p.name.toLowerCase().includes(q) ||
         p.sku.toLowerCase().includes(q) ||
         p.categoryName.toLowerCase().includes(q);
-      const matchesFilter = productFilter === "all" || isFavorite(p.id);
-      return matchesQuery && matchesFilter;
+      const matchesCategory = category === "all" || p.categoryName === category;
+      return matchesQuery && matchesCategory;
     });
-  }, [products, productQuery, productFilter, isFavorite]);
+  }, [products, productQuery, category]);
 
   const canContinueFromProducts = cart.items.length > 0;
 
@@ -262,22 +267,20 @@ export function BookingCreateScreen() {
                 </Pressable>
               </Card>
             ) : null}
-            <Input
-              size="control"
-              value={productQuery}
-              onChangeText={setProductQuery}
-              placeholder="Search products"
-              autoCapitalize="none"
-              leftIcon={<Search size={18} color="#64748B" />}
-            />
-            <View className="mt-3">
-              <ChipGroup<ProductFilter>
-                options={[
-                  { label: "All products", value: "all" },
-                  { label: "Favorites", value: "favorites" },
-                ]}
-                value={productFilter}
-                onChange={setProductFilter}
+            <View className="flex-row gap-2">
+              <Input
+                size="control"
+                containerClassName="flex-1"
+                value={productQuery}
+                onChangeText={setProductQuery}
+                placeholder="Search products"
+                autoCapitalize="none"
+                leftIcon={<Search size={18} color="#64748B" />}
+              />
+              <CategoryFilterButton
+                categories={categories}
+                value={category}
+                onChange={setCategory}
               />
             </View>
             {loading ? (
@@ -292,14 +295,15 @@ export function BookingCreateScreen() {
                 contentContainerStyle={{ gap: 12 }}
                 ListEmptyComponent={
                   <Text tone="muted" className="mt-8 text-center">
-                    {productFilter === "favorites"
-                      ? "No favorite products yet."
+                    {category !== "all"
+                      ? `No products in ${category}.`
                       : "No products found."}
                   </Text>
                 }
                 renderItem={({ item }) => (
                   <ProductCard
                     product={item}
+                    showFavorite={false}
                     inCart={
                       cart.items.find((i) => i.productId === item.id)
                         ?.quantity ?? 0

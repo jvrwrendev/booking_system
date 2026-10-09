@@ -84,7 +84,7 @@ export function ProductDetailScreen() {
       >
         <ScreenHeader
           title="Product"
-          subtitle="Inventory details"
+          subtitle="Product details"
           className="mb-4"
           action={
             product ? (

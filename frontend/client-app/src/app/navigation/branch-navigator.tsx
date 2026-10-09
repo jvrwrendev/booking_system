@@ -1,7 +1,7 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { InventoryListScreen } from "@/features/branch/inventory/screens/inventory-list-screen";
+import { FavoritesScreen } from "@/features/branch/favorites/screens/favorites-screen";
 import { ProductDetailScreen } from "@/features/branch/inventory/screens/product-detail-screen";
 import { OrderListScreen } from "@/features/branch/orders/screens/order-list-screen";
 import { OrderCreateScreen } from "@/features/branch/orders/screens/order-create-screen";
@@ -51,7 +51,7 @@ function BranchTabs() {
       }}
     >
       <Tab.Screen name="Dashboard" component={BranchDashboardScreen} />
-      <Tab.Screen name="Inventory" component={InventoryListScreen} />
+      <Tab.Screen name="Favorites" component={FavoritesScreen} />
       <Tab.Screen name="Orders" component={OrderListScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>

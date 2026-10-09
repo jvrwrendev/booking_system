@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Boxes, ShoppingBag, Clock, PackageCheck, CheckCircle2 } from "lucide-react-native";
+import {
+  Boxes,
+  ShoppingBag,
+  Clock,
+  CheckCircle2,
+} from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
@@ -142,10 +147,10 @@ export function BranchDashboardScreen() {
           />
         }
       >
-        <View className="mb-3 flex-row items-start justify-between">
+        <View className="mb-4 flex-row items-start justify-between">
           <View className="flex-1 pr-3">
             <Text variant="small" tone="muted">
-              Welcome
+              Welcome back
             </Text>
             <Text variant="h1" weight="bold">
               {user?.fullName ?? "Branch"}
@@ -154,44 +159,34 @@ export function BranchDashboardScreen() {
           <NotificationBell items={notifications} />
         </View>
 
-        <View className="flex-row gap-2">
+        <View className="mt-5 flex-row flex-wrap gap-3">
           <StatCard
             label="Products"
             value={productCount}
             tone="primary"
             icon={<Boxes size={16} color="#16A34A" />}
+            className="min-w-[45%]"
           />
           <StatCard
             label="Orders"
             value={orders.length}
             tone="info"
             icon={<ShoppingBag size={16} color="#2563EB" />}
+            className="min-w-[45%]"
           />
-        </View>
-        <View className="flex-row gap-2 mt-2">
           <StatCard
             label="Pending"
             value={counts.pending}
             tone="warning"
             icon={<Clock size={16} color="#D97706" />}
-          />
-          <StatCard
-            label="Processing"
-            value={counts.processing}
-            tone="info"
-            icon={<PackageCheck size={16} color="#2563EB" />}
-          />
-          <StatCard
-            label="Ready"
-            value={counts.ready}
-            tone="info"
-            icon={<PackageCheck size={16} color="#2563EB" />}
+            className="min-w-[45%]"
           />
           <StatCard
             label="Completed"
             value={counts.completed}
             tone="success"
             icon={<CheckCircle2 size={16} color="#16A34A" />}
+            className="min-w-[45%]"
           />
         </View>
 
@@ -199,7 +194,7 @@ export function BranchDashboardScreen() {
           <View className="flex-row items-center justify-between">
             <Text weight="semibold">Quick actions</Text>
             <Text variant="small" tone="muted" className="mt-0.5">
-              Browse inventory and create a new order.
+              Save products to favorites and create a new branch order.
             </Text>
           </View>
           <View className="flex-row gap-2 mt-3">
@@ -224,7 +219,7 @@ export function BranchDashboardScreen() {
         ) : recent.length === 0 ? (
           <EmptyState
             title="No orders yet"
-            description="Create your first order from the inventory."
+            description="Create your first branch order to see it here."
             actionLabel="Create Order"
             onAction={() => navigation.navigate("OrderCreate")}
           />
