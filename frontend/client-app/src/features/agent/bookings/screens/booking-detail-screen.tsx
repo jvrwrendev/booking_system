@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft } from "lucide-react-native";
+import { AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react-native";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
-import { getBookingForAgent } from "@/services/booking.service";
+import {
+  getBookingForAgent,
+  updateBookingStatus,
+} from "@/services/booking.service";
 import type { Booking } from "@/types/booking";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
@@ -13,6 +16,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { StatusTimeline } from "@/components/shared/status-timeline";
 import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
+import { Button } from "@/components/ui/button";
 import type { AgentStackParamList } from "@/app/navigation/types";
 
 export function BookingDetailScreen() {
@@ -24,6 +28,8 @@ export function BookingDetailScreen() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -44,6 +50,28 @@ export function BookingDetailScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const onMarkCompleted = async () => {
+    if (!booking || completing) return;
+    setCompleting(true);
+    setCompleteError(null);
+    try {
+      const updated = await updateBookingStatus(
+        booking.id,
+        "completed",
+        user?.fullName ?? "Agent",
+      );
+      if (updated) {
+        setBooking(updated);
+      } else {
+        setCompleteError("Booking not found.");
+      }
+    } catch {
+      setCompleteError("Failed to update booking. Please try again.");
+    } finally {
+      setCompleting(false);
+    }
+  };
 
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-secondary">
@@ -159,6 +187,37 @@ export function BookingDetailScreen() {
           </>
         )}
       </ScrollView>
+
+      {booking?.status === "ready" ? (
+        <View className="border-t border-border bg-background px-6 pb-3 pt-4">
+          {completeError ? (
+            <View className="mb-3 flex-row items-start gap-2.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-2.5">
+              <AlertCircle
+                size={14}
+                color="#DC2626"
+                style={{ marginTop: 2 }}
+              />
+              <Text variant="small" tone="danger" className="flex-1">
+                {completeError}
+              </Text>
+            </View>
+          ) : null}
+          <Button
+            label="Mark as completed"
+            size="control"
+            fullWidth
+            loading={completing}
+            leftIcon={<CheckCircle2 size={18} color="#FFFFFF" />}
+            onPress={() => {
+              void onMarkCompleted();
+            }}
+          />
+          <Text variant="small" tone="muted" className="mt-2 text-center">
+            Mark this booking as completed once the customer has picked up
+            their order.
+          </Text>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }

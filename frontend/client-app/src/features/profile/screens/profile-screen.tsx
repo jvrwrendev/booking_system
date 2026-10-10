@@ -293,7 +293,6 @@ export function ProfileScreen() {
           </Pressable>
         </View>
 
-        {/* Footer Info */}
         <View className="mt-8 items-center gap-1">
           {user.createdAt ? (
             <Text className="text-xs text-gray-400 text-center">

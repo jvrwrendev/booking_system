@@ -1,4 +1,5 @@
 import type { Booking, BookingItem, BookingStatus } from "@/types/booking";
+import { humanizeStatus } from "@/types/status";
 import type { Customer } from "@/types/customer";
 import type { Product } from "@/types/product";
 import { mockBookings } from "./mock/bookings";
@@ -97,6 +98,40 @@ export async function createBookingForAgent(
 
   bookingsState = [booking, ...bookingsState];
   return booking;
+}
+
+export async function updateBookingStatus(
+  id: string,
+  status: BookingStatus,
+  by: string,
+): Promise<Booking | null> {
+  await sleep(NETWORK_DELAY_MS);
+  const index = bookingsState.findIndex((b) => b.id === id);
+  if (index === -1) return null;
+
+  const booking = bookingsState[index];
+  const updated: Booking = {
+    ...booking,
+    status,
+    statusHistory: [
+      ...(booking.statusHistory ?? []),
+      {
+        id: `${booking.id}-h${(booking.statusHistory?.length ?? 0) + 1}`,
+        from: booking.status,
+        to: status,
+        label: humanizeStatus(status),
+        timestamp: new Date().toISOString(),
+        by,
+      },
+    ],
+  };
+
+  bookingsState = [
+    ...bookingsState.slice(0, index),
+    updated,
+    ...bookingsState.slice(index + 1),
+  ];
+  return updated;
 }
 
 export function summarizeBookingItems(items: BookingItem[]) {

@@ -31,7 +31,7 @@ export const mockBookings: Booking[] = [
     subtotal: 18250,
     discount: 250,
     totalAmount: 18000,
-    status: "assigned",
+    status: "ready",
     createdAt: "2026-09-01T08:30:00Z",
     notes: "Customer requested early morning delivery.",
     assignedAdminId: "USR-002",
