@@ -109,7 +109,7 @@ export function ProfileChangePasswordScreen() {
       } else {
         setSaved(true);
       }
-    } catch (err) {
+    } catch {
       setServerError("An unexpected error occurred. Please try again.");
     } finally {
       setSaving(false);
@@ -196,7 +196,7 @@ export function ProfileChangePasswordScreen() {
             {/* New Password */}
             <View className="gap-2">
               <Input
-                ref={newPasswordRef}
+                inputRef={newPasswordRef}
                 label="New password"
                 size="control"
                 value={newPassword}
@@ -233,11 +233,11 @@ export function ProfileChangePasswordScreen() {
               {newPassword.length > 0 && (
                 <View className="mt-1 gap-1.5 px-0.5">
                   <View className="flex-row items-center justify-between">
-                    <Text variant="caption" tone="muted">
+                    <Text variant="small" tone="muted">
                       Password strength
                     </Text>
                     <Text
-                      variant="caption"
+                      variant="small"
                       className={cn(
                         "font-semibold",
                         strengthScore === 1 && "text-danger",
@@ -277,7 +277,7 @@ export function ProfileChangePasswordScreen() {
             {/* Confirm New Password */}
             <View className="gap-1">
               <Input
-                ref={confirmPasswordRef}
+                inputRef={confirmPasswordRef}
                 label="Confirm new password"
                 size="control"
                 value={confirmPassword}
@@ -316,14 +316,14 @@ export function ProfileChangePasswordScreen() {
                   {isConfirmMatching ? (
                     <>
                       <Check size={14} color="#16A34A" />
-                      <Text variant="caption" tone="success" className="font-medium">
+                      <Text variant="small" tone="success" className="font-medium">
                         Passwords match
                       </Text>
                     </>
                   ) : (
                     <>
                       <X size={14} color="#DC2626" />
-                      <Text variant="caption" tone="danger" className="font-medium">
+                      <Text variant="small" tone="danger" className="font-medium">
                         Passwords do not match
                       </Text>
                     </>

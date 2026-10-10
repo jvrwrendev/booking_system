@@ -35,6 +35,7 @@ import { QuantitySelector } from "@/components/shared/quantity-selector";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ProductImage } from "@/components/shared/product-image";
 import { ProductDetailsSheet } from "@/components/shared/product-details-sheet";
+import { SuccessDialog } from "@/components/shared/success-dialog";
 import { ProductCard } from "@/components/shared/product-card";
 import { CategoryFilterButton } from "@/components/shared/category-filter";
 import { WizardHeader } from "@/components/shared/wizard-header";
@@ -73,6 +74,9 @@ export function BookingCreateScreen() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmedReference, setConfirmedReference] = useState<string | null>(
+    null,
+  );
 
   const agentId = user?.agentId ?? "";
   const hydratedCart = useRef(false);
@@ -165,7 +169,7 @@ export function BookingCreateScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      await createBookingForAgent({
+      const booking = await createBookingForAgent({
         customer: cart.customer,
         agentId,
         agentName: user?.fullName ?? "Agent",
@@ -173,7 +177,7 @@ export function BookingCreateScreen() {
         notes: notes.trim() || undefined,
       });
       cart.clear();
-      navigation.goBack();
+      setConfirmedReference(booking.reference);
     } catch {
       setError("Failed to create booking. Please try again.");
     } finally {
@@ -518,6 +522,17 @@ export function BookingCreateScreen() {
         inCart={detailInCart}
         onClose={() => setDetailProduct(null)}
         onAdd={onAddFromDetails}
+      />
+
+      <SuccessDialog
+        visible={confirmedReference !== null}
+        title="Booking confirmed"
+        description="The booking has been created successfully. You can track its status in Bookings."
+        reference={confirmedReference}
+        onConfirm={() => {
+          setConfirmedReference(null);
+          navigation.goBack();
+        }}
       />
     </SafeAreaView>
   );

@@ -30,6 +30,7 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { ProductImage } from "@/components/shared/product-image";
 import { ProductDetailsSheet } from "@/components/shared/product-details-sheet";
+import { SuccessDialog } from "@/components/shared/success-dialog";
 import { ProductCard } from "@/components/shared/product-card";
 import { CategoryFilterButton } from "@/components/shared/category-filter";
 import { WizardHeader, type WizardStep } from "@/components/shared/wizard-header";
@@ -66,6 +67,9 @@ export function OrderCreateScreen() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmedReference, setConfirmedReference] = useState<string | null>(
+    null,
+  );
 
   const branchId = user?.branchId ?? "";
 
@@ -139,14 +143,14 @@ export function OrderCreateScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      await createBranchOrder({
+      const order = await createBranchOrder({
         branchId,
         branchName,
         items: cart.items,
         notes: notes.trim() || undefined,
       });
       cart.clear();
-      navigation.goBack();
+      setConfirmedReference(order.reference);
     } catch {
       setError("Failed to create order. Please try again.");
     } finally {
@@ -429,6 +433,17 @@ export function OrderCreateScreen() {
         inCart={detailInCart}
         onClose={() => setDetailProduct(null)}
         onAdd={onAddFromDetails}
+      />
+
+      <SuccessDialog
+        visible={confirmedReference !== null}
+        title="Order confirmed"
+        description="Your order has been placed successfully. You can track its status in Orders."
+        reference={confirmedReference}
+        onConfirm={() => {
+          setConfirmedReference(null);
+          navigation.goBack();
+        }}
       />
     </SafeAreaView>
   );
