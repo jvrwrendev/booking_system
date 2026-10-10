@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Pressable,
@@ -32,7 +33,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { APP_NAME, APP_VERSION } from "@/constants";
+import { APP_NAME, APP_VERSION, STORAGE_KEYS } from "@/constants";
 
 type ProfileNavigation = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -51,7 +52,29 @@ export function ProfileScreen() {
   const [stats, setStats] = useState<StatEntry[]>([]);
   const [branchName, setBranchName] = useState<string>("Davao Branch");
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [signOutVisible, setSignOutVisible] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(
+          STORAGE_KEYS.NOTIFICATIONS_ENABLED,
+        );
+        if (stored !== null) setNotificationsEnabled(stored === "true");
+      } catch {
+        /* keep default */
+      }
+    })();
+  }, []);
+
+  const onToggleNotifications = useCallback((value: boolean) => {
+    setNotificationsEnabled(value);
+    void AsyncStorage.setItem(
+      STORAGE_KEYS.NOTIFICATIONS_ENABLED,
+      String(value),
+    ).catch(() => {});
+  }, []);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -227,18 +250,25 @@ export function ProfileScreen() {
             Others
           </Text>
           <View className="rounded-xl bg-white border border-gray-100 overflow-hidden">
-            <Pressable
-              onPress={() => {}}
-              className="flex-row items-center gap-3 p-4 active:bg-gray-50 border-b border-gray-100"
-            >
+            <View className="flex-row items-center gap-3 p-4 border-b border-gray-100">
               <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
                 <Bell size={18} color="#16A34A" />
               </View>
-              <Text className="flex-1 text-sm font-medium text-gray-800">
-                Notification
-              </Text>
-              <ChevronRight size={18} color="#94A3B8" />
-            </Pressable>
+              <View className="flex-1">
+                <Text className="text-sm font-medium text-gray-800">
+                  Notifications
+                </Text>
+                <Text className="mt-0.5 text-xs text-gray-400">
+                  {notificationsEnabled ? "On" : "Off"}
+                </Text>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={onToggleNotifications}
+                trackColor={{ false: "#E2E8F0", true: "#10B981" }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
 
             <View className="flex-row items-center gap-3 p-4">
               <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/10">

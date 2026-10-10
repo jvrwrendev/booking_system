@@ -39,17 +39,37 @@ const toneIconBgClass: Record<NotificationTone, string> = {
 interface NotificationBellProps {
   items: NotificationItem[];
   className?: string;
+  onPressItem?: (item: NotificationItem) => void;
 }
 
-export function NotificationBell({ items, className }: NotificationBellProps) {
+export function NotificationBell({
+  items,
+  className,
+  onPressItem,
+}: NotificationBellProps) {
   const [visible, setVisible] = useState(false);
+  const [readIds, setReadIds] = useState<string[]>([]);
+
+  const isRead = (item: NotificationItem) =>
+    item.unread === false || readIds.includes(item.id);
 
   const unreadCount = useMemo(
-    () => items.filter((item) => item.unread !== false).length,
-    [items],
+    () => items.filter((item) => !isRead(item)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, readIds],
   );
 
   const badgeLabel = unreadCount > 9 ? "9+" : String(unreadCount);
+
+  const onPressNotification = (item: NotificationItem) => {
+    if (!isRead(item)) {
+      setReadIds((prev) =>
+        prev.includes(item.id) ? prev : [...prev, item.id],
+      );
+    }
+    setVisible(false);
+    onPressItem?.(item);
+  };
 
   return (
     <>
@@ -138,12 +158,20 @@ export function NotificationBell({ items, className }: NotificationBellProps) {
               >
                 {items.map((item, index) => {
                   const tone = item.tone ?? "primary";
+                  const read = isRead(item);
                   return (
                     <View key={item.id}>
                       {index > 0 ? (
                         <Divider className="bg-border/60" />
                       ) : null}
-                      <View className="flex-row items-start gap-3 px-4 py-3.5">
+                      <Pressable
+                        onPress={() => onPressNotification(item)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open notification: ${item.title}`}
+                        className={`flex-row items-start gap-3 px-4 py-3.5 active:bg-secondary ${
+                          read ? "" : "bg-primary/5"
+                        }`}
+                      >
                         <View
                           className={`mt-0.5 h-9 w-9 shrink-0 items-center justify-center rounded-full ${toneIconBgClass[tone]}`}
                         >
@@ -161,7 +189,7 @@ export function NotificationBell({ items, className }: NotificationBellProps) {
                             >
                               {item.title}
                             </Text>
-                            {item.unread !== false ? (
+                            {!read ? (
                               <View className="h-2 w-2 rounded-full bg-destructive" />
                             ) : null}
                           </View>
@@ -185,7 +213,7 @@ export function NotificationBell({ items, className }: NotificationBellProps) {
                             </Text>
                           ) : null}
                         </View>
-                      </View>
+                      </Pressable>
                     </View>
                   );
                 })}

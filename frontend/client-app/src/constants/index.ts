@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
   CART_AGENT: "agrivet-mobile-agent-cart",
   CART_BRANCH: "agrivet-mobile-branch-cart",
   FAVORITES: "agrivet-mobile-favorites",
+  NOTIFICATIONS_ENABLED: "agrivet-mobile-notifications-enabled",
 } as const;
 
 export const NETWORK_DELAY_MS = 350;

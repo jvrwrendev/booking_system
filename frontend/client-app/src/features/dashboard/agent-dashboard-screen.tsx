@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, RefreshControl, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Plus, CalendarCheck, Clock, Users, ClipboardList } from "lucide-react-native";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import { useAuth } from "@/hooks/use-auth";
 import { listBookingsForAgent } from "@/services/booking.service";
 import { listCustomersForAgent } from "@/services/customer.service";
 import type { Booking } from "@/types/booking";
-import type { AgentStackParamList } from "@/app/navigation/types";
+import type {
+  AgentStackParamList,
+  AgentTabParamList,
+} from "@/app/navigation/types";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -19,13 +21,14 @@ import {
 import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { StatCard } from "@/components/shared/stat-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { formatDateTime } from "@/lib/utils";
 
 export function AgentDashboardScreen() {
   const navigation =
-    useNavigation<NativeStackNavigationProp<AgentStackParamList>>();
+    useNavigation<NavigationProp<AgentStackParamList & AgentTabParamList>>();
   const { user } = useAuth();
 
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -33,6 +36,7 @@ export function AgentDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const agentId = user?.agentId ?? "";
 
   const load = useCallback(async () => {
@@ -150,10 +154,38 @@ export function AgentDashboardScreen() {
     return items;
   }, [pendingBookings, recent]);
 
+  const searchResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return null;
+    return bookings.filter((b) => {
+      if (b.reference.toLowerCase().includes(q)) return true;
+      if (b.customerName.toLowerCase().includes(q)) return true;
+      if (b.status.toLowerCase().includes(q)) return true;
+      return b.items.some(
+        (i) =>
+          i.productName.toLowerCase().includes(q) ||
+          i.sku.toLowerCase().includes(q),
+      );
+    });
+  }, [bookings, query]);
+
+  const displayedBookings = searchResults ?? recent;
+
+  const onPressNotification = useCallback(
+    (item: NotificationItem) => {
+      if (item.id.startsWith("BK-")) {
+        navigation.navigate("BookingDetail", { bookingId: item.id });
+      } else {
+        navigation.navigate("Bookings");
+      }
+    },
+    [navigation],
+  );
+
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-background">
       <FlatList
-        data={recent}
+        data={displayedBookings}
         keyExtractor={(b) => b.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
         refreshControl={
@@ -174,7 +206,10 @@ export function AgentDashboardScreen() {
                   {user?.fullName ?? "Agent"}
                 </Text>
               </View>
-              <NotificationBell items={notifications} />
+              <NotificationBell
+                items={notifications}
+                onPressItem={onPressNotification}
+              />
             </View>
 
             <View className="mt-5 flex-row flex-wrap gap-3">
@@ -190,6 +225,14 @@ export function AgentDashboardScreen() {
               ))}
             </View>
 
+            <View className="mt-4">
+              <SearchInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search bookings, customers, items..."
+              />
+            </View>
+
             <View className="mt-5">
               <Button
                 label="New Booking"
@@ -201,8 +244,16 @@ export function AgentDashboardScreen() {
 
             <View className="mt-6">
               <SectionHeader
-                title="Recent Bookings"
-                subtitle="Latest transactions you created"
+                title={
+                  searchResults
+                    ? `Search results (${searchResults.length})`
+                    : "Recent Bookings"
+                }
+                subtitle={
+                  searchResults
+                    ? "Matches across references, customers, and items"
+                    : "Latest transactions you created"
+                }
               />
             </View>
           </View>
@@ -212,6 +263,11 @@ export function AgentDashboardScreen() {
             <LoadingState label="Loading bookings..." />
           ) : error ? (
             <ErrorState description={error} onRetry={() => void load()} />
+          ) : searchResults ? (
+            <EmptyState
+              title="No matches found"
+              description="Try a different reference, customer, or product name."
+            />
           ) : (
             <EmptyState
               title="No bookings yet"
@@ -222,19 +278,28 @@ export function AgentDashboardScreen() {
           )
         }
         renderItem={({ item }) => (
-          <Card className="mb-2">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text weight="semibold">{item.customerName}</Text>
-                <Text variant="small" tone="muted" className="mt-0.5">
-                  {item.reference}
+          <Pressable
+            onPress={() =>
+              navigation.navigate("BookingDetail", { bookingId: item.id })
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`Open booking ${item.reference}`}
+            className="active:opacity-80"
+          >
+            <Card className="mb-2">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1">
+                  <Text weight="semibold">{item.customerName}</Text>
+                  <Text variant="small" tone="muted" className="mt-0.5">
+                    {item.reference}
+                  </Text>
+                </View>
+                <Text weight="semibold" tone="primary">
+                  {item.status}
                 </Text>
               </View>
-              <Text weight="semibold" tone="primary">
-                {item.status}
-              </Text>
-            </View>
-          </Card>
+            </Card>
+          </Pressable>
         )}
       />
     </SafeAreaView>

@@ -7,14 +7,14 @@ import {
   Clock,
   CheckCircle2,
 } from "lucide-react-native";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import { useAuth } from "@/hooks/use-auth";
 import { Text } from "@/components/ui/text";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/shared/stat-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { OrderCard } from "@/components/shared/order-card";
 import { LoadingState } from "@/components/shared/loading-state";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -26,17 +26,21 @@ import { listOrdersForBranch } from "@/services/branch-order.service";
 import { listProducts } from "@/services/product.service";
 import { formatDateTime } from "@/lib/utils";
 import type { BranchOrder } from "@/types/branch-order";
-import type { BranchStackParamList } from "@/app/navigation/types";
+import type {
+  BranchStackParamList,
+  BranchTabParamList,
+} from "@/app/navigation/types";
 
 export function BranchDashboardScreen() {
   const navigation =
-    useNavigation<NativeStackNavigationProp<BranchStackParamList>>();
+    useNavigation<NavigationProp<BranchStackParamList & BranchTabParamList>>();
   const { user } = useAuth();
 
   const [orders, setOrders] = useState<BranchOrder[]>([]);
   const [productCount, setProductCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState("");
 
   const branchId = user?.branchId ?? "";
 
@@ -85,6 +89,23 @@ export function BranchDashboardScreen() {
         .slice(0, 5),
     [orders],
   );
+
+  const searchResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return null;
+    return orders.filter((o) => {
+      if (o.reference.toLowerCase().includes(q)) return true;
+      if (o.status.toLowerCase().includes(q)) return true;
+      if (o.branchName.toLowerCase().includes(q)) return true;
+      return o.items.some(
+        (i) =>
+          i.productName.toLowerCase().includes(q) ||
+          i.sku.toLowerCase().includes(q),
+      );
+    });
+  }, [orders, query]);
+
+  const displayedOrders = searchResults ?? recent;
 
   const notifications = useMemo<NotificationItem[]>(() => {
     const items: NotificationItem[] = [];
@@ -135,6 +156,17 @@ export function BranchDashboardScreen() {
     return items;
   }, [counts, recent]);
 
+  const onPressNotification = useCallback(
+    (item: NotificationItem) => {
+      if (item.id.startsWith("BO-")) {
+        navigation.navigate("OrderDetail", { orderId: item.id });
+      } else {
+        navigation.navigate("Orders");
+      }
+    },
+    [navigation],
+  );
+
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-background">
       <ScrollView
@@ -156,7 +188,10 @@ export function BranchDashboardScreen() {
               {user?.fullName ?? "Branch"}
             </Text>
           </View>
-          <NotificationBell items={notifications} />
+          <NotificationBell
+            items={notifications}
+            onPressItem={onPressNotification}
+          />
         </View>
 
         <View className="mt-5 flex-row flex-wrap gap-3">
@@ -190,6 +225,14 @@ export function BranchDashboardScreen() {
           />
         </View>
 
+        <View className="mt-4">
+          <SearchInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search orders, items, references..."
+          />
+        </View>
+
         <Card className="mt-4">
           <View className="flex-row items-center justify-between">
             <Text weight="semibold">Quick actions</Text>
@@ -209,14 +252,27 @@ export function BranchDashboardScreen() {
 
         <View className="mt-6">
           <SectionHeader
-            title="Recent Orders"
-            subtitle="Latest orders from your branch"
+            title={
+              searchResults
+                ? `Search results (${searchResults.length})`
+                : "Recent Orders"
+            }
+            subtitle={
+              searchResults
+                ? "Matches across references, statuses, and items"
+                : "Latest orders from your branch"
+            }
           />
         </View>
 
         {loading ? (
           <LoadingState label="Loading orders..." />
-        ) : recent.length === 0 ? (
+        ) : searchResults && displayedOrders.length === 0 ? (
+          <EmptyState
+            title="No matches found"
+            description="Try a different reference, status, or product name."
+          />
+        ) : displayedOrders.length === 0 ? (
           <EmptyState
             title="No orders yet"
             description="Create your first branch order to see it here."
@@ -225,7 +281,7 @@ export function BranchDashboardScreen() {
           />
         ) : (
           <View>
-            {recent.map((o) => (
+            {displayedOrders.map((o) => (
               <OrderCard
                 key={o.id}
                 order={o}

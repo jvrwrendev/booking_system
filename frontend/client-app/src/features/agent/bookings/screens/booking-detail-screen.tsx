@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react-native";
+import { AlertCircle, ArrowLeft } from "lucide-react-native";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
@@ -189,7 +189,7 @@ export function BookingDetailScreen() {
       </ScrollView>
 
       {booking?.status === "ready" ? (
-        <View className="border-t border-border bg-background px-6 pb-3 pt-4">
+        <View className="border-t border-border px-6 pb-3 pt-4">
           {completeError ? (
             <View className="mb-3 flex-row items-start gap-2.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-2.5">
               <AlertCircle
@@ -207,15 +207,10 @@ export function BookingDetailScreen() {
             size="control"
             fullWidth
             loading={completing}
-            leftIcon={<CheckCircle2 size={18} color="#FFFFFF" />}
             onPress={() => {
               void onMarkCompleted();
             }}
           />
-          <Text variant="small" tone="muted" className="mt-2 text-center">
-            Mark this booking as completed once the customer has picked up
-            their order.
-          </Text>
         </View>
       ) : null}
     </SafeAreaView>
