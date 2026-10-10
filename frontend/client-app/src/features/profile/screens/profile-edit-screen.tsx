@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Keyboard, Pressable, ScrollView, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AlertCircle,
@@ -42,27 +42,6 @@ export function ProfileEditScreen() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const initial = useMemo(
-    () => ({
-      fullName: user?.fullName ?? "",
-      email: user?.email ?? "",
-      contactNumber: user?.contactNumber ?? "",
-      address: user?.address ?? "",
-      avatar: user?.avatar,
-    }),
-    [user]
-  );
-
-  const dirty = useMemo(
-    () =>
-      form.fullName !== initial.fullName ||
-      form.email !== initial.email ||
-      form.contactNumber !== initial.contactNumber ||
-      form.address !== initial.address ||
-      avatar !== initial.avatar,
-    [form, avatar, initial]
-  );
 
   const nameError =
     submitted && !form.fullName.trim() ? "Full name is required." : undefined;
@@ -123,12 +102,16 @@ export function ProfileEditScreen() {
 
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-background">
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        className="flex-1"
       >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
         <ScreenHeader
           title="Update Account"
           subtitle="Keep your profile and contact details up to date"
@@ -206,7 +189,7 @@ export function ProfileEditScreen() {
         ) : null}
 
         {/* Form Controls Container */}
-        <Card className="gap-4 p-5 border border-border/60 rounded-2xl bg-card shadow-none">
+        <Card className="gap-4 p-5 border border-gray-100 rounded-xl">
           <Input
             label="Full Name"
             size="control"
@@ -271,7 +254,7 @@ export function ProfileEditScreen() {
         >
           System Account Details
         </Text>
-        <Card className="gap-3 p-4 border border-border/60 rounded-2xl bg-card shadow-none">
+        <Card className="gap-3 p-4 border border-gray-100 rounded-xl">
           <View className="flex-row items-center justify-between">
             <Text variant="small" tone="muted">
               Username
@@ -307,32 +290,32 @@ export function ProfileEditScreen() {
             </Text>
           </View>
         </Card>
+      </ScrollView>
 
-        {/* Form Actions */}
-        <View className="mt-8 gap-3">
+        {/* Form Actions (pinned to bottom) */}
+        <View className="border-t border-gray-100 bg-background px-4 pb-3 pt-4">
           <Button
             label={saved ? "Saved" : "Save changes"}
             size="lg"
             fullWidth
             loading={saving}
-            disabled={!dirty || saved}
-            className="rounded-xl shadow-none"
             onPress={() => {
               void onSave();
             }}
           />
 
-          <Button
-            label="Cancel"
-            variant="outline"
-            size="lg"
-            fullWidth
-            disabled={saving || saved}
-            className="rounded-xl border-border/60 shadow-none bg-background"
-            onPress={() => navigation.goBack()}
-          />
+          <View className="mt-3">
+            <Button
+              label="Cancel"
+              variant="outline"
+              size="lg"
+              fullWidth
+              disabled={saving || saved}
+              onPress={() => navigation.goBack()}
+            />
+          </View>
         </View>
-      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

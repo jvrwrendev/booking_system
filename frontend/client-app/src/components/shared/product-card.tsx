@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, View } from "react-native";
-import { Info, Minus, Plus } from "lucide-react-native";
+import { Check, Info, Minus, Plus } from "lucide-react-native";
 import { cn } from "@/lib/utils";
 import type { Product } from "@/types/product";
 import { Card } from "@/components/ui/card";
@@ -16,6 +16,7 @@ interface ProductCardProps {
   onDecrement: () => void;
   onInfo: () => void;
   showFavorite?: boolean;
+  hideQuantityControls?: boolean;
 }
 
 export function ProductCard({
@@ -25,6 +26,7 @@ export function ProductCard({
   onDecrement,
   onInfo,
   showFavorite = true,
+  hideQuantityControls = false,
 }: ProductCardProps) {
   const outOfStock = product.stockQuantity <= 0;
   const atMax = !outOfStock && inCart >= product.stockQuantity;
@@ -94,50 +96,82 @@ export function ProductCard({
         </View>
       </Pressable>
       <View className="px-2.5 pb-2.5">
-        <View
-          className={cn(
-            "flex-row items-center overflow-hidden rounded-lg border",
-            inCart > 0
-              ? "border-primary bg-primary/5"
-              : "border-border bg-background",
-          )}
-        >
-          <Pressable
-            onPress={onDecrement}
-            disabled={inCart === 0}
-            hitSlop={4}
-            accessibilityRole="button"
-            accessibilityLabel={`Remove one ${product.name} from cart`}
+        {hideQuantityControls ? (
+          <View
             className={cn(
-              "h-9 w-9 items-center justify-center active:bg-secondary",
-              inCart === 0 && "opacity-40",
+              "h-9 flex-row items-center justify-center gap-1.5 overflow-hidden rounded-lg border",
+              inCart > 0
+                ? "border-primary bg-primary/10"
+                : "border-border bg-background",
             )}
           >
-            <Minus size={14} color={inCart === 0 ? "#CBD5E1" : "#0F172A"} />
-          </Pressable>
-          <View className="flex-1 items-center justify-center">
-            <Text
-              variant="small"
-              weight="semibold"
-              tone={inCart > 0 ? "primary" : "muted"}
-            >
-              {inCart}
-            </Text>
+            {inCart > 0 ? (
+              <>
+                <Check size={14} color="#16A34A" strokeWidth={3} />
+                <Text
+                  variant="small"
+                  weight="semibold"
+                  tone="primary"
+                >
+                  Added ({inCart})
+                </Text>
+              </>
+            ) : (
+              <Text
+                variant="small"
+                weight="medium"
+                tone={outOfStock ? "muted" : "default"}
+              >
+                {outOfStock ? "Out of stock" : "Tap to add"}
+              </Text>
+            )}
           </View>
-          <Pressable
-            onPress={onIncrement}
-            disabled={!canAdd}
-            hitSlop={4}
-            accessibilityRole="button"
-            accessibilityLabel={`Add one ${product.name} to cart`}
+        ) : (
+          <View
             className={cn(
-              "h-9 w-9 items-center justify-center active:bg-secondary",
-              !canAdd && "opacity-40",
+              "flex-row items-center overflow-hidden rounded-lg border",
+              inCart > 0
+                ? "border-primary bg-primary/5"
+                : "border-border bg-background",
             )}
           >
-            <Plus size={14} color={canAdd ? "#0F172A" : "#CBD5E1"} />
-          </Pressable>
-        </View>
+            <Pressable
+              onPress={onDecrement}
+              disabled={inCart === 0}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove one ${product.name} from cart`}
+              className={cn(
+                "h-9 w-9 items-center justify-center active:bg-secondary",
+                inCart === 0 && "opacity-40",
+              )}
+            >
+              <Minus size={14} color={inCart === 0 ? "#CBD5E1" : "#0F172A"} />
+            </Pressable>
+            <View className="flex-1 items-center justify-center">
+              <Text
+                variant="small"
+                weight="semibold"
+                tone={inCart > 0 ? "primary" : "muted"}
+              >
+                {inCart}
+              </Text>
+            </View>
+            <Pressable
+              onPress={onIncrement}
+              disabled={!canAdd}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={`Add one ${product.name} to cart`}
+              className={cn(
+                "h-9 w-9 items-center justify-center active:bg-secondary",
+                !canAdd && "opacity-40",
+              )}
+            >
+              <Plus size={14} color={canAdd ? "#0F172A" : "#CBD5E1"} />
+            </Pressable>
+          </View>
+        )}
       </View>
     </Card>
   );

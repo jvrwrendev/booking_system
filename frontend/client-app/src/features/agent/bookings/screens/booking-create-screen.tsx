@@ -308,6 +308,7 @@ export function BookingCreateScreen() {
                   <ProductCard
                     product={item}
                     showFavorite={false}
+                    hideQuantityControls
                     inCart={
                       cart.items.find((i) => i.productId === item.id)
                         ?.quantity ?? 0

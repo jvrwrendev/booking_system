@@ -93,6 +93,7 @@ export function ProfileChangePasswordScreen() {
   }, [saved, navigation]);
 
   const onSubmit = async () => {
+    if (saving || saved) return;
     Keyboard.dismiss();
     setSubmitted(true);
     setServerError(null);
@@ -158,7 +159,7 @@ export function ProfileChangePasswordScreen() {
           ) : null}
 
           {/* Input Form Card */}
-          <Card className="gap-5 p-4 rounded-2xl shadow-sm">
+          <Card className="gap-5 p-4 rounded-xl border border-gray-100">
             {/* Current Password */}
             <Input
               label="Current password"
@@ -334,7 +335,7 @@ export function ProfileChangePasswordScreen() {
           </Card>
 
           {/* Password Requirements Checklist */}
-          <Card className="mt-4 p-4 rounded-2xl shadow-sm">
+          <Card className="mt-4 p-4 rounded-xl border border-gray-100">
             <View className="flex-row items-center gap-2 mb-3">
               <ShieldCheck size={16} color={ICON_COLOR} />
               <Text variant="label" tone="muted" className="font-semibold uppercase tracking-wider">
@@ -369,17 +370,18 @@ export function ProfileChangePasswordScreen() {
               ))}
             </View>
           </Card>
+        </ScrollView>
 
-          {/* Action Buttons */}
-          <View className="mt-6 gap-3">
-            <Button
-              label={saved ? "Updated" : "Update password"}
-              size="lg"
-              fullWidth
-              loading={saving}
-              disabled={saving || saved || !isNewPasswordValid || !isConfirmMatching}
-              onPress={onSubmit}
-            />
+        {/* Action Buttons (pinned to bottom) */}
+        <View className="border-t border-gray-100 bg-background px-4 pb-3 pt-4">
+          <Button
+            label={saved ? "Updated" : "Update password"}
+            size="lg"
+            fullWidth
+            loading={saving}
+            onPress={onSubmit}
+          />
+          <View className="mt-3">
             <Button
               label="Cancel"
               variant="outline"
@@ -389,7 +391,7 @@ export function ProfileChangePasswordScreen() {
               onPress={() => navigation.goBack()}
             />
           </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

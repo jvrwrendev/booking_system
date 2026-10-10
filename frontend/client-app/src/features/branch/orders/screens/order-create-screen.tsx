@@ -219,6 +219,7 @@ export function OrderCreateScreen() {
                 renderItem={({ item }) => (
                   <ProductCard
                     product={item}
+                    hideQuantityControls
                     inCart={
                       cart.items.find((i) => i.productId === item.id)
                         ?.quantity ?? 0
