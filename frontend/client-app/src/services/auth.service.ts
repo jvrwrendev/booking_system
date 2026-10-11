@@ -1,5 +1,6 @@
-import { mockAgentAuthAccounts, mockAgents } from "./mock/agents";
-import { mockBranchAuthAccounts, mockBranches } from "./mock/branches";
+import { ApiError, request } from "@/lib/api-client";
+import { mockAgentAuthAccounts } from "./mock/agents";
+import { mockBranchAuthAccounts } from "./mock/branches";
 import { mockGoogleAccounts } from "./mock/google-accounts";
 import type {
   AuthAccount,
@@ -13,205 +14,156 @@ import type { Role } from "@/types/role";
 import { NETWORK_DELAY_MS } from "@/constants";
 import { sleep } from "@/lib/utils";
 
-const combinedAccounts: AuthAccount[] = [
-  ...mockAgentAuthAccounts,
-  ...mockBranchAuthAccounts,
-];
+/** Shape of the `user` object returned by the API's auth endpoints. */
+interface ApiUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  contactNumber: string | null;
+  address: string | null;
+  avatar: string | null;
+  agentId: string | null;
+  branchId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
-function buildSessionUser(account: AuthAccount): AuthUser {
-  const { password: _password, ...userFields } = account;
-  const user: AuthUser = {
-    ...userFields,
-    lastLogin: new Date().toISOString(),
+function toAuthUser(apiUser: ApiUser): AuthUser {
+  return {
+    id: apiUser.id,
+    fullName: apiUser.name,
+    email: apiUser.email,
+    username: apiUser.email.split("@")[0],
+    role: apiUser.role as Role,
+    status: apiUser.status === "ACTIVE" ? "active" : "inactive",
+    contactNumber: apiUser.contactNumber ?? undefined,
+    address: apiUser.address ?? undefined,
+    avatar: apiUser.avatar ?? undefined,
+    agentId: apiUser.agentId ?? undefined,
+    branchId: apiUser.branchId ?? undefined,
+    createdAt: apiUser.createdAt,
+    lastLogin: apiUser.updatedAt,
   };
+}
 
-  if (user.role === "AGENT") {
-    const agent = mockAgents.find((a) => a.id === user.agentId);
-    if (agent) {
-      user.fullName = agent.fullName;
-      user.contactNumber = agent.contactNumber;
-      user.address = agent.address;
-    }
-  } else if (user.role === "BRANCH") {
-    const branch = mockBranches.find((b) => b.id === user.branchId);
-    if (branch) {
-      user.fullName = branch.name;
-      user.contactNumber = branch.contactNumber;
-      user.address = branch.address;
-    }
-  }
-
-  return user;
+function toErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+  return "Something went wrong. Please try again.";
 }
 
 export async function loginRequest(
   credentials: LoginCredentials
 ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
-  await sleep(NETWORK_DELAY_MS);
-  const account = combinedAccounts.find(
-    (a) => a.email.toLowerCase() === credentials.email.trim().toLowerCase()
-  );
-
-  if (!account || account.password !== credentials.password) {
-    return { success: false, error: "Invalid email or password." };
+  try {
+    const data = await request<{ user: ApiUser }>("/auth/login", {
+      method: "POST",
+      body: {
+        email: credentials.email.trim().toLowerCase(),
+        password: credentials.password,
+      },
+    });
+    return { success: true, user: toAuthUser(data.user) };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
   }
-
-  if (account.status !== "active") {
-    return {
-      success: false,
-      error: "This account is inactive. Contact your administrator.",
-    };
-  }
-
-  return { success: true, user: buildSessionUser(account) };
 }
 
 export async function registerRequest(
   credentials: RegisterCredentials
 ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
-  await sleep(NETWORK_DELAY_MS);
-
-  const email = credentials.email.trim().toLowerCase();
-  if (combinedAccounts.some((a) => a.email.toLowerCase() === email)) {
-    return {
-      success: false,
-      error: "An account with this email already exists.",
-    };
+  try {
+    const data = await request<{ user: ApiUser }>("/auth/register", {
+      method: "POST",
+      body: {
+        name: credentials.name.trim(),
+        email: credentials.email.trim().toLowerCase(),
+        password: credentials.password,
+        role: credentials.role,
+        contactNumber: credentials.contactNumber.trim() || undefined,
+        address: credentials.address.trim() || undefined,
+        avatar: credentials.avatar || undefined,
+      },
+    });
+    return { success: true, user: toAuthUser(data.user) };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
   }
-
-  const now = new Date().toISOString();
-  const suffix = Date.now().toString(36).toUpperCase();
-  const id = credentials.role === "AGENT" ? `AGT-${suffix}` : `BR-${suffix}`;
-
-  const account: AuthAccount = {
-    id,
-    fullName: credentials.name.trim(),
-    email: credentials.email.trim(),
-    username: credentials.email.trim().split("@")[0],
-    role: credentials.role,
-    status: "active",
-    contactNumber: credentials.contactNumber.trim(),
-    address: credentials.address.trim(),
-    lastLogin: now,
-    createdAt: now,
-    agentId: credentials.role === "AGENT" ? id : undefined,
-    branchId: credentials.role === "BRANCH" ? id : undefined,
-    password: credentials.password,
-    avatar: credentials.avatar || undefined,
-  };
-
-  combinedAccounts.push(account);
-
-  const { password: _password, ...userFields } = account;
-  return { success: true, user: userFields };
 }
 
 export async function fetchCurrentUser(
-  userId: string
+  _userId: string
 ): Promise<AuthUser | null> {
-  await sleep(NETWORK_DELAY_MS);
-  const account = combinedAccounts.find((a) => a.id === userId);
-  if (!account) return null;
-  const { password: _password, ...userFields } = account;
-  return userFields;
+  try {
+    const data = await request<{ user: ApiUser }>("/auth/me");
+    return toAuthUser(data.user);
+  } catch (error) {
+    if (error instanceof ApiError && error.isUnauthorized) return null;
+    if (error instanceof ApiError && error.code === "NETWORK_ERROR") {
+      return null;
+    }
+    return null;
+  }
 }
 
 export async function updateAccountRequest(
-  userId: string,
+  _userId: string,
   patch: UpdateProfileInput
 ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
-  await sleep(NETWORK_DELAY_MS);
-
-  const account = combinedAccounts.find((a) => a.id === userId);
-  if (!account) {
-    return { success: false, error: "Account not found." };
+  try {
+    const data = await request<{ user: ApiUser }>("/auth/profile", {
+      method: "PATCH",
+      body: {
+        name: patch.fullName.trim(),
+        email: patch.email.trim().toLowerCase(),
+        contactNumber: patch.contactNumber.trim(),
+        address: patch.address.trim(),
+        avatar: patch.avatar || null,
+      },
+    });
+    return { success: true, user: toAuthUser(data.user) };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
   }
-
-  const fullName = patch.fullName.trim();
-  const email = patch.email.trim();
-  const contactNumber = patch.contactNumber.trim();
-  const address = patch.address.trim();
-
-  if (!fullName) {
-    return { success: false, error: "Full name is required." };
-  }
-  if (
-    combinedAccounts.some(
-      (a) => a.id !== userId && a.email.toLowerCase() === email.toLowerCase()
-    )
-  ) {
-    return {
-      success: false,
-      error: "An account with this email already exists.",
-    };
-  }
-
-  account.fullName = fullName;
-  account.email = email;
-  account.username = email.split("@")[0];
-  account.contactNumber = contactNumber;
-  account.address = address;
-  account.avatar = patch.avatar || undefined;
-
-  if (account.role === "AGENT") {
-    const agent = mockAgents.find((a) => a.id === account.agentId);
-    if (agent) {
-      agent.fullName = fullName;
-      agent.email = email;
-      agent.contactNumber = contactNumber;
-      agent.address = address;
-      const [first, ...rest] = fullName.split(" ");
-      agent.firstName = first ?? agent.firstName;
-      agent.lastName = rest.join(" ") || agent.lastName;
-    }
-  } else if (account.role === "BRANCH") {
-    const branch = mockBranches.find((b) => b.id === account.branchId);
-    if (branch) {
-      branch.name = fullName;
-      branch.email = email;
-      branch.contactNumber = contactNumber;
-      branch.address = address;
-    }
-  }
-
-  const { password: _password, ...userFields } = account;
-  return { success: true, user: userFields };
 }
 
 export async function changePasswordRequest(
-  userId: string,
+  _userId: string,
   currentPassword: string,
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
-  await sleep(NETWORK_DELAY_MS);
-
-  const account = combinedAccounts.find((a) => a.id === userId);
-  if (!account) {
-    return { success: false, error: "Account not found." };
+  try {
+    await request("/auth/change-password", {
+      method: "POST",
+      body: { currentPassword, newPassword },
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
   }
-  if (account.password !== currentPassword) {
-    return { success: false, error: "Your current password is incorrect." };
+}
+
+export async function logoutRequest(): Promise<void> {
+  try {
+    await request("/auth/logout", { method: "POST" });
+  } catch {
+    // Best-effort: the local session is cleared regardless.
   }
-  if (currentPassword === newPassword) {
-    return {
-      success: false,
-      error: "New password must be different from your current password.",
-    };
-  }
-
-  account.password = newPassword;
-
-  const agent = mockAgents.find((a) => a.id === account.agentId);
-  if (agent) agent.password = newPassword;
-
-  const branch = mockBranches.find((b) => b.id === account.branchId);
-  if (branch) branch.password = newPassword;
-
-  return { success: true };
 }
 
 export function listGoogleAccounts(): GoogleProfile[] {
   return mockGoogleAccounts;
+}
+
+const mockAuthAccounts: AuthAccount[] = [
+  ...mockAgentAuthAccounts,
+  ...mockBranchAuthAccounts,
+];
+
+function stripPassword(account: AuthAccount): AuthUser {
+  const { password: _password, ...user } = account;
+  return user;
 }
 
 export async function googleSignInRequest(
@@ -219,7 +171,7 @@ export async function googleSignInRequest(
 ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
   await sleep(NETWORK_DELAY_MS);
 
-  const account = combinedAccounts.find(
+  const account = mockAuthAccounts.find(
     (a) => a.email.toLowerCase() === profile.email.trim().toLowerCase()
   );
 
@@ -238,11 +190,7 @@ export async function googleSignInRequest(
     };
   }
 
-  return { success: true, user: buildSessionUser(account) };
-}
-
-function generateGooglePassword(): string {
-  return `G-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return { success: true, user: stripPassword(account) };
 }
 
 export async function googleSignUpRequest(
@@ -252,7 +200,7 @@ export async function googleSignUpRequest(
   await sleep(NETWORK_DELAY_MS);
 
   const email = profile.email.trim().toLowerCase();
-  if (combinedAccounts.some((a) => a.email.toLowerCase() === email)) {
+  if (mockAuthAccounts.some((a) => a.email.toLowerCase() === email)) {
     return {
       success: false,
       error: "An account with this email already exists. Sign in instead.",
@@ -263,10 +211,10 @@ export async function googleSignUpRequest(
   const suffix = Date.now().toString(36).toUpperCase();
   const id = role === "AGENT" ? `AGT-${suffix}` : `BR-${suffix}`;
 
-  const account: AuthAccount = {
+  const user: AuthUser = {
     id,
     fullName: profile.fullName.trim(),
-    email: profile.email.trim(),
+    email,
     username: email.split("@")[0],
     role,
     status: "active",
@@ -276,11 +224,7 @@ export async function googleSignUpRequest(
     createdAt: now,
     agentId: role === "AGENT" ? id : undefined,
     branchId: role === "BRANCH" ? id : undefined,
-    password: generateGooglePassword(),
   };
 
-  combinedAccounts.push(account);
-
-  const { password: _password, ...userFields } = account;
-  return { success: true, user: userFields };
+  return { success: true, user };
 }

@@ -234,12 +234,7 @@ export function BranchDashboardScreen() {
         </View>
 
         <Card className="mt-4">
-          <View className="flex-row items-center justify-between">
-            <Text weight="semibold">Quick actions</Text>
-            <Text variant="small" tone="muted" className="mt-0.5">
-              Save products to favorites and create a new branch order.
-            </Text>
-          </View>
+          <Text weight="semibold">Quick actions</Text>
           <View className="flex-row gap-2 mt-3">
             <Button
               label="Create Order"

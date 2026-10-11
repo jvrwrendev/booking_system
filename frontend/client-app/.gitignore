@@ -68,5 +68,9 @@ coverage/
 dist/
 web-build/
 
+# Local env
+.env
+.env.local
+
 # NativeWind
 .nwind/

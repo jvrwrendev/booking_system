@@ -7,6 +7,11 @@ export const PUBLIC_USER_SELECT = {
   email: true,
   role: true,
   status: true,
+  contactNumber: true,
+  address: true,
+  avatar: true,
+  agentId: true,
+  branchId: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.UserSelect;
@@ -21,6 +26,11 @@ export interface PublicUser {
   email: string;
   role: Role;
   status: AccountStatus;
+  contactNumber: string | null;
+  address: string | null;
+  avatar: string | null;
+  agentId: string | null;
+  branchId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

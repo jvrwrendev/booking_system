@@ -7,11 +7,14 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { onUnauthorized } from "@/lib/api-client";
 import {
   changePasswordRequest,
+  fetchCurrentUser,
   googleSignInRequest,
   googleSignUpRequest,
   loginRequest,
+  logoutRequest,
   registerRequest,
   updateAccountRequest,
 } from "@/services/auth.service";
@@ -61,21 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setLoading] = useState(true);
   const [loggedOut, setLoggedOut] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const stored = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_USER);
-        if (stored) {
-          setUser(JSON.parse(stored) as AuthUser);
-        }
-      } catch {
-        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_USER);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
   const persistSession = useCallback(async (nextUser: AuthUser) => {
     setLoggedOut(false);
     setUser(nextUser);
@@ -84,6 +72,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       JSON.stringify(nextUser)
     );
   }, []);
+
+  const clearSession = useCallback(async () => {
+    setLoggedOut(true);
+    setUser(null);
+    await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onUnauthorized(() => {
+      void clearSession();
+    });
+    return unsubscribe;
+  }, [clearSession]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_USER);
+        if (stored) {
+          const parsed = JSON.parse(stored) as AuthUser;
+          setUser(parsed);
+          // Validate the session cookie against the API in the background.
+          // On 401 the onUnauthorized handler tears the session down; on
+          // network failure the restored user is kept so the app stays usable.
+          const fresh = await fetchCurrentUser(parsed.id);
+          if (fresh) {
+            await persistSession(fresh);
+          }
+        }
+      } catch {
+        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [persistSession]);
 
   const login = useCallback(
     async (credentials: LoginCredentials) => {
@@ -136,7 +160,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     setLoggedOut(true);
     setUser(null);
-    await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+    await Promise.all([
+      logoutRequest(),
+      AsyncStorage.removeItem(STORAGE_KEYS.AUTH_USER),
+    ]);
   }, []);
 
   const updateProfile = useCallback(

@@ -103,7 +103,7 @@ export function ProfileEditScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-background">
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
       >
         <ScrollView
@@ -115,7 +115,6 @@ export function ProfileEditScreen() {
         <ScreenHeader
           title="Update Account"
           subtitle="Keep your profile and contact details up to date"
-          className="mb-4"
         />
 
         {/* Profile Photo (agents) */}
@@ -165,23 +164,25 @@ export function ProfileEditScreen() {
 
         {/* Status Messages */}
         {saved ? (
-          <View className="mb-5 flex-row items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-            <CheckCircle2 size={18} className="text-emerald-600" />
+          <View className="mb-5 flex-row items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-4">
+            <CheckCircle2 size={18} color="#16A34A" />
             <Text
               variant="small"
+              tone="success"
               weight="medium"
-              className="flex-1 text-emerald-700 leading-5"
+              className="flex-1 leading-5"
             >
               Account updated successfully! Redirecting...
             </Text>
           </View>
         ) : error ? (
-          <View className="mb-5 flex-row items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4">
-            <AlertCircle size={18} className="text-destructive" />
+          <View className="mb-5 flex-row items-center gap-3 rounded-xl border border-danger/30 bg-danger/10 p-4">
+            <AlertCircle size={18} color="#DC2626" />
             <Text
               variant="small"
+              tone="danger"
               weight="medium"
-              className="flex-1 text-destructive leading-5"
+              className="flex-1 leading-5"
             >
               {error}
             </Text>
@@ -189,7 +190,7 @@ export function ProfileEditScreen() {
         ) : null}
 
         {/* Form Controls Container */}
-        <Card className="gap-4 p-5 border border-gray-100 rounded-xl">
+        <Card className="gap-4 p-4 rounded-xl border border-gray-100">
           <Input
             label="Full Name"
             size="control"

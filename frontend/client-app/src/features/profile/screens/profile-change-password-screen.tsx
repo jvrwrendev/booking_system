@@ -131,7 +131,7 @@ export function ProfileChangePasswordScreen() {
         className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
@@ -143,15 +143,15 @@ export function ProfileChangePasswordScreen() {
 
           {/* Alert Banners */}
           {saved ? (
-            <View className="mb-4 flex-row items-center gap-3 rounded-2xl border border-success/30 bg-success/10 p-4">
-              <CheckCircle2 size={20} color="#16A34A" />
+            <View className="mb-5 flex-row items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-4">
+              <CheckCircle2 size={18} color="#16A34A" />
               <Text variant="small" tone="success" className="flex-1 font-medium leading-5">
                 Password updated! Returning to your profile...
               </Text>
             </View>
           ) : serverError ? (
-            <View className="mb-4 flex-row items-center gap-3 rounded-2xl border border-danger/30 bg-danger/10 p-4">
-              <AlertCircle size={20} color="#DC2626" />
+            <View className="mb-5 flex-row items-center gap-3 rounded-xl border border-danger/30 bg-danger/10 p-4">
+              <AlertCircle size={18} color="#DC2626" />
               <Text variant="small" tone="danger" className="flex-1 font-medium leading-5">
                 {serverError}
               </Text>
@@ -159,7 +159,7 @@ export function ProfileChangePasswordScreen() {
           ) : null}
 
           {/* Input Form Card */}
-          <Card className="gap-5 p-4 rounded-xl border border-gray-100">
+          <Card className="gap-4 p-4 rounded-xl border border-gray-100">
             {/* Current Password */}
             <Input
               label="Current password"

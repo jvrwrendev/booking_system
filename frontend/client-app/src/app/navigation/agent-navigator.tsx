@@ -13,25 +13,11 @@ import { ProfileChangePasswordScreen } from "@/features/profile/screens/profile-
 import { ProfileTermsScreen } from "@/features/profile/screens/profile-terms-screen";
 import { AgentDashboardScreen } from "@/features/dashboard/agent-dashboard-screen";
 import { agentNavItems } from "./nav-items";
+import { TabIcon, tabScreenOptions } from "./tab-bar";
 import type { AgentTabParamList } from "./types";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator<AgentTabParamList>();
-
-const tabScreenOptions = {
-  headerShown: false,
-  tabBarActiveTintColor: "#16A34A",
-  tabBarInactiveTintColor: "#64748B",
-  tabBarStyle: {
-    borderTopColor: "#E5E7EB",
-    borderTopWidth: 1,
-    backgroundColor: "#FFFFFF",
-    height: 64,
-    paddingTop: 6,
-    paddingBottom: 8,
-  },
-  tabBarLabelStyle: { fontSize: 11, fontWeight: "500" as const },
-};
 
 function AgentTabs() {
   return (
@@ -43,9 +29,13 @@ function AgentTabs() {
           ...tabScreenOptions,
           tabBarLabel: item?.label ?? route.name,
           tabBarIcon: Icon
-            ? ({ focused, color }: { focused: boolean; color: string }) => (
-                <Icon size={20} color={color} opacity={focused ? 1 : 0.7} />
-              )
+            ? ({
+                focused,
+                color,
+              }: {
+                focused: boolean;
+                color: string;
+              }) => <TabIcon Icon={Icon} focused={focused} color={color} />
             : undefined,
         };
       }}

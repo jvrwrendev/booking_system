@@ -10,6 +10,8 @@ datasource db {
 enum Role {
   SUPER_ADMIN
   ADMIN
+  AGENT
+  BRANCH
 }
 
 enum AccountStatus {
@@ -19,15 +21,20 @@ enum AccountStatus {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  name         String
-  email        String        @unique
-  passwordHash String
-  role         Role
-  status       AccountStatus @default(ACTIVE)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  sessions     Session[]
+  id             String        @id @default(cuid())
+  name           String
+  email          String        @unique
+  passwordHash   String
+  role           Role
+  status         AccountStatus @default(ACTIVE)
+  contactNumber  String?
+  address        String?
+  avatar         String?
+  agentId        String?       @unique
+  branchId       String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  sessions       Session[]
 
   @@map("users")
 }

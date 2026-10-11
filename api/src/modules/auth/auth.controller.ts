@@ -5,15 +5,23 @@ import { env } from "../../config/env.js";
 import { AUTH_COOKIE_NAME } from "../../constants.js";
 import { sessionTtlMs, verifyAccessToken } from "../../lib/jwt.js";
 import type { AuthenticatedRequest } from "./auth.types.js";
-import { changePasswordDto, loginDto, sessionParamsDto } from "./dto/index.js";
+import {
+  changePasswordDto,
+  loginDto,
+  registerDto,
+  sessionParamsDto,
+  updateProfileDto,
+} from "./dto/index.js";
 import {
   changePassword,
   getActiveSessions,
   getCurrentUser,
   login,
+  register,
   revokeAllSessions,
   revokeSession,
   revokeSessionById,
+  updateProfile,
 } from "./auth.service.js";
 
 const cookieOptions: CookieOptions = {
@@ -38,6 +46,30 @@ export const loginController = asyncHandler(async (req: Request, res) => {
 
   return sendSuccess(res, { user, session });
 });
+
+export const registerController = asyncHandler(async (req: Request, res) => {
+  const dto = registerDto.parse(req.body);
+
+  const { accessToken, user, session } = await register(dto, {
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
+
+  res.cookie(AUTH_COOKIE_NAME, accessToken, {
+    ...cookieOptions,
+    maxAge: sessionTtlMs(),
+  });
+
+  return sendSuccess(res, { user, session }, 201);
+});
+
+export const updateProfileController = asyncHandler(
+  async (req: AuthenticatedRequest, res) => {
+    const dto = updateProfileDto.parse(req.body);
+    const user = await updateProfile(req.user.id, dto);
+    return sendSuccess(res, { user });
+  },
+);
 
 export const logoutController = asyncHandler(async (req, res) => {
   const token = req.cookies?.[AUTH_COOKIE_NAME];

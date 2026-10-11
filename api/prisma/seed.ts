@@ -24,6 +24,42 @@ async function main() {
   });
 
   console.log(`Seeded SUPER_ADMIN: ${admin.email} (id: ${admin.id})`);
+
+  const demoPassword = await hashPassword(password);
+
+  const agent = await prisma.user.upsert({
+    where: { email: "agent@agrivet.local" },
+    update: {},
+    create: {
+      name: "Demo Agent",
+      email: "agent@agrivet.local",
+      passwordHash: demoPassword,
+      role: "AGENT",
+      status: "ACTIVE",
+      contactNumber: "+63 917 555 0101",
+      address: "San Pablo City, Laguna",
+      agentId: "AGT-DEMO0001",
+    },
+  });
+
+  console.log(`Seeded AGENT: ${agent.email} (agentId: ${agent.agentId})`);
+
+  const branch = await prisma.user.upsert({
+    where: { email: "branch@agrivet.local" },
+    update: {},
+    create: {
+      name: "Demo Branch",
+      email: "branch@agrivet.local",
+      passwordHash: demoPassword,
+      role: "BRANCH",
+      status: "ACTIVE",
+      contactNumber: "+63 917 555 0102",
+      address: "Calamba City, Laguna",
+      branchId: "BR-DEMO0001",
+    },
+  });
+
+  console.log(`Seeded BRANCH: ${branch.email} (branchId: ${branch.branchId})`);
 }
 
 main()

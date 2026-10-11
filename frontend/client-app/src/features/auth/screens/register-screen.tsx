@@ -93,8 +93,8 @@ export function RegisterScreen() {
       ? "Address is required."
       : undefined;
   const passwordError =
-    submitted && password.length < 6
-      ? "Password must be at least 6 characters."
+    submitted && password.length < 8
+      ? "Password must be at least 8 characters."
       : undefined;
   const confirmError =
     submitted && confirmPassword !== password
@@ -106,7 +106,7 @@ export function RegisterScreen() {
     validateEmail(email) === undefined &&
     Boolean(contactNumber.trim()) &&
     (role === "AGENT" || Boolean(address.trim())) &&
-    password.length >= 6 &&
+    password.length >= 8 &&
     confirmPassword === password &&
     !submitting;
 
@@ -417,7 +417,7 @@ export function RegisterScreen() {
                 secureTextEntry={!showPassword}
                 textContentType="newPassword"
                 autoComplete="new-password"
-                placeholder="At least 6 characters"
+                placeholder="At least 8 characters"
                 leftIcon={<Lock size={18} color={MUTED_ICON} />}
                 rightIcon={
                   <Pressable

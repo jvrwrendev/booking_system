@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { hashPassword, verifyPassword } from "../../lib/argon2.js";
 import { Errors } from "../../lib/app-error.js";
 import { signAccessToken, sessionTtlMs } from "../../lib/jwt.js";
@@ -7,7 +8,12 @@ import {
   toPublicUser,
 } from "../../lib/user-select.js";
 import type { AuthUser, SessionView } from "./auth.types.js";
-import type { ChangePasswordDto, LoginDto } from "./dto/index.js";
+import type {
+  ChangePasswordDto,
+  LoginDto,
+  RegisterDto,
+  UpdateProfileDto,
+} from "./dto/index.js";
 
 export interface LoginMeta {
   ip?: string;
@@ -15,6 +21,12 @@ export interface LoginMeta {
 }
 
 export type LoginResult = {
+  accessToken: string;
+  user: AuthUser;
+  session: SessionView;
+};
+
+export type RegisterResult = {
   accessToken: string;
   user: AuthUser;
   session: SessionView;
@@ -38,6 +50,10 @@ function toSessionView(
     expiresAt: session.expiresAt,
     current: session.id === currentSessionId,
   };
+}
+
+function generatePublicId(prefix: string): string {
+  return `${prefix}-${randomBytes(4).toString("hex").toUpperCase()}`;
 }
 
 export async function login(
@@ -85,12 +101,100 @@ export async function login(
   });
 
   const { passwordHash: _passwordHash, ...user } = account;
-  
+
   return {
     accessToken,
     user,
     session: toSessionView(session, session.id),
   };
+}
+
+export async function register(
+  input: RegisterDto,
+  meta: LoginMeta,
+): Promise<RegisterResult> {
+  const existing = await prisma.user.findUnique({
+    where: { email: input.email },
+  });
+
+  if (existing) {
+    throw Errors.conflict("An account with this email already exists");
+  }
+
+  const passwordHash = await hashPassword(input.password);
+  const agentId = input.role === "AGENT" ? generatePublicId("AGT") : null;
+  const branchId = input.role === "BRANCH" ? generatePublicId("BR") : null;
+
+  const account = await prisma.user.create({
+    data: {
+      name: input.name,
+      email: input.email,
+      passwordHash,
+      role: input.role,
+      contactNumber: input.contactNumber,
+      address: input.address,
+      avatar: input.avatar,
+      agentId,
+      branchId,
+    },
+  });
+
+  const expiresAt = new Date(Date.now() + sessionTtlMs());
+
+  const session = await prisma.session.create({
+    data: {
+      userId: account.id,
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+      expiresAt,
+    },
+  });
+
+  const accessToken = signAccessToken({
+    id: account.id,
+    role: account.role,
+    sessionId: session.id,
+  });
+
+  const { passwordHash: _passwordHash, ...user } = account;
+
+  return {
+    accessToken,
+    user,
+    session: toSessionView(session, session.id),
+  };
+}
+
+export async function updateProfile(
+  userId: string,
+  input: UpdateProfileDto,
+): Promise<AuthUser> {
+  if (input.email) {
+    const existing = await prisma.user.findUnique({
+      where: { email: input.email },
+      select: { id: true },
+    });
+
+    if (existing && existing.id !== userId) {
+      throw Errors.conflict("An account with this email already exists");
+    }
+  }
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(input.name !== undefined && { name: input.name }),
+      ...(input.email !== undefined && { email: input.email }),
+      ...(input.contactNumber !== undefined && {
+        contactNumber: input.contactNumber,
+      }),
+      ...(input.address !== undefined && { address: input.address }),
+      ...(input.avatar !== undefined && { avatar: input.avatar }),
+    },
+    select: PUBLIC_USER_SELECT,
+  });
+
+  return toPublicUser(user);
 }
 
 export async function getCurrentUser(userId: string): Promise<AuthUser> {

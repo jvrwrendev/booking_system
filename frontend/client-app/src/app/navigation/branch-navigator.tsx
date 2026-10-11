@@ -13,25 +13,11 @@ import { ProfileTermsScreen } from "@/features/profile/screens/profile-terms-scr
 import { BranchDashboardScreen } from "@/features/dashboard/branch-dashboard-screen";
 import { OrderCartProvider } from "@/features/branch/orders/hooks/use-order-cart";
 import { branchNavItems } from "./nav-items";
+import { TabIcon, tabScreenOptions } from "./tab-bar";
 import type { BranchStackParamList, BranchTabParamList } from "./types";
 
 const Stack = createNativeStackNavigator<BranchStackParamList>();
 const Tab = createBottomTabNavigator<BranchTabParamList>();
-
-const tabScreenOptions = {
-  headerShown: false,
-  tabBarActiveTintColor: "#16A34A",
-  tabBarInactiveTintColor: "#64748B",
-  tabBarStyle: {
-    borderTopColor: "#E5E7EB",
-    borderTopWidth: 1,
-    backgroundColor: "#FFFFFF",
-    height: 64,
-    paddingTop: 6,
-    paddingBottom: 8,
-  },
-  tabBarLabelStyle: { fontSize: 11, fontWeight: "500" as const },
-};
 
 function BranchTabs() {
   return (
@@ -43,9 +29,13 @@ function BranchTabs() {
           ...tabScreenOptions,
           tabBarLabel: item?.label ?? route.name,
           tabBarIcon: Icon
-            ? ({ focused, color }: { focused: boolean; color: string }) => (
-                <Icon size={20} color={color} opacity={focused ? 1 : 0.7} />
-              )
+            ? ({
+                focused,
+                color,
+              }: {
+                focused: boolean;
+                color: string;
+              }) => <TabIcon Icon={Icon} focused={focused} color={color} />
             : undefined,
         };
       }}

@@ -6,6 +6,8 @@ import type { AuthenticatedRequest } from "../modules/auth/auth.types.js";
 export const ROLE_GRANTS: Record<Role, readonly Role[]> = {
   SUPER_ADMIN: ["SUPER_ADMIN", "ADMIN"],
   ADMIN: ["ADMIN"],
+  AGENT: [],
+  BRANCH: [],
 };
 
 export function requireRole(...roles: Role[]): RequestHandler {
