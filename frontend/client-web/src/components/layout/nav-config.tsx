@@ -91,6 +91,12 @@ export const navGroups: NavGroup[] = [
         icon: Tags,
         permission: "categories.view",
       },
+      {
+        title: "Suppliers",
+        href: "/suppliers",
+        icon: Building2,
+        permission: "suppliers.view",
+      },
     ],
   },
   {

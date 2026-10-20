@@ -1,4 +1,5 @@
 import {
+  Building2,
   ClipboardList,
   FileBarChart,
   Package,
@@ -53,6 +54,18 @@ export const ACCESS_MODULES: AccessModule[] = [
     description: "Process assigned orders through to delivery.",
     icon: Package,
     permissions: ["bookings.process"],
+  },
+  {
+    key: "suppliers",
+    label: "Suppliers",
+    description: "View, create, edit, and delete product suppliers.",
+    icon: Building2,
+    permissions: [
+      "suppliers.view",
+      "suppliers.create",
+      "suppliers.update",
+      "suppliers.delete",
+    ],
   },
   {
     key: "user-management",

@@ -16,13 +16,15 @@ import {
   FormFooter,
 } from "@/components/common/FormPageLayout";
 import { ImageUpload } from "@/components/common/ImageUpload";
+import { SupplierPicker } from "@/features/suppliers/components/SupplierPicker";
 
 import type { Product, ProductFormValues } from "@/types/product";
-import { mockCategories } from "@/data/mock-categories";
+import type { Category } from "@/types/category";
 import { cn } from "@/lib/utils";
 
 interface ProductFormProps {
   initial?: Product;
+  categories: Category[];
   submitLabel?: string;
   onSubmit: (data: ProductFormValues) => void;
   onCancel?: () => void;
@@ -33,6 +35,7 @@ interface ProductFormProps {
 
 export function ProductForm({
   initial,
+  categories,
   submitLabel,
   onSubmit,
   onCancel,
@@ -46,6 +49,8 @@ export function ProductForm({
           name: initial.name,
           sku: initial.sku,
           categoryId: initial.categoryId,
+          supplierId: initial.supplierId ?? "",
+          supplierName: initial.supplierName,
           brand: initial.brand,
           description: initial.description,
           unit: initial.unit,
@@ -53,7 +58,6 @@ export function ProductForm({
           sellingPrice: initial.sellingPrice,
           stockQuantity: initial.stockQuantity,
           minimumStockLevel: initial.minimumStockLevel,
-          supplier: initial.supplier,
           status: initial.status,
           image: initial.image,
         }
@@ -61,6 +65,7 @@ export function ProductForm({
           name: "",
           sku: "",
           categoryId: "",
+          supplierId: "",
           brand: "",
           description: "",
           unit: "piece",
@@ -68,10 +73,10 @@ export function ProductForm({
           sellingPrice: 0,
           stockQuantity: 0,
           minimumStockLevel: 0,
-          supplier: "",
           status: "active",
         }
   );
+  const [error, setError] = useState<string | null>(null);
 
   const margin =
     values.sellingPrice > 0
@@ -84,6 +89,27 @@ export function ProductForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!values.name.trim()) {
+      setError("Product name is required.");
+      return;
+    }
+    if (!values.sku.trim()) {
+      setError("SKU is required.");
+      return;
+    }
+    if (!values.categoryId) {
+      setError("Select a category for this product.");
+      return;
+    }
+    if (!values.unit.trim()) {
+      setError("Unit is required.");
+      return;
+    }
+    if (values.costPrice < 0 || values.sellingPrice < 0) {
+      setError("Prices cannot be negative.");
+      return;
+    }
+    setError(null);
     onSubmit(values);
   };
 
@@ -93,6 +119,11 @@ export function ProductForm({
       onSubmit={handleSubmit}
       className={cn(dense && "space-y-6", !dense && "space-y-12")}
     >
+      {error && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {error}
+        </div>
+      )}
       <FormSection
         title="Product image"
         description="Upload a photo of the product. Shown in listings and detail views."
@@ -177,13 +208,12 @@ export function ProductForm({
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {mockCategories
-                  .filter((c) => c.status === "active")
-                  .map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                    {c.status === "inactive" ? " (inactive)" : ""}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </FormField>
@@ -209,15 +239,19 @@ export function ProductForm({
               className="h-10"
             />
           </FormField>
-          <FormField label="Supplier" optional htmlFor="supplier">
-            <Input
+          <FormField
+            label="Supplier"
+            optional
+            htmlFor="supplier"
+            hint="Choose from Supplier Management, or leave blank."
+          >
+            <SupplierPicker
               id="supplier"
-              value={values.supplier}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, supplier: e.target.value }))
+              value={values.supplierId}
+              selectedName={values.supplierName}
+              onChange={(supplierId, supplierName) =>
+                setValues((v) => ({ ...v, supplierId, supplierName }))
               }
-              placeholder="Supplier name"
-              className="h-10"
             />
           </FormField>
         </div>

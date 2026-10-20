@@ -21,21 +21,61 @@ enum AccountStatus {
   SUSPENDED
 }
 
+enum CategoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  OUT_OF_STOCK
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+  CRITICAL
+  OUT_OF_STOCK
+}
+
+enum InventoryTransactionType {
+  STOCK_IN
+  STOCK_OUT
+  ADJUSTMENT
+  TRANSFER
+  RESERVATION
+  RELEASE
+  ORDER_COMMIT
+  ORDER_RELEASE
+}
+
 model User {
-  id             String        @id @default(cuid())
-  name           String
-  email          String        @unique
-  passwordHash   String
-  role           Role
-  status         AccountStatus @default(ACTIVE)
-  contactNumber  String?
-  address        String?
-  avatar         String?
-  agentId        String?       @unique
-  branchId       String?       @unique
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  sessions       Session[]
+  id                    String                 @id @default(cuid())
+  name                  String
+  email                 String                 @unique
+  passwordHash          String
+  role                  Role
+  status                AccountStatus          @default(ACTIVE)
+  contactNumber         String?
+  address               String?
+  avatar                String?
+  agentId               String?                @unique
+  branchId              String?                @unique
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  sessions              Session[]
+  inventoryTransactions InventoryTransaction[]
 
   @@map("users")
 }
@@ -52,4 +92,119 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+}
+
+model Category {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  description String?
+  status      CategoryStatus @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Branch {
+  id          String                @id
+  name        String
+  code        String?               @unique
+  status      BranchStatus          @default(ACTIVE)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  inventory   InventoryStock[]
+  transactions InventoryTransaction[]
+
+  @@map("branches")
+}
+
+model Supplier {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  contactName   String?
+  email         String?
+  contactNumber String?
+  address       String?
+  status        SupplierStatus @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  products      Product[]
+
+  @@index([status])
+  @@map("suppliers")
+}
+
+model Product {
+  id                String        @id @default(cuid())
+  name              String
+  sku               String        @unique
+  categoryId        String?
+  category          Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplierId        String?
+  supplierRef       Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  brand             String?
+  description       String?
+  unit              String
+  costPrice         Decimal       @db.Decimal(12, 2)
+  sellingPrice      Decimal       @db.Decimal(12, 2)
+  stockQuantity     Int           @default(0)
+  minimumStockLevel Int           @default(0)
+  supplier          String?
+  status            ProductStatus @default(ACTIVE)
+  stockStatus       StockStatus   @default(OUT_OF_STOCK)
+  image             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  inventory         InventoryStock[]
+  transactions      InventoryTransaction[]
+
+  @@index([categoryId])
+  @@index([supplierId])
+  @@index([status])
+  @@map("products")
+}
+
+model InventoryStock {
+  id           String      @id @default(cuid())
+  productId    String
+  product      Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branchId     String
+  branch       Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  currentStock Int         @default(0)
+  reservedStock Int        @default(0)
+  minimumStock Int         @default(0)
+  status       StockStatus @default(OUT_OF_STOCK)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([productId, branchId])
+  @@index([branchId])
+  @@index([status])
+  @@map("inventory_stocks")
+}
+
+model InventoryTransaction {
+  id             String                   @id @default(cuid())
+  productId      String
+  product        Product                  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch                   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  type           InventoryTransactionType
+  quantity       Int
+  previousStock  Int
+  newStock       Int
+  reason         String
+  performedById  String?
+  performedBy    User?                    @relation(fields: [performedById], references: [id], onDelete: SetNull)
+  performedByName String
+  referenceType  String?
+  referenceId    String?
+  createdAt      DateTime                 @default(now())
+
+  @@unique([referenceType, referenceId, productId, type])
+  @@index([productId, createdAt])
+  @@index([branchId, createdAt])
+  @@index([referenceType, referenceId])
+  @@map("inventory_transactions")
 }

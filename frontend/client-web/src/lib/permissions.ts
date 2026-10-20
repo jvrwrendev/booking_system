@@ -12,6 +12,10 @@ export type Permission =
   | "categories.create"
   | "categories.update"
   | "categories.delete"
+  | "suppliers.view"
+  | "suppliers.create"
+  | "suppliers.update"
+  | "suppliers.delete"
   | "inventory.view"
   | "inventory.manage"
   | "bookings.view"
@@ -48,6 +52,10 @@ export const ALL_PERMISSIONS: Permission[] = [
   "categories.create",
   "categories.update",
   "categories.delete",
+  "suppliers.view",
+  "suppliers.create",
+  "suppliers.update",
+  "suppliers.delete",
   "inventory.view",
   "inventory.manage",
   "bookings.view",
@@ -86,6 +94,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "categories.create",
     "categories.update",
     "categories.delete",
+    "suppliers.view",
+    "suppliers.create",
+    "suppliers.update",
+    "suppliers.delete",
     "inventory.view",
     "inventory.manage",
     "bookings.view",
@@ -122,6 +134,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "categories.create",
     "categories.update",
     "categories.delete",
+    "suppliers.view",
+    "suppliers.create",
+    "suppliers.update",
+    "suppliers.delete",
     "inventory.view",
     "inventory.manage",
     "bookings.view",

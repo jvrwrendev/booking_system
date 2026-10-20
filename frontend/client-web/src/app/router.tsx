@@ -7,11 +7,16 @@ import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 
 import { ProductsListPage } from "@/features/products/pages/ProductsListPage";
 import { ProductDetailPage } from "@/features/products/pages/ProductDetailPage";
+import { ProductAddPage } from "@/features/products/pages/ProductAddPage";
 import { ProductsProvider } from "@/features/products/hooks/useProductsStore";
 
 import { CategoriesListPage } from "@/features/categories/pages/CategoriesListPage";
+import { CategoriesProvider } from "@/features/categories/hooks/useCategoriesStore";
+
+import { SuppliersListPage } from "@/features/suppliers/pages/SuppliersListPage";
 
 import { InventoryPage } from "@/features/inventory/pages/InventoryPage";
+import { InventoryProvider } from "@/features/inventory/hooks/useInventoryStore";
 
 import { BookingsListPage } from "@/features/bookings/pages/BookingsListPage";
 import { BookingDetailPage } from "@/features/bookings/pages/BookingDetailPage";
@@ -69,21 +74,25 @@ export const router = createBrowserRouter([
     path: "/",
     element: (
       <ProtectedRoute>
-        <ProductsProvider>
-          <BookingsProvider>
-            <BranchOrdersProvider>
-              <AgentsProvider>
-                <BranchesProvider>
-                  <CustomersProvider>
-                    <UsersProvider>
-                      <AppLayout />
-                    </UsersProvider>
-                  </CustomersProvider>
-                </BranchesProvider>
-              </AgentsProvider>
-            </BranchOrdersProvider>
-          </BookingsProvider>
-        </ProductsProvider>
+        <CategoriesProvider>
+          <ProductsProvider>
+            <InventoryProvider>
+              <BookingsProvider>
+                <BranchOrdersProvider>
+                  <AgentsProvider>
+                    <BranchesProvider>
+                      <CustomersProvider>
+                        <UsersProvider>
+                          <AppLayout />
+                        </UsersProvider>
+                      </CustomersProvider>
+                    </BranchesProvider>
+                  </AgentsProvider>
+                </BranchOrdersProvider>
+              </BookingsProvider>
+            </InventoryProvider>
+          </ProductsProvider>
+        </CategoriesProvider>
       </ProtectedRoute>
     ),
     children: [
@@ -105,6 +114,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "products/add",
+        element: (
+          <PermissionRoute permission="products.create">
+            <ProductAddPage />
+          </PermissionRoute>
+        ),
+      },
+      {
         path: "products/:id",
         element: (
           <PermissionRoute permission="products.view">
@@ -117,6 +134,14 @@ export const router = createBrowserRouter([
         element: (
           <PermissionRoute permission="categories.view">
             <CategoriesListPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "suppliers",
+        element: (
+          <PermissionRoute permission="suppliers.view">
+            <SuppliersListPage />
           </PermissionRoute>
         ),
       },

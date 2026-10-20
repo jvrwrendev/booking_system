@@ -5,6 +5,9 @@ export interface Product {
   name: string;
   sku: string;
   categoryId: string;
+  categoryName?: string;
+  supplierId?: string;
+  supplierName?: string;
   brand: string;
   description: string;
   unit: string;
@@ -14,6 +17,7 @@ export interface Product {
   minimumStockLevel: number;
   supplier: string;
   status: ProductStatus;
+  stockStatus?: ProductStockStatus;
   image?: string;
   createdAt: string;
   updatedAt: string;
@@ -23,6 +27,8 @@ export interface ProductFormValues {
   name: string;
   sku: string;
   categoryId: string;
+  supplierId: string;
+  supplierName?: string;
   brand: string;
   description: string;
   unit: string;
@@ -30,7 +36,6 @@ export interface ProductFormValues {
   sellingPrice: number;
   stockQuantity: number;
   minimumStockLevel: number;
-  supplier: string;
   status: ProductStatus;
   image?: string;
 }

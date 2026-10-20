@@ -14,6 +14,11 @@ import type { Booking, BookingStatus } from "@/types/booking";
 import type { StatusHistoryEntry } from "@/types/order-history";
 import { humanize } from "@/components/common/StatusBadge";
 import { formatCurrency } from "@/lib/utils";
+import {
+  commitOrderStock,
+  releaseOrderStock,
+} from "@/features/inventory/services/inventory.service";
+import { ApiError } from "@/lib/api-client";
 
 const STORAGE_KEY = "agrivet-bookings-v3";
 
@@ -87,7 +92,58 @@ export function BookingsProvider({ children }: { children: ReactNode }) {
   }, [bookings]);
 
   const setStatus = useCallback(
-    (id: string, status: BookingStatus, by?: Pick<AuthUser, "id" | "fullName">) => {
+    async (
+      id: string,
+      status: BookingStatus,
+      by?: Pick<AuthUser, "id" | "fullName">
+    ) => {
+      const booking = bookings.find((item) => item.id === id);
+      if (!booking) return;
+
+      const shouldCommit = status === "confirmed" || status === "completed";
+      const shouldRelease = status === "cancelled" || status === "rejected";
+
+      if (shouldCommit || shouldRelease) {
+        try {
+          const items = booking.items.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+          }));
+
+          if (shouldCommit) {
+            const result = await commitOrderStock(
+              "booking",
+              booking.id,
+              booking.branchId,
+              items
+            );
+            if (result.skipped > 0) {
+              toast.warning("Some items were not found in inventory", {
+                description: `${result.skipped} item(s) could not be matched to a product.`,
+              });
+            }
+          } else {
+            await releaseOrderStock(
+              "booking",
+              booking.id,
+              booking.branchId,
+              items
+            );
+          }
+        } catch (error) {
+          toast.error(
+            shouldCommit ? "Could not deduct stock" : "Could not restore stock",
+            {
+              description:
+                error instanceof ApiError
+                  ? error.message
+                  : "The booking status was not changed. Please try again.",
+            }
+          );
+          return;
+        }
+      }
+
       setBookings((prev) =>
         prev.map((b) => {
           if (b.id !== id) return b;
@@ -105,7 +161,7 @@ export function BookingsProvider({ children }: { children: ReactNode }) {
         description: `Booking marked as ${humanize(status)}.`,
       });
     },
-    []
+    [bookings]
   );
 
   const assignBooking = useCallback(

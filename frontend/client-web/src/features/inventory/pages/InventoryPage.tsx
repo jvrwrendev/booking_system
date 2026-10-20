@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
 import {
+  AlertTriangle,
   ArrowDownCircle,
   ArrowLeftRight,
   ArrowUpCircle,
+  Banknote,
   Boxes,
   Filter,
+  PackageCheck,
   Sliders,
   Truck,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
@@ -43,42 +45,79 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { StatisticsCard } from "@/components/common/StatisticsCard";
 
-import {
-  mockInventory,
-  mockTransactions,
-} from "@/data/mock-inventory";
+import { useInventoryStore } from "../hooks/useInventoryStore";
+import { useCategoriesStore } from "@/features/categories/hooks/useCategoriesStore";
 import type {
   InventoryItem,
   InventoryTransaction,
   TransactionType,
 } from "@/types/inventory";
-import { mockBranches } from "@/data/mock-branches";
-import { formatDateTime, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatDateTime, formatNumber } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ApiError } from "@/lib/api-client";
 
 type StockAction = "stock_in" | "stock_out" | "adjustment" | "transfer";
 
 export function InventoryPage() {
   const { can } = usePermissions();
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [branchFilter, setBranchFilter] = useState<string>("all");
+  const {
+    items,
+    total,
+    page,
+    pageSize,
+    loading,
+    error,
+    filters,
+    summary,
+    summaryLoading,
+    summaryError,
+    branches,
+    transactions,
+    transactionTotal,
+    transactionPage,
+    transactionPageSize,
+    transactionLoading,
+    transactionError,
+    transactionFilters,
+    setSearch,
+    setCategoryFilter,
+    setBranchFilter,
+    setStatusFilter,
+    setPage,
+    setPageSize,
+    refresh,
+    setTransactionSearch,
+    setTransactionTypeFilter,
+    setTransactionBranchFilter,
+    setTransactionPage,
+    setTransactionPageSize,
+    refreshTransactions,
+    stockIn,
+    stockOut,
+    adjustStock,
+    transferStock,
+  } = useInventoryStore();
+  const { options: categories } = useCategoriesStore();
+
   const [actionOpen, setActionOpen] = useState(false);
   const [actionType, setActionType] = useState<StockAction>("stock_in");
-  const [items, setItems] = useState<InventoryItem[]>(mockInventory);
-  const [transactions, setTransactions] =
-    useState<InventoryTransaction[]>(mockTransactions);
   const [activeItem, setActiveItem] = useState<InventoryItem | null>(null);
-  const [quantity, setQuantity] = useState<number>(0);
-  const [reason, setReason] = useState<string>("");
+  const [quantity, setQuantity] = useState<string>("");
+  const [reason, setReason] = useState("");
+  const [destinationBranchId, setDestinationBranchId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const filteredInventory = useMemo(() => {
-    return items.filter((i) => {
-      if (statusFilter !== "all" && i.status !== statusFilter) return false;
-      if (branchFilter !== "all" && i.branchId !== branchFilter) return false;
-      return true;
-    });
-  }, [items, statusFilter, branchFilter]);
+  const destinationBranches = useMemo(
+    () =>
+      branches.filter(
+        (branch) =>
+          branch.status === "active" && branch.id !== activeItem?.branchId,
+      ),
+    [branches, activeItem?.branchId],
+  );
 
   const inventoryColumns: DataTableColumn<InventoryItem>[] = [
     {
@@ -114,7 +153,7 @@ export function InventoryPage() {
         <div className="text-sm">
           <div className="font-medium">{formatNumber(i.currentStock)}</div>
           <div className="text-[11px] text-muted-foreground">
-            Reserved {i.reservedStock} · Avail {i.availableStock}
+            Available {i.availableStock}
           </div>
         </div>
       ),
@@ -138,21 +177,25 @@ export function InventoryPage() {
       ),
     },
     {
+      id: "updated",
+      header: "Updated",
+      cell: (i) => (
+        <span className="text-xs text-muted-foreground">
+          {formatDateTime(i.updatedAt)}
+        </span>
+      ),
+      className: "hidden xl:table-cell",
+    },
+    {
       id: "actions",
       header: "",
-      className: "w-40",
+      className: "w-32",
       cell: (i) => (
         <Button
           variant="outline"
           size="sm"
           disabled={!can("inventory.manage")}
-          onClick={() => {
-            setActiveItem(i);
-            setActionType("stock_in");
-            setQuantity(0);
-            setReason("");
-            setActionOpen(true);
-          }}
+          onClick={() => openAction(i)}
         >
           <Sliders className="h-3.5 w-3.5" />
           Adjust
@@ -192,7 +235,9 @@ export function InventoryPage() {
       cell: (t) => (
         <span
           className={
-            t.quantity >= 0 ? "font-medium text-emerald-600" : "font-medium text-rose-600"
+            t.quantity >= 0
+              ? "font-medium text-emerald-600"
+              : "font-medium text-rose-600"
           }
         >
           {t.quantity > 0 ? "+" : ""}
@@ -243,64 +288,85 @@ export function InventoryPage() {
     },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  function openAction(item: InventoryItem) {
+    setActiveItem(item);
+    setActionType("stock_in");
+    setQuantity("");
+    setReason("");
+    setActionError(null);
+    setDestinationBranchId(
+      branches.find(
+        (branch) =>
+          branch.status === "active" && branch.id !== item.branchId,
+      )?.id ?? "",
+    );
+    setActionOpen(true);
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeItem) return;
-    if (quantity <= 0 && actionType !== "adjustment") {
-      toast.error("Quantity must be greater than zero.");
+
+    const amount = Number(quantity);
+    if (!Number.isFinite(amount) || !Number.isInteger(amount)) {
+      setActionError("Enter a whole number.");
       return;
     }
-    let newQty = activeItem.currentStock;
-    if (actionType === "stock_in") newQty = activeItem.currentStock + quantity;
-    if (actionType === "stock_out")
-      newQty = Math.max(0, activeItem.currentStock - quantity);
-    if (actionType === "adjustment") newQty = activeItem.currentStock + quantity;
-    if (actionType === "transfer") newQty = Math.max(0, activeItem.currentStock - quantity);
+    if (actionType === "adjustment") {
+      if (amount === 0) {
+        setActionError("Adjustment cannot be zero.");
+        return;
+      }
+    } else if (amount <= 0) {
+      setActionError("Quantity must be greater than zero.");
+      return;
+    }
+    if (actionType === "transfer") {
+      if (!destinationBranchId) {
+        setActionError("Select a destination branch.");
+        return;
+      }
+      if (destinationBranchId === activeItem.branchId) {
+        setActionError("Source and destination branches must differ.");
+        return;
+      }
+    }
+    if (actionType === "adjustment" && !reason.trim()) {
+      setActionError("A reason is required for a stock adjustment.");
+      return;
+    }
 
-    const transaction: InventoryTransaction = {
-      id: `TXN-${Date.now()}`,
-      productId: activeItem.productId,
-      productName: activeItem.productName,
-      branchId: activeItem.branchId,
-      branchName: activeItem.branchName,
-      type: actionType,
-      quantity:
-        actionType === "stock_out" || actionType === "transfer"
-          ? -quantity
-          : actionType === "adjustment"
-          ? quantity
-          : quantity,
-      previousStock: activeItem.currentStock,
-      newStock: newQty,
-      reason: reason || "Manual adjustment",
-      performedBy: "Admin",
-      date: new Date().toISOString(),
-    };
-
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === activeItem.id
-          ? {
-              ...i,
-              currentStock: newQty,
-              availableStock: Math.max(0, newQty - i.reservedStock),
-              status:
-                newQty <= 0
-                  ? "out_of_stock"
-                  : newQty <= Math.max(activeItem.minimumStock / 2, 1)
-                  ? "critical"
-                  : newQty <= activeItem.minimumStock
-                  ? "low_stock"
-                  : "in_stock",
-            }
-          : i
-      )
-    );
-    setTransactions((prev) => [transaction, ...prev]);
-    toast.success("Stock updated", {
-      description: `${humanize(actionType)} recorded for ${activeItem.productName}.`,
-    });
-    setActionOpen(false);
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      if (actionType === "stock_in") {
+        await stockIn(activeItem.productId, activeItem.branchId, amount, reason);
+      } else if (actionType === "stock_out") {
+        await stockOut(activeItem.productId, activeItem.branchId, amount, reason);
+      } else if (actionType === "adjustment") {
+        await adjustStock(
+          activeItem.productId,
+          activeItem.branchId,
+          amount,
+          reason,
+        );
+      } else {
+        await transferStock(
+          activeItem.productId,
+          activeItem.branchId,
+          destinationBranchId,
+          amount,
+          reason,
+        );
+      }
+      setActionOpen(false);
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError ? err.message : "Could not update stock.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -310,6 +376,87 @@ export function InventoryPage() {
         description="Track stock levels, movements, and reservations across branches."
         breadcrumbs={[{ label: "Operations" }, { label: "Inventory" }]}
       />
+
+      {(error || summaryError) && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span>{error ?? summaryError}</span>
+          <Button variant="outline" size="sm" onClick={() => void refresh()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatisticsCard
+          label="Total units"
+          value={summaryLoading ? "…" : formatNumber(summary.totalUnits)}
+          hint={`${summary.totalProducts} products tracked`}
+          icon={<Boxes className="h-4 w-4" />}
+        />
+        <StatisticsCard
+          label="Inventory value"
+          value={summaryLoading ? "…" : formatCurrency(summary.inventoryValue)}
+          hint="At cost price"
+          icon={<Banknote className="h-4 w-4" />}
+        />
+        <StatisticsCard
+          label="Low stock"
+          value={
+            summaryLoading
+              ? "…"
+              : summary.lowStockCount + summary.criticalCount
+          }
+          hint={`${summary.criticalCount} critical`}
+          icon={<AlertTriangle className="h-4 w-4" />}
+        />
+        <StatisticsCard
+          label="Out of stock"
+          value={summaryLoading ? "…" : summary.outOfStockCount}
+          hint="Needs restocking"
+          icon={<PackageCheck className="h-4 w-4" />}
+        />
+      </div>
+
+      {summary.alerts.length > 0 && (
+        <Card className="border-amber-300/60 bg-amber-50/60">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm text-amber-900">
+              <AlertTriangle className="h-4 w-4" />
+              Low-stock alerts
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStatusFilter("low_stock")}
+            >
+              View low stock
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {summary.alerts.slice(0, 3).map((alert) => (
+              <div
+                key={`${alert.productId}-${alert.branchId}`}
+                className="flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900"
+              >
+                <span className="font-medium">
+                  {alert.productName}{" "}
+                  <span className="font-mono text-[11px] opacity-70">
+                    {alert.sku}
+                  </span>
+                </span>
+                <span>
+                  {alert.currentStock} left · min {alert.minimumStock}
+                </span>
+              </div>
+            ))}
+            {summary.alerts.length > 3 && (
+              <p className="text-[11px] text-amber-800">
+                +{summary.alerts.length - 3} more product(s) need attention.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="stock">
         <TabsList>
@@ -322,15 +469,58 @@ export function InventoryPage() {
 
         <TabsContent value="stock" className="mt-4">
           <DataTable<InventoryItem>
-            data={filteredInventory}
+            data={items}
             columns={inventoryColumns}
+            loading={loading}
             searchPlaceholder="Search by product, SKU, branch..."
-            searchKeys={["productName", "sku", "branchName", "categoryName"]}
             rowKey={(i) => i.id}
+            serverMode={{
+              search: filters.search,
+              onSearchChange: setSearch,
+              page,
+              pageSize,
+              total,
+              onPageChange: setPage,
+              onPageSizeChange: setPageSize,
+            }}
+            emptyState={
+              <div className="px-6 py-12 text-center">
+                <p className="text-sm font-medium">
+                  {filters.search ||
+                  filters.categoryId !== "all" ||
+                  filters.branchId !== "all" ||
+                  filters.status !== "all"
+                    ? "No stock records match your filters"
+                    : "No stock records yet"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Add a product to start tracking its inventory.
+                </p>
+              </div>
+            }
             toolbar={
               <>
                 <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <Select
+                  value={filters.categoryId}
+                  onValueChange={setCategoryFilter}
+                >
+                  <SelectTrigger className="h-9 w-[150px]">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All categories</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={filters.status}
+                  onValueChange={setStatusFilter}
+                >
                   <SelectTrigger className="h-9 w-[150px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
@@ -342,15 +532,18 @@ export function InventoryPage() {
                     <SelectItem value="out_of_stock">Out of Stock</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={branchFilter} onValueChange={setBranchFilter}>
+                <Select
+                  value={filters.branchId}
+                  onValueChange={setBranchFilter}
+                >
                   <SelectTrigger className="h-9 w-[180px]">
                     <SelectValue placeholder="Branch" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All branches</SelectItem>
-                    {mockBranches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -363,25 +556,102 @@ export function InventoryPage() {
         <TabsContent value="transactions" className="mt-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle>Recent Transactions</CardTitle>
+              <CardTitle>Stock Movements</CardTitle>
               <div className="text-xs text-muted-foreground">
-                Showing stock movements and adjustments
+                {transactionLoading
+                  ? "Loading…"
+                  : `${transactionTotal} transaction(s)`}
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              {transactionError && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  <span>{transactionError}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void refreshTransactions()}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              )}
               <DataTable<InventoryTransaction>
                 data={transactions}
                 columns={transactionColumns}
+                loading={transactionLoading}
                 searchPlaceholder="Search transactions..."
-                searchKeys={["productName", "branchName", "reason", "performedBy"]}
                 rowKey={(t) => t.id}
+                serverMode={{
+                  search: transactionFilters.search,
+                  onSearchChange: setTransactionSearch,
+                  page: transactionPage,
+                  pageSize: transactionPageSize,
+                  total: transactionTotal,
+                  onPageChange: setTransactionPage,
+                  onPageSizeChange: setTransactionPageSize,
+                }}
+                emptyState={
+                  <div className="px-6 py-12 text-center">
+                    <p className="text-sm font-medium">
+                      No transactions match your filters
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Stock movements will appear here as inventory changes.
+                    </p>
+                  </div>
+                }
+                toolbar={
+                  <>
+                    <Select
+                      value={transactionFilters.type}
+                      onValueChange={setTransactionTypeFilter}
+                    >
+                      <SelectTrigger className="h-9 w-[170px]">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All types</SelectItem>
+                        <SelectItem value="STOCK_IN">Stock In</SelectItem>
+                        <SelectItem value="STOCK_OUT">Stock Out</SelectItem>
+                        <SelectItem value="ADJUSTMENT">Adjustment</SelectItem>
+                        <SelectItem value="TRANSFER">Transfer</SelectItem>
+                        <SelectItem value="RESERVATION">Reservation</SelectItem>
+                        <SelectItem value="RELEASE">Release</SelectItem>
+                        <SelectItem value="ORDER_COMMIT">Order Commit</SelectItem>
+                        <SelectItem value="ORDER_RELEASE">Order Release</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={transactionFilters.branchId}
+                      onValueChange={setTransactionBranchFilter}
+                    >
+                      <SelectTrigger className="h-9 w-[180px]">
+                        <SelectValue placeholder="Branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All branches</SelectItem>
+                        {branches.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            {branch.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </>
+                }
               />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      <Dialog open={actionOpen} onOpenChange={setActionOpen}>
+      <Dialog
+        open={actionOpen}
+        onOpenChange={(open) => {
+          if (!submitting) setActionOpen(open);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -395,6 +665,11 @@ export function InventoryPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {actionError && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {actionError}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               {(
                 [
@@ -403,42 +678,75 @@ export function InventoryPage() {
                   { value: "adjustment", label: "Adjust" },
                   { value: "transfer", label: "Transfer" },
                 ] as { value: StockAction; label: string }[]
-              ).map((opt) => (
+              ).map((option) => (
                 <Button
-                  key={opt.value}
+                  key={option.value}
                   type="button"
-                  variant={actionType === opt.value ? "default" : "outline"}
+                  variant={actionType === option.value ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setActionType(opt.value)}
+                  onClick={() => {
+                    setActionType(option.value);
+                    setActionError(null);
+                    setQuantity("");
+                  }}
+                  disabled={submitting}
                 >
-                  {opt.label}
+                  {option.label}
                 </Button>
               ))}
             </div>
+            {actionType === "transfer" && (
+              <div className="space-y-1.5">
+                <Label>Destination branch</Label>
+                <Select
+                  value={destinationBranchId}
+                  onValueChange={setDestinationBranchId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {destinationBranches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="qty">
-                {actionType === "adjustment" ? "Adjustment (can be negative)" : "Quantity"}
+                {actionType === "adjustment"
+                  ? "Adjustment (can be negative)"
+                  : "Quantity"}
               </Label>
               <Input
                 id="qty"
                 type="number"
+                step={1}
                 value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value) || 0)}
+                onChange={(e) => setQuantity(e.target.value)}
+                disabled={submitting}
               />
               {activeItem && (
                 <p className="text-[11px] text-muted-foreground">
-                  Current: {activeItem.currentStock}
+                  Current: {activeItem.currentStock} · Minimum:{" "}
+                  {activeItem.minimumStock}
                 </p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="reason">Reason</Label>
+              <Label htmlFor="reason">
+                Reason {actionType === "adjustment" && "*"}
+              </Label>
               <Textarea
                 id="reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
-                placeholder="Why this adjustment is needed..."
+                placeholder="Why this stock movement is needed..."
+                disabled={submitting}
               />
             </div>
             <DialogFooter>
@@ -446,10 +754,13 @@ export function InventoryPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setActionOpen(false)}
+                disabled={submitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">Save</Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Saving…" : "Save"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -459,10 +770,15 @@ export function InventoryPage() {
 }
 
 function getTransactionIcon(type: TransactionType) {
-  if (type === "stock_in") return <ArrowDownCircle className="h-4 w-4 text-emerald-600" />;
-  if (type === "stock_out") return <ArrowUpCircle className="h-4 w-4 text-rose-600" />;
-  if (type === "transfer") return <ArrowLeftRight className="h-4 w-4 text-sky-600" />;
-  if (type === "reservation") return <Boxes className="h-4 w-4 text-amber-600" />;
-  if (type === "release") return <Boxes className="h-4 w-4 text-emerald-600" />;
+  if (type === "stock_in" || type === "order_release")
+    return <ArrowDownCircle className="h-4 w-4 text-emerald-600" />;
+  if (type === "stock_out" || type === "order_commit")
+    return <ArrowUpCircle className="h-4 w-4 text-rose-600" />;
+  if (type === "transfer")
+    return <ArrowLeftRight className="h-4 w-4 text-sky-600" />;
+  if (type === "reservation")
+    return <Boxes className="h-4 w-4 text-amber-600" />;
+  if (type === "release")
+    return <Boxes className="h-4 w-4 text-emerald-600" />;
   return <Truck className="h-4 w-4 text-muted-foreground" />;
 }

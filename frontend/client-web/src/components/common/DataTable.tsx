@@ -183,9 +183,9 @@ export function DataTable<T>({
     <div className="space-y-3">
       {(showSearch || toolbar || globalActions) && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-1 items-center gap-2">
+          <div className="flex flex-1 flex-wrap items-center gap-2">
             {showSearch && (
-              <div className="relative max-w-xs flex-1">
+              <div className="relative w-full max-w-xs flex-1 sm:w-auto">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={isServer ? (serverMode?.search ?? "") : search}

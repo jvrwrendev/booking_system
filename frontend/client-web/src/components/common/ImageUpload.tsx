@@ -15,10 +15,19 @@ export function ImageUpload({
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | undefined>(value);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFile = (file: File | undefined) => {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please choose an image file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image must be 5 MB or smaller.");
+      return;
+    }
+    setError(null);
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
@@ -30,6 +39,7 @@ export function ImageUpload({
 
   const remove = () => {
     setPreview(undefined);
+    setError(null);
     onChange(undefined);
     if (inputRef.current) inputRef.current.value = "";
   };
@@ -76,6 +86,7 @@ export function ImageUpload({
         className="hidden"
         onChange={(e) => handleFile(e.target.files?.[0])}
       />
+      {error && <p className="text-[11px] text-destructive">{error}</p>}
       <p className="text-[11px] text-muted-foreground">
         {preview ? (
           <button

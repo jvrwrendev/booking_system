@@ -1,9 +1,8 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Edit, MoreHorizontal, Plus, Tags, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
 import {
@@ -36,12 +35,12 @@ import {
   getStatusVariantFromGeneric,
   humanize,
 } from "@/components/common/StatusBadge";
-import { toast } from "sonner";
 
 import type { Category, CategoryFormValues } from "@/types/category";
 import { formatDate } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
-import { mockProducts } from "@/data/mock-products";
+import { useCategoriesStore } from "../hooks/useCategoriesStore";
+import { ApiError } from "@/lib/api-client";
 
 const initialForm: CategoryFormValues = {
   name: "",
@@ -51,61 +50,35 @@ const initialForm: CategoryFormValues = {
 
 export function CategoriesListPage() {
   const { can } = usePermissions();
-  const [categories, setCategories] = useState<Category[]>(() =>
-    computeInitial()
-  );
+  const {
+    categories,
+    total,
+    page,
+    pageSize,
+    loading,
+    error,
+    filters,
+    setSearch,
+    setStatusFilter,
+    setPage,
+    setPageSize,
+    refresh,
+    addCategory,
+    editCategory,
+    removeCategory,
+  } = useCategoriesStore();
+
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [values, setValues] = useState<CategoryFormValues>(initialForm);
-  const [error, setError] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const productCountByCategory = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const p of mockProducts) {
-      counts[p.categoryId] = (counts[p.categoryId] ?? 0) + 1;
-    }
-    return counts;
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!values.name.trim()) {
-      setError("Category name is required.");
-      return;
-    }
-    if (editing) {
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id === editing.id
-            ? { ...c, ...values, productCount: productCountByCategory[c.id] ?? c.productCount }
-            : c
-        )
-      );
-      toast.success("Category updated");
-    } else {
-      const newId = `CAT-${String(categories.length + 1).padStart(3, "0")}`;
-      setCategories((prev) => [
-        ...prev,
-        {
-          id: newId,
-          ...values,
-          productCount: 0,
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-      toast.success("Category created");
-    }
-    setFormOpen(false);
-    setEditing(null);
-    setValues(initialForm);
-    setError(null);
-  };
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<Category | null>(null);
 
   const openCreate = () => {
     setEditing(null);
     setValues(initialForm);
-    setError(null);
+    setFormError(null);
     setFormOpen(true);
   };
 
@@ -116,8 +89,34 @@ export function CategoriesListPage() {
       description: category.description,
       status: category.status,
     });
-    setError(null);
+    setFormError(null);
     setFormOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!values.name.trim()) {
+      setFormError("Category name is required.");
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      if (editing) {
+        await editCategory(editing.id, values);
+      } else {
+        await addCategory(values);
+      }
+      setFormOpen(false);
+      setEditing(null);
+      setValues(initialForm);
+    } catch (err) {
+      setFormError(
+        err instanceof ApiError ? err.message : "Could not save the category.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const columns: DataTableColumn<Category>[] = [
@@ -132,7 +131,7 @@ export function CategoriesListPage() {
           <div>
             <div className="text-sm font-medium">{c.name}</div>
             <div className="line-clamp-1 text-xs text-muted-foreground">
-              {c.description}
+              {c.description || "No description"}
             </div>
           </div>
         </div>
@@ -151,8 +150,6 @@ export function CategoriesListPage() {
           {c.productCount}
         </Link>
       ),
-      sortable: true,
-      sortKey: "productCount",
       className: "hidden md:table-cell",
     },
     {
@@ -173,8 +170,6 @@ export function CategoriesListPage() {
           {formatDate(c.createdAt)}
         </span>
       ),
-      sortable: true,
-      sortKey: "createdAt",
       className: "hidden md:table-cell",
     },
     {
@@ -204,7 +199,7 @@ export function CategoriesListPage() {
             {can("categories.delete") && (
               <DropdownMenuItem
                 className="text-destructive"
-                onSelect={() => setDeletingId(c.id)}
+                onSelect={() => setDeleting(c)}
               >
                 <Trash2 className="h-4 w-4" />
                 Delete
@@ -232,17 +227,62 @@ export function CategoriesListPage() {
         }
       />
 
+      {error && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={() => void refresh()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       <DataTable<Category>
         data={categories}
         columns={columns}
+        loading={loading}
         searchPlaceholder="Search categories..."
-        searchKeys={["name", "description"]}
         rowKey={(c) => c.id}
+        serverMode={{
+          search: filters.search,
+          onSearchChange: setSearch,
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
+        emptyState={
+          <div className="px-6 py-12 text-center">
+            <p className="text-sm font-medium">
+              {filters.search || filters.status !== "all"
+                ? "No categories match your filters"
+                : "No categories yet"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {filters.search || filters.status !== "all"
+                ? "Try a different search term or clear the filters."
+                : "Create a category to start organizing products."}
+            </p>
+          </div>
+        }
+        toolbar={
+          <Select value={filters.status} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 w-[140px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        }
       />
 
       <Dialog
         open={formOpen}
         onOpenChange={(o) => {
+          if (saving) return;
           setFormOpen(o);
           if (!o) setEditing(null);
         }}
@@ -255,9 +295,9 @@ export function CategoriesListPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+            {formError && (
               <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {error}
+                {formError}
               </div>
             )}
             <div className="space-y-1.5">
@@ -308,11 +348,16 @@ export function CategoriesListPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setFormOpen(false)}
+                disabled={saving}
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                {editing ? "Save changes" : "Create category"}
+              <Button type="submit" disabled={saving}>
+                {saving
+                  ? "Saving…"
+                  : editing
+                    ? "Save changes"
+                    : "Create category"}
               </Button>
             </DialogFooter>
           </form>
@@ -320,87 +365,19 @@ export function CategoriesListPage() {
       </Dialog>
 
       <ConfirmDialog
-        open={!!deletingId}
-        onOpenChange={(o) => !o && setDeletingId(null)}
+        open={!!deleting}
+        onOpenChange={(o) => !o && setDeleting(null)}
         title="Delete category"
         description="This will remove the category. Products will keep their existing references but appear uncategorized."
         confirmText="Delete"
         destructive
-        onConfirm={() => {
-          setCategories((prev) => prev.filter((c) => c.id !== deletingId));
-          setDeletingId(null);
-          toast.success("Category deleted");
+        onConfirm={async () => {
+          if (!deleting) return;
+          const id = deleting.id;
+          setDeleting(null);
+          await removeCategory(id).catch(() => {});
         }}
       />
     </div>
   );
-}
-
-function computeInitial(): Category[] {
-  return [
-    {
-      id: "CAT-001",
-      name: "Feeds",
-      description: "Animal and livestock feeds including poultry, hog, and cattle.",
-      productCount: 5,
-      status: "active",
-      createdAt: "2024-01-15T08:00:00Z",
-    },
-    {
-      id: "CAT-002",
-      name: "Fertilizers",
-      description: "Organic and inorganic fertilizers for crops and soil.",
-      productCount: 3,
-      status: "active",
-      createdAt: "2024-01-15T08:00:00Z",
-    },
-    {
-      id: "CAT-003",
-      name: "Pesticides",
-      description: "Insecticides and pest control products.",
-      productCount: 3,
-      status: "active",
-      createdAt: "2024-02-01T08:00:00Z",
-    },
-    {
-      id: "CAT-004",
-      name: "Veterinary Products",
-      description: "Medicines, vitamins, and supplements for animals.",
-      productCount: 3,
-      status: "active",
-      createdAt: "2024-02-01T08:00:00Z",
-    },
-    {
-      id: "CAT-005",
-      name: "Seeds",
-      description: "Quality seeds for rice, corn, vegetables, and other crops.",
-      productCount: 2,
-      status: "active",
-      createdAt: "2024-03-12T08:00:00Z",
-    },
-    {
-      id: "CAT-006",
-      name: "Tools",
-      description: "Hand tools and small farm implements.",
-      productCount: 3,
-      status: "active",
-      createdAt: "2024-03-12T08:00:00Z",
-    },
-    {
-      id: "CAT-007",
-      name: "Equipment",
-      description: "Farm equipment and machinery.",
-      productCount: 2,
-      status: "active",
-      createdAt: "2024-04-02T08:00:00Z",
-    },
-    {
-      id: "CAT-008",
-      name: "Farm Supplies",
-      description: "General farm supplies, accessories, and consumables.",
-      productCount: 0,
-      status: "inactive",
-      createdAt: "2024-04-02T08:00:00Z",
-    },
-  ];
 }

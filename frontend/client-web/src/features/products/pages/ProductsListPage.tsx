@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Eye, MoreHorizontal, Package, Plus, Trash2, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -28,30 +28,50 @@ import {
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 import { useProductsStore } from "../hooks/useProductsStore";
+import { useCategoriesStore } from "@/features/categories/hooks/useCategoriesStore";
 import type { Product } from "@/types/product";
 import { getProductStockStatus } from "@/types/product";
-import { mockCategories } from "@/data/mock-categories";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function ProductsListPage() {
-  const { products, deleteProduct } = useProductsStore();
+  const {
+    products,
+    total,
+    page,
+    pageSize,
+    loading,
+    error,
+    filters,
+    setSearch,
+    setCategoryFilter,
+    setStatusFilter,
+    setStockStatusFilter,
+    setPage,
+    setPageSize,
+    refresh,
+    removeProduct,
+  } = useProductsStore();
+  const { options: categories } = useCategoriesStore();
   const { can } = usePermissions();
+  const [searchParams] = useSearchParams();
 
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
+  const [deleting, setDeleting] = useState<Product | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
 
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
-      if (statusFilter !== "all" && p.status !== statusFilter) return false;
-      if (categoryFilter !== "all" && p.categoryId !== categoryFilter)
-        return false;
-      return true;
-    });
-  }, [products, statusFilter, categoryFilter]);
+  // Categories and suppliers link here with ?category=<id> / ?search=<term>.
+  useEffect(() => {
+    const category = searchParams.get("category");
+    if (category && category !== filters.categoryId) {
+      setCategoryFilter(category);
+    }
+    const search = searchParams.get("search");
+    if (search !== null && search !== filters.search) {
+      setSearch(search);
+    }
+    // Only react to the URL parameter, not to every filter change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const columns: DataTableColumn<Product>[] = [
     {
@@ -80,7 +100,7 @@ export function ProductsListPage() {
               {p.name}
             </Link>
             <div className="truncate text-xs text-muted-foreground">
-              {p.brand} · {p.unit}
+              {p.brand || "No brand"} · {p.unit}
             </div>
           </div>
         </div>
@@ -99,10 +119,9 @@ export function ProductsListPage() {
     {
       id: "category",
       header: "Category",
-      cell: (p) => {
-        const cat = mockCategories.find((c) => c.id === p.categoryId);
-        return <span className="text-sm">{cat?.name ?? "Uncategorized"}</span>;
-      },
+      cell: (p) => (
+        <span className="text-sm">{p.categoryName ?? "Uncategorized"}</span>
+      ),
       className: "hidden md:table-cell",
     },
     {
@@ -122,16 +141,14 @@ export function ProductsListPage() {
     {
       id: "stock",
       header: "Stock",
-      cell: (p) => {
-        return (
-          <div className="text-sm">
-            <div className="font-medium">{p.stockQuantity}</div>
-            <div className="text-[11px] text-muted-foreground">
-              Min {p.minimumStockLevel}
-            </div>
+      cell: (p) => (
+        <div className="text-sm">
+          <div className="font-medium">{p.stockQuantity}</div>
+          <div className="text-[11px] text-muted-foreground">
+            Min {p.minimumStockLevel}
           </div>
-        );
-      },
+        </div>
+      ),
       sortable: true,
       sortKey: "stockQuantity",
     },
@@ -139,7 +156,7 @@ export function ProductsListPage() {
       id: "status",
       header: "Status",
       cell: (p) => {
-        const stock = getProductStockStatus(p);
+        const stock = p.stockStatus ?? getProductStockStatus(p);
         return (
           <div className="flex flex-col items-start gap-1">
             <StatusBadge
@@ -193,7 +210,7 @@ export function ProductsListPage() {
             {can("products.delete") && (
               <DropdownMenuItem
                 className="text-destructive"
-                onSelect={() => setDeletingId(p.id)}
+                onSelect={() => setDeleting(p)}
               >
                 <Trash2 className="h-4 w-4" />
                 Delete
@@ -213,43 +230,101 @@ export function ProductsListPage() {
         breadcrumbs={[{ label: "Operations" }, { label: "Products" }]}
         actions={
           can("products.create") && (
-            <Button onClick={() => setAddOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Add Product
+            <Button asChild>
+              <Link to="/products/add">
+                <Plus className="h-4 w-4" />
+                Add Product
+              </Link>
             </Button>
           )
         }
       />
 
+      {error && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={() => void refresh()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       <DataTable<Product>
-        data={filtered}
+        data={products}
         columns={columns}
+        loading={loading}
         searchPlaceholder="Search products by name, SKU, or brand..."
-        searchKeys={["name", "sku", "brand"]}
         rowKey={(p) => p.id}
+        serverMode={{
+          search: filters.search,
+          onSearchChange: setSearch,
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
+        emptyState={
+          <div className="px-6 py-12 text-center">
+            <p className="text-sm font-medium">
+              {filters.search ||
+              filters.categoryId !== "all" ||
+              filters.status !== "all" ||
+              filters.stockStatus !== "all"
+                ? "No products match your filters"
+                : "No products yet"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {filters.search ||
+              filters.categoryId !== "all" ||
+              filters.status !== "all" ||
+              filters.stockStatus !== "all"
+                ? "Try a different search term or clear the filters."
+                : "Add the first product to build your catalog."}
+            </p>
+          </div>
+        }
         toolbar={
           <>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <Select
+              value={filters.categoryId}
+              onValueChange={setCategoryFilter}
+            >
               <SelectTrigger className="h-9 w-[160px]">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All categories</SelectItem>
-                {mockCategories.map((c) => (
+                {categories.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={filters.status} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-9 w-[140px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                <SelectItem value="OUT_OF_STOCK">Out of Stock</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={filters.stockStatus}
+              onValueChange={setStockStatusFilter}
+            >
+              <SelectTrigger className="h-9 w-[150px]">
+                <SelectValue placeholder="Stock level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All stock</SelectItem>
+                <SelectItem value="in_stock">In Stock</SelectItem>
+                <SelectItem value="low_stock">Low Stock</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
                 <SelectItem value="out_of_stock">Out of Stock</SelectItem>
               </SelectContent>
             </Select>
@@ -257,7 +332,6 @@ export function ProductsListPage() {
         }
       />
 
-      <ProductFormSheet open={addOpen} onOpenChange={setAddOpen} />
       <ProductFormSheet
         open={!!editing}
         onOpenChange={(o) => !o && setEditing(null)}
@@ -265,15 +339,17 @@ export function ProductsListPage() {
       />
 
       <ConfirmDialog
-        open={!!deletingId}
-        onOpenChange={(o) => !o && setDeletingId(null)}
+        open={!!deleting}
+        onOpenChange={(o) => !o && setDeleting(null)}
         title="Delete product"
-        description="This action cannot be undone. The product will be permanently removed from the catalog."
+        description="This action cannot be undone. The product will be permanently removed from the catalog and its stock history."
         confirmText="Delete"
         destructive
-        onConfirm={() => {
-          if (deletingId) deleteProduct(deletingId);
-          setDeletingId(null);
+        onConfirm={async () => {
+          if (!deleting) return;
+          const target = deleting;
+          setDeleting(null);
+          await removeProduct(target.id, target.name).catch(() => {});
         }}
       />
     </div>

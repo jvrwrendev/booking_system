@@ -5,6 +5,7 @@ export interface Category {
   productCount: number;
   status: "active" | "inactive";
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface CategoryFormValues {

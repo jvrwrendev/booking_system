@@ -23,7 +23,9 @@ export type TransactionType =
   | "adjustment"
   | "transfer"
   | "reservation"
-  | "release";
+  | "release"
+  | "order_commit"
+  | "order_release";
 
 export interface InventoryTransaction {
   id: string;
@@ -37,7 +39,26 @@ export interface InventoryTransaction {
   newStock: number;
   reason: string;
   performedBy: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
   date: string;
+}
+
+export interface InventoryBranch {
+  id: string;
+  name: string;
+  code: string | null;
+  status: "active" | "inactive";
+}
+
+export interface InventorySummary {
+  totalProducts: number;
+  totalUnits: number;
+  inventoryValue: number;
+  lowStockCount: number;
+  criticalCount: number;
+  outOfStockCount: number;
+  alerts: InventoryItem[];
 }
 
 export function computeStockStatus(

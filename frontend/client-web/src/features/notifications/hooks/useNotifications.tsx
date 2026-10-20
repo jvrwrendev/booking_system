@@ -7,9 +7,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { mockProducts } from "@/data/mock-products";
 import { mockBookings } from "@/data/mock-bookings";
 import type { AppNotification } from "@/features/notifications/types";
+import { useAuth } from "@/hooks/useAuth";
+import { listInventoryAlerts } from "@/features/inventory/services/inventory.service";
+import type { InventoryItem } from "@/types/inventory";
 
 const STORAGE_KEY = "agrivet-notifications-read-v1";
 
@@ -26,20 +28,19 @@ function loadReadIds(): string[] {
   }
 }
 
-function deriveNotifications(): AppNotification[] {
+function deriveNotifications(alerts: InventoryItem[]): AppNotification[] {
   const items: AppNotification[] = [];
 
-  for (const product of mockProducts) {
-    if (product.stockQuantity > product.minimumStockLevel) continue;
-    const isOut = product.stockQuantity <= 0;
+  for (const product of alerts) {
+    const isOut = product.currentStock <= 0;
     items.push({
-      id: `stock-${product.id}`,
+      id: `stock-${product.productId}`,
       title: isOut
-        ? `${product.name} is out of stock`
-        : `${product.name} is running low`,
+        ? `${product.productName} is out of stock`
+        : `${product.productName} is running low`,
       description: isOut
         ? `SKU ${product.sku} has no units left. Restock to resume orders.`
-        : `${product.stockQuantity} units left against a minimum of ${product.minimumStockLevel} (${product.sku}).`,
+        : `${product.currentStock} units left against a minimum of ${product.minimumStock} (${product.sku}).`,
       timestamp: product.updatedAt,
       href: "/inventory",
       variant: isOut ? "destructive" : "warning",
@@ -78,7 +79,27 @@ const NotificationsContext = createContext<NotificationsContextValue | null>(
 );
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [readIds, setReadIds] = useState<string[]>(loadReadIds);
+  const [stockAlerts, setStockAlerts] = useState<InventoryItem[]>([]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setStockAlerts([]);
+      return;
+    }
+    let cancelled = false;
+    listInventoryAlerts(undefined, 20)
+      .then((alerts) => {
+        if (!cancelled) setStockAlerts(alerts);
+      })
+      .catch(() => {
+        // Notifications are ancillary; a failed fetch must not break the shell.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     try {
@@ -93,16 +114,16 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markAllRead = useCallback(() => {
-    setReadIds(deriveNotifications().map((n) => n.id));
-  }, []);
+    setReadIds(deriveNotifications(stockAlerts).map((n) => n.id));
+  }, [stockAlerts]);
 
   const notifications = useMemo(
     () =>
-      deriveNotifications().map((n) => ({
+      deriveNotifications(stockAlerts).map((n) => ({
         ...n,
         read: readIds.includes(n.id),
       })),
-    [readIds]
+    [stockAlerts, readIds]
   );
 
   const unreadCount = useMemo(

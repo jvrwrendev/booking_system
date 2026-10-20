@@ -15,6 +15,8 @@ export const mockBranchOrders: BranchOrder[] = [
         subtotal: 6000,
       },
       {
+        productId: "PRD-009",
+        sku: "VET-VIT-009",
         productName: "Vitamins",
         quantity: 2,
         unitPrice: 1250,
@@ -60,12 +62,16 @@ export const mockBranchOrders: BranchOrder[] = [
     orderDate: "2026-09-04",
     items: [
       {
+        productId: "PRD-003",
+        sku: "FEED-BRL-003",
         productName: "Broiler Starter Feed",
         quantity: 4,
         unitPrice: 950,
         subtotal: 3800,
       },
       {
+        productId: "PRD-005",
+        sku: "FERT-URE-005",
         productName: "Urea Fertilizer (46-0-0)",
         quantity: 3,
         unitPrice: 1450,
@@ -126,6 +132,8 @@ export const mockBranchOrders: BranchOrder[] = [
     orderDate: "2026-09-02",
     items: [
       {
+        productId: "PRD-017",
+        sku: "EQP-PMP-017",
         productName: "Water Pump 1.5HP",
         quantity: 1,
         unitPrice: 8950,
@@ -200,6 +208,8 @@ export const mockBranchOrders: BranchOrder[] = [
     orderDate: "2026-08-28",
     items: [
       {
+        productId: "PRD-001",
+        sku: "FEED-HOG-001",
         productName: "Premium Hog Feed",
         quantity: 6,
         unitPrice: 1250,
@@ -290,6 +300,8 @@ export const mockBranchOrders: BranchOrder[] = [
         subtotal: 1800,
       },
       {
+        productId: "PRD-010",
+        sku: "VET-ANT-010",
         productName: "Antibiotic Injection",
         quantity: 2,
         unitPrice: 780,
@@ -343,12 +355,16 @@ export const mockBranchOrders: BranchOrder[] = [
     orderDate: "2026-09-06",
     items: [
       {
+        productId: "PRD-001",
+        sku: "FEED-HOG-001",
         productName: "Premium Hog Feed",
         quantity: 4,
         unitPrice: 1250,
         subtotal: 5000,
       },
       {
+        productId: "PRD-009",
+        sku: "VET-VIT-009",
         productName: "Multivitamin for Livestock",
         quantity: 2,
         unitPrice: 680,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Edit, Package } from "lucide-react";
 
@@ -13,28 +13,89 @@ import {
 } from "@/components/common/StatusBadge";
 import { PageHeader } from "@/components/common/PageHeader";
 import { NotFound } from "@/components/common/NotFound";
+import { LoadingState } from "@/components/common/LoadingState";
 
-import { useProductsStore } from "../hooks/useProductsStore";
 import { ProductFormSheet } from "../components/ProductFormSheet";
-import { mockCategories } from "@/data/mock-categories";
-import { getProductStockStatus } from "@/types/product";
+import { getProduct } from "../services/products.service";
+import { ApiError } from "@/lib/api-client";
+import type { Product } from "@/types/product";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { getProduct } = useProductsStore();
   const { can } = usePermissions();
   const navigate = useNavigate();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  const product = id ? getProduct(id) : undefined;
-  if (!product) {
+  const load = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    setNotFound(false);
+    try {
+      setProduct(await getProduct(id));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setNotFound(true);
+      } else {
+        setError(
+          err instanceof ApiError ? err.message : "Could not load the product.",
+        );
+      }
+      setProduct(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Button variant="ghost" size="sm" className="-ml-3" disabled>
+          <ArrowLeft className="h-4 w-4" />
+          Back to products
+        </Button>
+        <LoadingState rows={5} showHeader={false} />
+      </div>
+    );
+  }
+
+  if (notFound || (!product && !error)) {
     return <NotFound title="Product not found" backHref="/products" />;
   }
 
-  const category = mockCategories.find((c) => c.id === product.categoryId);
-  const stockStatus = getProductStockStatus(product);
+  if (error || !product) {
+    return (
+      <div className="space-y-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-3"
+          onClick={() => navigate("/products")}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to products
+        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span>{error ?? "Could not load the product."}</span>
+          <Button variant="outline" size="sm" onClick={() => void load()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const stockStatus = product.stockStatus ?? "out_of_stock";
   const margin = product.sellingPrice - product.costPrice;
   const marginPercent =
     product.costPrice > 0
@@ -55,7 +116,7 @@ export function ProductDetailPage() {
 
       <PageHeader
         title={product.name}
-        description={`SKU ${product.sku} · ${category?.name ?? "Uncategorized"}`}
+        description={`SKU ${product.sku} · ${product.categoryName ?? "Uncategorized"}`}
         breadcrumbs={[
           { label: "Operations" },
           { label: "Products", href: "/products" },
@@ -96,7 +157,7 @@ export function ProductDetailPage() {
                   {product.description || "No description provided."}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Category: {category?.name ?? "Uncategorized"}
+                  Category: {product.categoryName ?? "Uncategorized"}
                 </p>
               </div>
             </div>
@@ -166,6 +227,7 @@ export function ProductDetailPage() {
         open={editOpen}
         onOpenChange={setEditOpen}
         product={product}
+        onSaved={setProduct}
       />
     </div>
   );

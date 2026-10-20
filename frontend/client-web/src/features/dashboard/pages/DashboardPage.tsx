@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -35,8 +35,6 @@ import {
   CircleDollarSign,
 } from "lucide-react";
 
-import { mockProducts } from "@/data/mock-products";
-import { mockCategories } from "@/data/mock-categories";
 import { mockCustomers } from "@/data/mock-customers";
 import { mockAgents } from "@/data/mock-agents";
 import { mockBranches } from "@/data/mock-branches";
@@ -53,16 +51,31 @@ import {
   getStockStatusVariant,
   StatusBadge,
 } from "@/components/common/StatusBadge";
+import { getInventorySummary } from "@/features/inventory/services/inventory.service";
+import type { InventorySummary } from "@/types/inventory";
 
 export function DashboardPage() {
-  const totalProducts = mockProducts.length;
-  const totalInventoryValue = mockProducts.reduce(
-    (sum, p) => sum + p.stockQuantity * p.costPrice,
-    0
-  );
-  const lowStockItems = mockProducts.filter(
-    (p) => p.stockQuantity <= p.minimumStockLevel
-  );
+  const [inventorySummary, setInventorySummary] =
+    useState<InventorySummary | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getInventorySummary()
+      .then((summary) => {
+        if (!cancelled) setInventorySummary(summary);
+      })
+      .catch(() => {
+        // The dashboard still renders booking and customer metrics if the
+        // inventory summary cannot be loaded.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const totalProducts = inventorySummary?.totalProducts ?? 0;
+  const totalInventoryValue = inventorySummary?.inventoryValue ?? 0;
+  const lowStockItems = inventorySummary?.alerts ?? [];
   const pendingBookings = mockBookings.filter((b) => b.status === "pending");
   const todayIso = new Date().toISOString().slice(0, 10);
   const todaysBookings = mockBookings.filter((b) => b.bookingDate === todayIso);
@@ -422,23 +435,13 @@ export function DashboardPage() {
               </TableHeader>
               <TableBody>
                 {lowStockItems.slice(0, 5).map((product) => {
-                  const stockStatus = (() => {
-                    if (product.stockQuantity <= 0) return "out_of_stock";
-                    if (
-                      product.stockQuantity <=
-                      Math.max(product.minimumStockLevel / 2, 1)
-                    )
-                      return "critical";
-                    if (product.stockQuantity <= product.minimumStockLevel)
-                      return "low_stock";
-                    return "in_stock";
-                  })();
+                  const stockStatus = product.status;
                   return (
-                    <TableRow key={product.id}>
+                    <TableRow key={`${product.productId}-${product.branchId}`}>
                       <TableCell>
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium">
-                            {product.name}
+                            {product.productName}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {product.sku}
@@ -446,10 +449,10 @@ export function DashboardPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right tabular-nums font-medium">
-                        {product.stockQuantity}
+                        {product.currentStock}
                       </TableCell>
                       <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {product.minimumStockLevel}
+                        {product.minimumStock}
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge

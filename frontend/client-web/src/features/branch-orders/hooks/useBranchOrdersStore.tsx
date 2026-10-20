@@ -14,6 +14,11 @@ import type { BranchOrder, BranchOrderStatus } from "@/types/branch-order";
 import type { StatusHistoryEntry } from "@/types/order-history";
 import { humanize } from "@/components/common/StatusBadge";
 import { formatCurrency } from "@/lib/utils";
+import {
+  commitOrderStock,
+  releaseOrderStock,
+} from "@/features/inventory/services/inventory.service";
+import { ApiError } from "@/lib/api-client";
 
 const STORAGE_KEY = "agrivet-branch-orders-v2";
 
@@ -88,11 +93,60 @@ export function BranchOrdersProvider({ children }: { children: ReactNode }) {
   }, [orders]);
 
   const setStatus = useCallback(
-    (
+    async (
       id: string,
       status: BranchOrderStatus,
       by?: Pick<AuthUser, "id" | "fullName">
     ) => {
+      const order = orders.find((item) => item.id === id);
+      if (!order) return;
+
+      const shouldCommit = status === "completed";
+      const shouldRelease = status === "rejected";
+
+      if (shouldCommit || shouldRelease) {
+        try {
+          const items = order.items.map((item) => ({
+            productId: item.productId,
+            sku: item.sku,
+            productName: item.productName,
+            quantity: item.quantity,
+          }));
+
+          if (shouldCommit) {
+            const result = await commitOrderStock(
+              "branch_order",
+              order.id,
+              order.branchId,
+              items
+            );
+            if (result.skipped > 0) {
+              toast.warning("Some items were not found in inventory", {
+                description: `${result.skipped} item(s) could not be matched to a product.`,
+              });
+            }
+          } else {
+            await releaseOrderStock(
+              "branch_order",
+              order.id,
+              order.branchId,
+              items
+            );
+          }
+        } catch (error) {
+          toast.error(
+            shouldCommit ? "Could not deduct stock" : "Could not restore stock",
+            {
+              description:
+                error instanceof ApiError
+                  ? error.message
+                  : "The order status was not changed. Please try again.",
+            }
+          );
+          return;
+        }
+      }
+
       setOrders((prev) =>
         prev.map((o) => {
           if (o.id !== id) return o;
@@ -110,7 +164,7 @@ export function BranchOrdersProvider({ children }: { children: ReactNode }) {
         description: `Order marked as ${humanize(status)}.`,
       });
     },
-    []
+    [orders]
   );
 
   const assignOrder = useCallback(
