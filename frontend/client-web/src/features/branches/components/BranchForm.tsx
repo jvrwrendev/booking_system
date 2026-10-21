@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -15,9 +14,17 @@ import {
   FormFooter,
 } from "@/components/common/FormPageLayout";
 import { AddressSelector } from "@/components/common/AddressSelector";
+import { PasswordInput } from "@/components/common/PasswordInput";
 
 import type { Branch, BranchFormValues } from "@/types/branch";
 import { emptyAddress } from "@/lib/utils";
+import {
+  hasErrors,
+  isBlank,
+  isEmail,
+  MIN_PASSWORD_LENGTH,
+  type FieldErrors,
+} from "@/lib/validation";
 
 interface BranchFormProps {
   initial?: Branch;
@@ -26,6 +33,44 @@ interface BranchFormProps {
   onCancel?: () => void;
   hideFooter?: boolean;
   formId?: string;
+}
+
+type BranchField =
+  | "name"
+  | "code"
+  | "email"
+  | "password"
+  | "confirmPassword";
+
+function validateBranch(
+  values: BranchFormValues,
+  requirePassword: boolean
+): FieldErrors<BranchField> {
+  const errors: FieldErrors<BranchField> = {};
+
+  if (isBlank(values.name)) {
+    errors.name = "Branch name is required.";
+  }
+  if (isBlank(values.code)) {
+    errors.code = "Branch code is required.";
+  }
+  if (isBlank(values.email)) {
+    errors.email = "Email is required.";
+  } else if (!isEmail(values.email)) {
+    errors.email = "Enter a valid email address.";
+  }
+  if (requirePassword) {
+    if (isBlank(values.password)) {
+      errors.password = "Password is required.";
+    } else if (values.password.length < MIN_PASSWORD_LENGTH) {
+      errors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+    }
+    if (values.confirmPassword !== values.password) {
+      errors.confirmPassword = "Passwords do not match.";
+    }
+  }
+
+  return errors;
 }
 
 export function BranchForm({
@@ -61,28 +106,67 @@ export function BranchForm({
           status: "active",
         }
   );
-  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors<BranchField>>({});
+  const formRef = useRef<HTMLFormElement>(null);
+
+  /** Clears a field's message as soon as the user edits it. */
+  const update = <K extends keyof BranchFormValues>(
+    key: K,
+    value: BranchFormValues[K]
+  ) => {
+    setValues((v) => ({ ...v, [key]: value }));
+    setErrors((e) => ({ ...e, [key]: undefined }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const nextErrors = validateBranch(values, !initial);
+
+    // A blank password while editing means "leave it unchanged".
+    if (initial && !values.password) {
+      delete nextErrors.password;
+      delete nextErrors.confirmPassword;
+    }
+
+    setErrors(nextErrors);
+    if (hasErrors(nextErrors)) {
+      requestAnimationFrame(() => {
+        formRef.current
+          ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+          ?.focus();
+      });
+      return;
+    }
+
     onSubmit(values);
   };
 
   return (
-    <form id={formId} onSubmit={handleSubmit} className="space-y-12">
+    <form
+      id={formId}
+      ref={formRef}
+      onSubmit={handleSubmit}
+      className="space-y-10"
+      noValidate
+    >
       <FormSection
         title="Branch details"
         description="Basic information about the branch."
       >
         <div className="grid gap-5 sm:grid-cols-2">
-          <FormField label="Branch name" required htmlFor="name">
+          <FormField
+            label="Branch name"
+            required
+            htmlFor="name"
+            error={errors.name}
+          >
             <Input
               id="name"
               value={values.name}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, name: e.target.value }))
-              }
+              onChange={(e) => update("name", e.target.value)}
               placeholder="Quezon City Main Branch"
+              aria-invalid={!!errors.name}
               className="h-10"
             />
           </FormField>
@@ -91,30 +175,31 @@ export function BranchForm({
             required
             htmlFor="code"
             hint="Short identifier. Will be auto-uppercased."
+            error={errors.code}
           >
             <Input
               id="code"
               value={values.code}
-              onChange={(e) =>
-                setValues((v) => ({
-                  ...v,
-                  code: e.target.value.toUpperCase(),
-                }))
-              }
+              onChange={(e) => update("code", e.target.value.toUpperCase())}
               placeholder="AGR-QC"
+              aria-invalid={!!errors.code}
               className="h-10 font-mono"
             />
           </FormField>
-          <FormField label="Email" required htmlFor="email">
+          <FormField
+            label="Email"
+            required
+            htmlFor="email"
+            error={errors.email}
+          >
             <Input
               id="email"
               type="email"
               value={values.email}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, email: e.target.value }))
-              }
+              onChange={(e) => update("email", e.target.value)}
               placeholder="branch@agrivet.ph"
               autoComplete="email"
+              aria-invalid={!!errors.email}
               className="h-10"
             />
           </FormField>
@@ -127,9 +212,7 @@ export function BranchForm({
             <Input
               id="manager"
               value={values.manager}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, manager: e.target.value }))
-              }
+              onChange={(e) => update("manager", e.target.value)}
               placeholder="Juan Dela Cruz"
               className="h-10"
             />
@@ -143,9 +226,7 @@ export function BranchForm({
       >
         <AddressSelector
           value={values.addressParts}
-          onChange={(addressParts) =>
-            setValues((v) => ({ ...v, addressParts }))
-          }
+          onChange={(addressParts) => update("addressParts", addressParts)}
         />
       </FormSection>
 
@@ -163,9 +244,7 @@ export function BranchForm({
             <Input
               id="contactNumber"
               value={values.contactNumber}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, contactNumber: e.target.value }))
-              }
+              onChange={(e) => update("contactNumber", e.target.value)}
               placeholder="+63 2 XXX XXXX"
               autoComplete="tel"
               className="h-10"
@@ -204,50 +283,31 @@ export function BranchForm({
             required={!initial}
             htmlFor="password"
             hint="At least 8 characters."
+            error={errors.password}
           >
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                value={values.password}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, password: e.target.value }))
-                }
-                placeholder="••••••••"
-                autoComplete="new-password"
-                className="h-10 pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
+            <PasswordInput
+              id="password"
+              value={values.password}
+              onChange={(e) => update("password", e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              aria-invalid={!!errors.password}
+              className="h-10"
+            />
           </FormField>
           <FormField
             label="Confirm password"
             required={!initial}
             htmlFor="confirmPassword"
+            error={errors.confirmPassword}
           >
-            <Input
+            <PasswordInput
               id="confirmPassword"
-              type={showPassword ? "text" : "password"}
               value={values.confirmPassword}
-              onChange={(e) =>
-                setValues((v) => ({
-                  ...v,
-                  confirmPassword: e.target.value,
-                }))
-              }
+              onChange={(e) => update("confirmPassword", e.target.value)}
               placeholder="••••••••"
               autoComplete="new-password"
+              aria-invalid={!!errors.confirmPassword}
               className="h-10"
             />
           </FormField>

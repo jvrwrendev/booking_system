@@ -12,7 +12,7 @@ import { mockBranchOrders } from "@/data/mock-branch-orders";
 import type { AuthUser } from "@/types/auth";
 import type { BranchOrder, BranchOrderStatus } from "@/types/branch-order";
 import type { StatusHistoryEntry } from "@/types/order-history";
-import { humanize } from "@/components/common/StatusBadge";
+import { humanize } from "@/lib/status";
 import { formatCurrency } from "@/lib/utils";
 import {
   commitOrderStock,

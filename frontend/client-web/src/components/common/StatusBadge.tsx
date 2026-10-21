@@ -1,14 +1,16 @@
 import { Badge } from "@/components/ui/badge";
+import {
+  getStatusVariant,
+  humanize,
+  type StatusVariant,
+} from "@/lib/status";
 
-export type StatusVariant =
-  | "success"
-  | "warning"
-  | "destructive"
-  | "info"
-  | "muted"
-  | "default"
-  | "secondary";
-
+/**
+ * Status chip used across every module.
+ *
+ * The variant mapping itself lives in `@/lib/status` so that all modules
+ * resolve a given status to the same colour.
+ */
 export function StatusBadge({
   label,
   variant = "muted",
@@ -19,82 +21,12 @@ export function StatusBadge({
   return <Badge variant={variant}>{label}</Badge>;
 }
 
-export function getBookingStatusVariant(
-  status: string
-): StatusVariant {
-  switch (status) {
-    case "completed":
-    case "ready_for_delivery":
-      return "success";
-    case "assigned":
-      return "warning";
-    case "pending":
-      return "warning";
-    case "admin_accepted":
-    case "confirmed":
-    case "accepted":
-      return "info";
-    case "processing":
-      return "info";
-    case "ready":
-      return "info";
-    case "cancelled":
-    case "rejected":
-      return "destructive";
-    default:
-      return "muted";
-  }
-}
+export type { StatusVariant };
+export { getStatusVariant, humanize };
 
-export function getBranchOrderStatusVariant(status: string): StatusVariant {
-  switch (status) {
-    case "completed":
-    case "ready_for_delivery":
-      return "success";
-    case "accepted":
-    case "admin_accepted":
-    case "processing":
-    case "ready":
-      return "info";
-    case "pending":
-    case "assigned":
-      return "warning";
-    case "rejected":
-      return "destructive";
-    default:
-      return "muted";
-  }
-}
-
-export function getStockStatusVariant(
-  status: string
-): StatusVariant {
-  switch (status) {
-    case "in_stock":
-      return "success";
-    case "low_stock":
-      return "warning";
-    case "critical":
-      return "warning";
-    case "out_of_stock":
-      return "destructive";
-    default:
-      return "muted";
-  }
-}
-
-export function getStatusVariantFromGeneric(status: string): StatusVariant {
-  if (status === "active" || status === "completed") return "success";
-  if (status === "inactive" || status === "suspended") return "muted";
-  if (status === "cancelled" || status === "rejected" || status === "out_of_stock")
-    return "destructive";
-  if (status === "pending") return "warning";
-  return "default";
-}
-
-export function humanize(value: string): string {
-  return value
-    .split("_")
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(" ");
-}
+/* Legacy aliases kept so existing call sites keep working while they are
+ * migrated to the unified `getStatusVariant` helper. */
+export const getBookingStatusVariant = getStatusVariant;
+export const getBranchOrderStatusVariant = getStatusVariant;
+export const getStockStatusVariant = getStatusVariant;
+export const getStatusVariantFromGeneric = getStatusVariant;

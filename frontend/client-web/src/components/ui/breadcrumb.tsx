@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -14,21 +15,31 @@ export function Breadcrumb({ items, className, ...props }: BreadcrumbProps) {
       className={cn("text-sm text-muted-foreground", className)}
       {...props}
     >
-      <ol className="flex items-center gap-1">
+      <ol className="flex flex-wrap items-center gap-1">
         {items.map((item, idx) => {
           const last = idx === items.length - 1;
+          const content = last ? (
+            <span className="font-medium text-foreground">{item.label}</span>
+          ) : item.href ? (
+            <Link
+              to={item.href}
+              className="rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              {item.label}
+            </Link>
+          ) : (
+            <span>{item.label}</span>
+          );
+
           return (
-            <li key={idx} className="flex items-center gap-1">
+            <li key={`${item.label}-${idx}`} className="flex items-center gap-1">
               {idx > 0 && (
-                <ChevronRight className="h-3.5 w-3.5 opacity-50" />
+                <ChevronRight
+                  className="h-3.5 w-3.5 shrink-0 opacity-50"
+                  aria-hidden
+                />
               )}
-              <span
-                className={cn(
-                  last ? "font-medium text-foreground" : "hover:text-foreground"
-                )}
-              >
-                {item.label}
-              </span>
+              {content}
             </li>
           );
         })}

@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -16,9 +15,15 @@ import {
 } from "@/components/common/FormPageLayout";
 import { AddressSelector } from "@/components/common/AddressSelector";
 import { NameSuffixSelect } from "@/components/common/NameSuffixSelect";
+import { PasswordInput } from "@/components/common/PasswordInput";
 
 import type { Agent, AgentFormValues } from "@/types/agent";
 import { computeFullName, emptyAddress } from "@/lib/utils";
+import {
+  hasErrors,
+  validatePersonFields,
+  type FieldErrors,
+} from "@/lib/validation";
 
 interface AgentFormProps {
   initial?: Agent;
@@ -28,6 +33,14 @@ interface AgentFormProps {
   hideFooter?: boolean;
   formId?: string;
 }
+
+type AgentField =
+  | "firstName"
+  | "middleName"
+  | "lastName"
+  | "email"
+  | "password"
+  | "confirmPassword";
 
 export function AgentForm({
   initial,
@@ -64,7 +77,8 @@ export function AgentForm({
           status: "active",
         }
   );
-  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors<AgentField>>({});
+  const formRef = useRef<HTMLFormElement>(null);
 
   const previewName = computeFullName(
     values.firstName,
@@ -73,27 +87,73 @@ export function AgentForm({
     values.suffix
   );
 
+  /** Clears a field's message as soon as the user edits it. */
+  const update = <K extends keyof AgentFormValues>(
+    key: K,
+    value: AgentFormValues[K]
+  ) => {
+    setValues((v) => ({ ...v, [key]: value }));
+    setErrors((e) => ({ ...e, [key]: undefined }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const nextErrors = validatePersonFields({
+      firstName: values.firstName,
+      lastName: values.lastName,
+      email: values.email,
+      password: values.password,
+      confirmPassword: values.confirmPassword,
+      // Editing keeps the existing password unless a new one is typed.
+      requirePassword: !initial,
+    });
+
+    // A blank password while editing means "leave it unchanged".
+    if (initial && !values.password) {
+      delete nextErrors.password;
+      delete nextErrors.confirmPassword;
+    }
+
+    setErrors(nextErrors);
+    if (hasErrors(nextErrors)) {
+      requestAnimationFrame(() => {
+        formRef.current
+          ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+          ?.focus();
+      });
+      return;
+    }
+
     onSubmit(values);
   };
 
   return (
-    <form id={formId} onSubmit={handleSubmit} className="space-y-12">
+    <form
+      id={formId}
+      ref={formRef}
+      onSubmit={handleSubmit}
+      className="space-y-10"
+      noValidate
+    >
       <FormSection
         title="Personal information"
         description="The agent's legal name and primary contact details."
       >
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <FormField label="First name" required htmlFor="firstName">
+          <FormField
+            label="First name"
+            required
+            htmlFor="firstName"
+            error={errors.firstName}
+          >
             <Input
               id="firstName"
               value={values.firstName}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, firstName: e.target.value }))
-              }
+              onChange={(e) => update("firstName", e.target.value)}
               placeholder="Roberto"
               autoComplete="given-name"
+              aria-invalid={!!errors.firstName}
               className="h-10"
             />
           </FormField>
@@ -101,30 +161,33 @@ export function AgentForm({
             <Input
               id="middleName"
               value={values.middleName}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, middleName: e.target.value }))
-              }
+              onChange={(e) => update("middleName", e.target.value)}
               placeholder="Middle name"
               autoComplete="additional-name"
               className="h-10"
             />
           </FormField>
-          <FormField label="Last name" required htmlFor="lastName">
+          <FormField
+            label="Last name"
+            required
+            htmlFor="lastName"
+            error={errors.lastName}
+          >
             <Input
               id="lastName"
               value={values.lastName}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, lastName: e.target.value }))
-              }
+              onChange={(e) => update("lastName", e.target.value)}
               placeholder="Garcia"
               autoComplete="family-name"
+              aria-invalid={!!errors.lastName}
               className="h-10"
             />
           </FormField>
           <FormField label="Suffix" optional htmlFor="suffix">
             <NameSuffixSelect
+              id="suffix"
               value={values.suffix}
-              onChange={(suffix) => setValues((v) => ({ ...v, suffix }))}
+              onChange={(suffix) => update("suffix", suffix)}
             />
           </FormField>
         </div>
@@ -142,16 +205,16 @@ export function AgentForm({
             required
             htmlFor="email"
             hint="Used for signing in and notifications."
+            error={errors.email}
           >
             <Input
               id="email"
               type="email"
               value={values.email}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, email: e.target.value }))
-              }
+              onChange={(e) => update("email", e.target.value)}
               placeholder="agent@agrivet.ph"
               autoComplete="email"
+              aria-invalid={!!errors.email}
               className="h-10"
             />
           </FormField>
@@ -164,12 +227,7 @@ export function AgentForm({
             <Input
               id="contactNumber"
               value={values.contactNumber}
-              onChange={(e) =>
-                setValues((v) => ({
-                  ...v,
-                  contactNumber: e.target.value,
-                }))
-              }
+              onChange={(e) => update("contactNumber", e.target.value)}
               placeholder="+63 9XX XXX XXXX"
               autoComplete="tel"
               className="h-10"
@@ -184,9 +242,7 @@ export function AgentForm({
       >
         <AddressSelector
           value={values.addressParts}
-          onChange={(addressParts) =>
-            setValues((v) => ({ ...v, addressParts }))
-          }
+          onChange={(addressParts) => update("addressParts", addressParts)}
         />
       </FormSection>
 
@@ -204,50 +260,31 @@ export function AgentForm({
             required={!initial}
             htmlFor="password"
             hint="At least 8 characters."
+            error={errors.password}
           >
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                value={values.password}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, password: e.target.value }))
-                }
-                placeholder="••••••••"
-                autoComplete="new-password"
-                className="h-10 pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
+            <PasswordInput
+              id="password"
+              value={values.password}
+              onChange={(e) => update("password", e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              aria-invalid={!!errors.password}
+              className="h-10"
+            />
           </FormField>
           <FormField
             label="Confirm password"
             required={!initial}
             htmlFor="confirmPassword"
+            error={errors.confirmPassword}
           >
-            <Input
+            <PasswordInput
               id="confirmPassword"
-              type={showPassword ? "text" : "password"}
               value={values.confirmPassword}
-              onChange={(e) =>
-                setValues((v) => ({
-                  ...v,
-                  confirmPassword: e.target.value,
-                }))
-              }
+              onChange={(e) => update("confirmPassword", e.target.value)}
               placeholder="••••••••"
               autoComplete="new-password"
+              aria-invalid={!!errors.confirmPassword}
               className="h-10"
             />
           </FormField>
@@ -258,7 +295,7 @@ export function AgentForm({
         title="Account status"
         description="Control whether this agent can sign in and access the system."
       >
-        <div className="grid gap-5 sm:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2">
           <FormField label="Status" htmlFor="status">
             <Select
               value={values.status}

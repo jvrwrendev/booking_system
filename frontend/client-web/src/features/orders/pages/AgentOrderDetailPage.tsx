@@ -1,33 +1,18 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import {
-  ArrowLeft,
-  BadgePercent,
-  CalendarDays,
-  CheckCircle2,
-  History,
-  Mail,
-  MapPin,
-  Package,
-  Phone,
-  ShieldAlert,
-  Truck,
-  User,
-  UserCheck,
-  XCircle,
-} from "lucide-react";
+import { ArrowLeft, BadgePercent, CalendarDays, CheckCircle2, History, Mail, MapPin, Phone, ShieldAlert, Truck, User, UserCheck, XCircle } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { PageHeader } from "@/components/common/PageHeader";
 import { ActivityTimeline } from "@/components/common/ActivityTimeline";
-import {
-  StatusBadge,
-  getBookingStatusVariant,
-  humanize,
-} from "@/components/common/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { getStatusVariant, humanize } from "@/lib/status";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { OrderItemsTable } from "@/components/common/OrderItemsTable";
+import { DetailRow } from "@/components/common/DescriptionList";
+import { NotFound } from "@/components/common/NotFound";
 
 import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
 import { AssignmentDialog } from "@/features/bookings/components/AssignmentDialog";
@@ -39,7 +24,7 @@ import { mockUsers } from "@/data/mock-users";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
-import type { Booking, BookingStatus } from "@/types/booking";
+import type { BookingStatus } from "@/types/booking";
 
 const TERMINAL_STATUSES = [
   "completed",
@@ -94,11 +79,12 @@ export function AgentOrderDetailPage() {
             Back to orders
           </Link>
         </Button>
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Agent order not found.
-          </CardContent>
-        </Card>
+        <NotFound
+          title="Agent order not found"
+          message="The agent order you are looking for does not exist."
+          backHref="/orders"
+          backLabel="Back to orders"
+        />
       </div>
     );
   }
@@ -179,7 +165,7 @@ export function AgentOrderDetailPage() {
         actions={
           <div className="flex flex-col items-end gap-2">
             <StatusBadge
-              variant={getBookingStatusVariant(booking.status)}
+              variant={getStatusVariant(booking.status)}
               label={humanize(booking.status)}
             />
             {isSuperAdmin && (
@@ -287,49 +273,28 @@ export function AgentOrderDetailPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="py-2 text-left font-medium">Product</th>
-                    <th className="py-2 text-right font-medium">Quantity</th>
-                    <th className="py-2 text-right font-medium">Unit Price</th>
-                    <th className="py-2 text-right font-medium">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {booking.items.map((item) => (
-                    <tr key={item.productId} className="border-t">
-                      <td className="py-2.5">
-                        <div className="flex items-center gap-2">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{item.productName}</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 text-right">{item.quantity}</td>
-                      <td className="py-2.5 text-right">
-                        {formatCurrency(item.unitPrice)}
-                      </td>
-                      <td className="py-2.5 text-right font-medium">
-                        {formatCurrency(item.subtotal)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <OrderItemsTable
+              items={booking.items.map((item) => ({
+                key: item.productId,
+                productName: item.productName,
+                sku: item.sku,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                subtotal: item.subtotal,
+              }))}
+            />
             <Separator />
-            <div className="ml-auto max-w-xs space-y-1.5 text-sm">
-              <Row label="Subtotal" value={formatCurrency(booking.subtotal)} />
-              <Row
+            <div className="ml-auto max-w-xs space-y-2">
+              <DetailRow label="Subtotal" value={formatCurrency(booking.subtotal)} />
+              <DetailRow
                 label="Discounts"
                 value={`-${formatCurrency(booking.discount)}`}
               />
               <Separator />
-              <Row
-                label="Total Amount"
+              <DetailRow
+                label="Total amount"
                 value={formatCurrency(booking.totalAmount)}
-                highlight
+                emphasis
               />
             </div>
           </CardContent>
@@ -393,7 +358,7 @@ export function AgentOrderDetailPage() {
                 <>
                   <Separator />
                   <div>
-                    <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Notes
                     </div>
                     <p className="mt-1 text-sm">{booking.notes}</p>
@@ -427,7 +392,7 @@ export function AgentOrderDetailPage() {
               value={
                 booking.assignedAdminName
                   ? assignedUser?.role === "SUPER_ADMIN"
-                    ? `${booking.assignedAdminName} (Super Admin)`
+                  ? `${booking.assignedAdminName} (Super Admin)`
                     : booking.assignedAdminName
                   : "—"
               }
@@ -517,25 +482,6 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium">{value}</span>
-    </div>
-  );
-}
-
-function Row({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className={highlight ? "font-semibold" : "text-muted-foreground"}>
-        {label}
-      </span>
-      <span className={highlight ? "text-base font-semibold" : ""}>{value}</span>
     </div>
   );
 }

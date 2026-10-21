@@ -3,26 +3,25 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Flat badge system. Tinted variants use a low-opacity background with a
+ * saturated foreground so the label keeps a >= 4.5:1 contrast ratio without
+ * relying on elevation.
+ */
 const badgeVariants = cva(
-  "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium leading-5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
   {
     variants: {
       variant: {
-        default:
-          "border-transparent bg-primary text-primary-foreground shadow",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground",
+        default: "border-transparent bg-primary text-primary-foreground",
+        secondary: "border-transparent bg-secondary text-secondary-foreground",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground shadow",
-        outline: "text-foreground",
-        success:
-          "border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-        warning:
-          "border-transparent bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-        info:
-          "border-transparent bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
-        muted:
-          "border-transparent bg-muted text-muted-foreground",
+          "border-transparent bg-destructive text-destructive-foreground",
+        outline: "border-border bg-transparent text-foreground",
+        success: "border-transparent bg-success/12 text-success",
+        warning: "border-transparent bg-warning/12 text-warning",
+        info: "border-transparent bg-info/12 text-info",
+        muted: "border-transparent bg-muted text-muted-foreground",
       },
     },
     defaultVariants: {

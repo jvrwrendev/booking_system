@@ -12,7 +12,7 @@ import { mockBookings } from "@/data/mock-bookings";
 import type { AuthUser } from "@/types/auth";
 import type { Booking, BookingStatus } from "@/types/booking";
 import type { StatusHistoryEntry } from "@/types/order-history";
-import { humanize } from "@/components/common/StatusBadge";
+import { humanize } from "@/lib/status";
 import { formatCurrency } from "@/lib/utils";
 import {
   commitOrderStock,

@@ -119,12 +119,6 @@ export function truncate(text: string, max = 50): string {
   return text.slice(0, max) + "…";
 }
 
-export function humanize(value: string): string {
-  return value
-    .split("_")
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(" ");
-}
 
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));

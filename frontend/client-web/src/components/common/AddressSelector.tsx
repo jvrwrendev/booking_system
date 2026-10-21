@@ -1,5 +1,5 @@
+import { Spinner } from "@/components/ui/spinner";
 import { useMemo } from "react";
-import { Loader2 } from "lucide-react";
 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -242,7 +242,7 @@ export function AddressSelector({ value, onChange }: AddressSelectorProps) {
                 placeholder={
                   isCityLoading ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Loading...
+                      <Spinner className="h-3 w-3" /> Loading…
                     </span>
                   ) : !value.region.code
                   ? "Select region first"
@@ -276,7 +276,7 @@ export function AddressSelector({ value, onChange }: AddressSelectorProps) {
                 placeholder={
                   barangays.loading ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Loading...
+                      <Spinner className="h-3 w-3" /> Loading…
                     </span>
                   ) : !value.city.code
                   ? "Select city first"

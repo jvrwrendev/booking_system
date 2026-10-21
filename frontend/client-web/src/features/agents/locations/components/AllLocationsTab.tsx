@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { Loader2, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn, relativeTime } from "@/lib/utils";
@@ -65,7 +66,7 @@ export function AllLocationsTab() {
           initialZoom={DEFAULT_MAP_ZOOM}
           selectedZoom={12}
           fitSignal={fitSignal}
-          className="h-[560px] border"
+          className="h-[360px] border md:h-[460px] lg:h-[560px]"
           onRecenterClick={() => setFitSignal((n) => n + 1)}
           recenterLabel="Recenter Map"
         />
@@ -81,7 +82,7 @@ export function AllLocationsTab() {
               </span>
             </CardTitle>
             {loading && locations.length === 0 && (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              <Spinner className="h-3.5 w-3.5" />
             )}
           </div>
 
@@ -115,7 +116,8 @@ export function AllLocationsTab() {
                   type="button"
                   size="sm"
                   variant={isActive ? "default" : "outline"}
-                  className={cn("h-7 px-2.5 text-xs")}
+                  className={cn("h-8 px-2.5 text-xs")}
+                  aria-pressed={isActive}
                   onClick={() => setStatusFilter(filter.value)}
                 >
                   {filter.label}
@@ -129,7 +131,7 @@ export function AllLocationsTab() {
         </CardHeader>
 
         <CardContent className="min-h-0 flex-1 p-0">
-          <ScrollArea className="h-[380px]">
+          <ScrollArea className="h-[320px] lg:h-[380px]">
             <AgentLocationList
               locations={filtered}
               selectedId={selectedId}

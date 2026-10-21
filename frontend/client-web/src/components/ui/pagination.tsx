@@ -30,7 +30,7 @@ const PaginationItem = React.forwardRef<
   HTMLLIElement,
   React.ComponentProps<"li">
 >(({ className, ...props }, ref) => (
-  <li ref={ref} className={cn("", className)} {...props} />
+  <li ref={ref} className={cn(className)} {...props} />
 ));
 PaginationItem.displayName = "PaginationItem";
 
@@ -61,6 +61,7 @@ const PaginationPrevious = ({
     variant="ghost"
     size="icon"
     className={cn("h-8 w-8", className)}
+    aria-label="Go to previous page"
     {...props}
   >
     <ChevronLeft className="h-4 w-4" />
@@ -76,6 +77,7 @@ const PaginationNext = ({
     variant="ghost"
     size="icon"
     className={cn("h-8 w-8", className)}
+    aria-label="Go to next page"
     {...props}
   >
     <ChevronRight className="h-4 w-4" />

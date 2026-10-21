@@ -1,41 +1,26 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  Eye,
-  Filter,
-  MoreHorizontal,
-  Route,
-} from "lucide-react";
+import { Eye, Filter, MoreHorizontal, Route } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
+import { AssignedAdminCell } from "@/components/common/AssignedAdminCell";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import {
-  StatusBadge,
-  getBookingStatusVariant,
+  getStatusVariant,
   humanize,
-} from "@/components/common/StatusBadge";
+  ORDER_STATUS_OPTIONS,
+} from "@/lib/status";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 import { useBookingsStore } from "../hooks/useBookingsStore";
-import type { Booking, BookingStatus } from "@/types/booking";
+import { Booking } from "@/types/booking";
 import { mockBranches } from "@/data/mock-branches";
 import { mockAgents } from "@/data/mock-agents";
-import { formatCurrency, formatDate, initials } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function BookingsListPage() {
@@ -117,7 +102,7 @@ export function BookingsListPage() {
       header: "Status",
       cell: (b) => (
         <StatusBadge
-          variant={getBookingStatusVariant(b.status)}
+          variant={getStatusVariant(b.status)}
           label={humanize(b.status)}
         />
       ),
@@ -128,7 +113,7 @@ export function BookingsListPage() {
       cell: (b) => (
         <div className="text-sm">
           <div>{formatDate(b.bookingDate)}</div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             Pickup {formatDate(b.pickupDate)}
           </div>
         </div>
@@ -140,27 +125,12 @@ export function BookingsListPage() {
     {
       id: "assigned",
       header: "Assigned Admin",
-      cell: (b) => {
-        if (b.assignedAdminId && b.assignedAdminName) {
-          return (
-            <div className="flex items-center gap-2">
-              <Avatar className="h-6 w-6">
-                <AvatarFallback className="text-[10px]">
-                  {initials(b.assignedAdminName)}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium">
-                {b.assignedAdminName}
-              </span>
-            </div>
-          );
-        }
-        return (
-          <Badge variant="muted" className="text-[10px]">
-            Unassigned
-          </Badge>
-        );
-      },
+      cell: (b) => (
+        <AssignedAdminCell
+          adminId={b.assignedAdminId}
+          adminName={b.assignedAdminName}
+        />
+      ),
       className: "hidden md:table-cell",
     },
     {
@@ -170,7 +140,11 @@ export function BookingsListPage() {
       cell: (b) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label={`Actions for ${b.reference}`}
+            >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -197,19 +171,10 @@ export function BookingsListPage() {
     <div className="space-y-6">
       <PageHeader
         title="Bookings"
-        description={
-          isSuperAdmin
-            ? "Manage, assign, and track customer bookings across all branches."
-            : "View all bookings across all branches."
-        }
+        description={isSuperAdmin
+          ? "Manage, assign, and track customer bookings across all branches."
+          : "View all bookings across all branches."}
         breadcrumbs={[{ label: "Operations" }, { label: "Bookings" }]}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button asChild variant="outline">
-              <Link to="/bookings/new">New booking</Link>
-            </Button>
-          </div>
-        }
       />
 
       <DataTable<Booking>
@@ -228,34 +193,20 @@ export function BookingsListPage() {
           <>
             <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[150px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                {(
-                  [
-                    "pending",
-                    "accepted",
-                    "assigned",
-                    "admin_accepted",
-                    "confirmed",
-                    "processing",
-                    "ready",
-                    "completed",
-                    "ready_for_delivery",
-                    "cancelled",
-                    "rejected",
-                  ] as BookingStatus[]
-                ).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {humanize(s)}
+                {ORDER_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger className="h-9 w-[170px]">
+              <SelectTrigger aria-label="Filter by branch" className="h-9 w-full sm:w-[170px]">
                 <SelectValue placeholder="Branch" />
               </SelectTrigger>
               <SelectContent>
@@ -268,7 +219,7 @@ export function BookingsListPage() {
               </SelectContent>
             </Select>
             <Select value={agentFilter} onValueChange={setAgentFilter}>
-              <SelectTrigger className="h-9 w-[160px]">
+              <SelectTrigger aria-label="Filter by agent" className="h-9 w-full sm:w-[160px]">
                 <SelectValue placeholder="Agent" />
               </SelectTrigger>
               <SelectContent>
@@ -285,7 +236,7 @@ export function BookingsListPage() {
                 value={assignedFilter}
                 onValueChange={setAssignedFilter}
               >
-                <SelectTrigger className="h-9 w-[160px]">
+                <SelectTrigger aria-label="Filter by assignment" className="h-9 w-full sm:w-[160px]">
                   <SelectValue placeholder="Assignment" />
                 </SelectTrigger>
                 <SelectContent>

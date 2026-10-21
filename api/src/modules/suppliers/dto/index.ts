@@ -16,13 +16,6 @@ export const listSuppliersQueryDto = z.object({
 export const createSupplierDto = z.object({
   name: z.string().trim().min(1, "Supplier name is required").max(160),
   contactName: z.string().trim().max(160).optional(),
-  email: z
-    .string()
-    .trim()
-    .max(255)
-    .email("A valid email is required")
-    .toLowerCase()
-    .optional(),
   contactNumber: z.string().trim().max(40).optional(),
   address: z.string().trim().max(500).optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
@@ -37,14 +30,6 @@ export const updateSupplierDto = z
       .max(160)
       .optional(),
     contactName: z.string().trim().max(160).nullable().optional(),
-    email: z
-      .string()
-      .trim()
-      .max(255)
-      .email("A valid email is required")
-      .toLowerCase()
-      .nullable()
-      .optional(),
     contactNumber: z.string().trim().max(40).nullable().optional(),
     address: z.string().trim().max(500).nullable().optional(),
     status: z.enum(["ACTIVE", "INACTIVE"]).optional(),

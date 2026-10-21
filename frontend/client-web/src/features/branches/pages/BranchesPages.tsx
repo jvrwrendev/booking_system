@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Building2, Eye, Mail, MoreHorizontal, Pencil, Phone, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Building2, Eye, Mail, MoreHorizontal, Pencil, Phone } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
@@ -18,22 +18,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  StatusBadge,
-  getStatusVariantFromGeneric,
-  humanize,
-} from "@/components/common/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { getStatusVariant, humanize } from "@/lib/status";
 
 import type { Branch } from "@/types/branch";
 import { useBranchesStore } from "../hooks/useBranchesStore";
+import { BranchEditDialog } from "../components/BranchEditDialog";
 import { formatNumber } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function BranchesListPage() {
   const { can } = usePermissions();
-  const navigate = useNavigate();
   const { branches } = useBranchesStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [editing, setEditing] = useState<Branch | null>(null);
 
   const filtered = useMemo(
     () =>
@@ -60,7 +58,7 @@ export function BranchesListPage() {
             >
               {b.name}
             </Link>
-            <div className="font-mono text-[11px] text-muted-foreground">
+            <div className="font-mono text-xs text-muted-foreground">
               {b.code}
             </div>
           </div>
@@ -103,7 +101,7 @@ export function BranchesListPage() {
       cell: (b) => (
         <div className="text-sm">
           <div className="font-medium">{formatNumber(b.totalStock)} units</div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             {b.totalProducts} products
           </div>
         </div>
@@ -114,7 +112,7 @@ export function BranchesListPage() {
       header: "Status",
       cell: (b) => (
         <StatusBadge
-          variant={getStatusVariantFromGeneric(b.status)}
+          variant={getStatusVariant(b.status)}
           label={humanize(b.status)}
         />
       ),
@@ -126,7 +124,11 @@ export function BranchesListPage() {
       cell: (b) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label={`Actions for ${b.name}`}
+            >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -138,11 +140,9 @@ export function BranchesListPage() {
               </Link>
             </DropdownMenuItem>
             {can("branches.manage") && (
-              <DropdownMenuItem asChild>
-                <Link to={`/branches/${b.id}/edit`}>
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </Link>
+              <DropdownMenuItem onSelect={() => setEditing(b)}>
+                <Pencil className="h-4 w-4" aria-hidden />
+                Edit
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -157,14 +157,6 @@ export function BranchesListPage() {
         title="Branches"
         description="Branches across the Philippines and their locations."
         breadcrumbs={[{ label: "People" }, { label: "Branches" }]}
-        actions={
-          can("branches.manage") && (
-            <Button onClick={() => navigate("/branches/add")}>
-              <Plus className="h-4 w-4" />
-              Add Branch
-            </Button>
-          )
-        }
       />
 
       <DataTable<Branch>
@@ -175,7 +167,7 @@ export function BranchesListPage() {
         rowKey={(b) => b.id}
         toolbar={
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-9 w-[140px]">
+            <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -185,6 +177,11 @@ export function BranchesListPage() {
             </SelectContent>
           </Select>
         }
+      />
+
+      <BranchEditDialog
+        branch={editing}
+        onOpenChange={(o) => !o && setEditing(null)}
       />
     </div>
   );

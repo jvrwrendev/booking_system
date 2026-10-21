@@ -70,6 +70,8 @@ function deriveNotifications(alerts: InventoryItem[]): AppNotification[] {
 interface NotificationsContextValue {
   notifications: AppNotification[];
   unreadCount: number;
+  /** True while the stock alerts are still being fetched. */
+  loading: boolean;
   markRead: (id: string) => void;
   markAllRead: () => void;
 }
@@ -82,19 +84,25 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
   const [readIds, setReadIds] = useState<string[]>(loadReadIds);
   const [stockAlerts, setStockAlerts] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
       setStockAlerts([]);
+      setLoading(false);
       return;
     }
     let cancelled = false;
+    setLoading(true);
     listInventoryAlerts(undefined, 20)
       .then((alerts) => {
         if (!cancelled) setStockAlerts(alerts);
       })
       .catch(() => {
         // Notifications are ancillary; a failed fetch must not break the shell.
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -132,8 +140,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ notifications, unreadCount, markRead, markAllRead }),
-    [notifications, unreadCount, markRead, markAllRead]
+    () => ({ notifications, unreadCount, loading, markRead, markAllRead }),
+    [notifications, unreadCount, loading, markRead, markAllRead]
   );
 
   return (

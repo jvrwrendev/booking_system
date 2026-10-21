@@ -10,11 +10,12 @@ import {
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import {
-  StatusBadge,
-  getBookingStatusVariant,
+  getStatusVariant,
   humanize,
-} from "@/components/common/StatusBadge";
+  ORDER_STATUS_OPTIONS,
+} from "@/lib/status";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -34,7 +35,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { useBookingsStore } from "../hooks/useBookingsStore";
 import { AssignmentDialog } from "../components/AssignmentDialog";
-import type { Booking, BookingStatus } from "@/types/booking";
+import type { Booking } from "@/types/booking";
 import { mockBranches } from "@/data/mock-branches";
 import { mockAgents } from "@/data/mock-agents";
 import { mockUsers } from "@/data/mock-users";
@@ -123,7 +124,7 @@ export function AssignBookingPage() {
                   {b.assignedAdminName}
                 </div>
                 {b.assignmentDate && (
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     {formatDate(b.assignmentDate)}
                   </div>
                 )}
@@ -132,7 +133,7 @@ export function AssignBookingPage() {
           );
         }
         return (
-          <Badge variant="muted" className="text-[10px]">
+          <Badge variant="muted" className="text-xs">
             Unassigned
           </Badge>
         );
@@ -145,7 +146,7 @@ export function AssignBookingPage() {
       cell: (b) => (
         <div className="text-sm">
           <div>{formatDate(b.bookingDate)}</div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             Pickup {formatDate(b.pickupDate)}
           </div>
         </div>
@@ -168,7 +169,7 @@ export function AssignBookingPage() {
       header: "Status",
       cell: (b) => (
         <StatusBadge
-          variant={getBookingStatusVariant(b.status)}
+          variant={getStatusVariant(b.status)}
           label={humanize(b.status)}
         />
       ),
@@ -180,7 +181,11 @@ export function AssignBookingPage() {
       cell: (b) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label={`Actions for ${b.reference}`}
+            >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -236,34 +241,20 @@ export function AssignBookingPage() {
           <>
             <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[150px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                {(
-                  [
-                    "pending",
-                    "accepted",
-                    "assigned",
-                    "admin_accepted",
-                    "confirmed",
-                    "processing",
-                    "ready",
-                    "completed",
-                    "ready_for_delivery",
-                    "cancelled",
-                    "rejected",
-                  ] as BookingStatus[]
-                ).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {humanize(s)}
+                {ORDER_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger className="h-9 w-[170px]">
+              <SelectTrigger aria-label="Filter by branch" className="h-9 w-full sm:w-[170px]">
                 <SelectValue placeholder="Branch" />
               </SelectTrigger>
               <SelectContent>
@@ -276,7 +267,7 @@ export function AssignBookingPage() {
               </SelectContent>
             </Select>
             <Select value={agentFilter} onValueChange={setAgentFilter}>
-              <SelectTrigger className="h-9 w-[160px]">
+              <SelectTrigger aria-label="Filter by agent" className="h-9 w-full sm:w-[160px]">
                 <SelectValue placeholder="Agent" />
               </SelectTrigger>
               <SelectContent>
@@ -289,7 +280,7 @@ export function AssignBookingPage() {
               </SelectContent>
             </Select>
             <Select value={assignedFilter} onValueChange={setAssignedFilter}>
-              <SelectTrigger className="h-9 w-[160px]">
+              <SelectTrigger aria-label="Filter by assignment" className="h-9 w-full sm:w-[160px]">
                 <SelectValue placeholder="Assignment" />
               </SelectTrigger>
               <SelectContent>

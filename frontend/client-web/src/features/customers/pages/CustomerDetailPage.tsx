@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Edit, Mail, MapPin, Phone, User } from "lucide-react";
 
@@ -5,15 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  StatusBadge,
-  getStatusVariantFromGeneric,
-  humanize,
-} from "@/components/common/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { getStatusVariant, humanize } from "@/lib/status";
 import { PageHeader } from "@/components/common/PageHeader";
 import { NotFound } from "@/components/common/NotFound";
+import { DescriptionList } from "@/components/common/DescriptionList";
 
 import { useCustomersStore } from "../hooks/useCustomersStore";
+import { CustomerEditDialog } from "../components/CustomerEditDialog";
 import { formatCurrency, formatDate, initials } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -22,6 +22,7 @@ export function CustomerDetailPage() {
   const { getCustomer } = useCustomersStore();
   const { can } = usePermissions();
   const navigate = useNavigate();
+  const [editOpen, setEditOpen] = useState(false);
 
   const customer = id ? getCustomer(id) : undefined;
   if (!customer) {
@@ -50,11 +51,9 @@ export function CustomerDetailPage() {
         ]}
         actions={
           can("customers.manage") && (
-            <Button asChild>
-              <Link to={`/customers/${customer.id}/edit`}>
-                <Edit className="h-4 w-4" />
-                Edit
-              </Link>
+            <Button onClick={() => setEditOpen(true)}>
+              <Edit className="h-4 w-4" aria-hidden />
+              Edit
             </Button>
           )
         }
@@ -73,7 +72,7 @@ export function CustomerDetailPage() {
               <div>
                 <div className="text-base font-semibold">{customer.fullName}</div>
                 <StatusBadge
-                  variant={getStatusVariantFromGeneric(customer.status)}
+                  variant={getStatusVariant(customer.status)}
                   label={humanize(customer.status)}
                 />
               </div>
@@ -104,25 +103,31 @@ export function CustomerDetailPage() {
               </div>
             </div>
             <Separator />
-            <dl className="grid grid-cols-2 gap-4">
-              <InfoRow label="Registered" value={formatDate(customer.registeredDate)} />
-              <InfoRow label="Total bookings" value={String(customer.totalBookings)} />
-              <InfoRow label="Total purchases" value={formatCurrency(customer.totalPurchases)} />
-            </dl>
+            <DescriptionList
+              items={[
+                {
+                  label: "Registered",
+                  value: formatDate(customer.registeredDate),
+                },
+                {
+                  label: "Total bookings",
+                  value: String(customer.totalBookings),
+                },
+                {
+                  label: "Total purchases",
+                  value: formatCurrency(customer.totalPurchases),
+                },
+              ]}
+            />
           </CardContent>
         </Card>
       </div>
+
+      <CustomerEditDialog
+        customer={editOpen ? customer : null}
+        onOpenChange={setEditOpen}
+      />
     </div>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="mt-1 font-medium">{value}</dd>
-    </div>
-  );
-}

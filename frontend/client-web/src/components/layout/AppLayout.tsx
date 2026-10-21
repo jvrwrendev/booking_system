@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -15,13 +16,15 @@ export function AppLayout() {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background p-6">
         <div className="max-w-md text-center">
-          <ShieldOff className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-          <h2 className="text-lg font-semibold">No dashboard access</h2>
+          <ShieldOff className="mx-auto mb-3 h-10 w-10 text-muted-foreground" aria-hidden />
+          <h2 className="text-lg font-semibold text-foreground">
+            No dashboard access
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Your account does not have permission to view the dashboard.
           </p>
           <Button asChild className="mt-4" variant="outline">
-            <a href="/login">Sign in with a different user</a>
+            <Link to="/login">Sign in with a different user</Link>
           </Button>
         </div>
       </div>

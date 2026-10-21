@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, Filter, MoreHorizontal } from "lucide-react";
+import { Eye, Filter, MoreHorizontal, ShoppingCart } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
+import { EmptyState } from "@/components/common/EmptyState";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import {
-  StatusBadge,
-  getBranchOrderStatusVariant,
+  getStatusVariant,
   humanize,
-} from "@/components/common/StatusBadge";
+  ORDER_STATUS_OPTIONS,
+} from "@/lib/status";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -25,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { useBranchOrdersStore } from "../hooks/useBranchOrdersStore";
-import type { BranchOrder, BranchOrderStatus } from "@/types/branch-order";
+import type { BranchOrder } from "@/types/branch-order";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export function BranchOrdersListPage() {
@@ -83,7 +85,7 @@ export function BranchOrdersListPage() {
       header: "Status",
       cell: (o) => (
         <StatusBadge
-          variant={getBranchOrderStatusVariant(o.status)}
+          variant={getStatusVariant(o.status)}
           label={humanize(o.status)}
         />
       ),
@@ -103,7 +105,11 @@ export function BranchOrdersListPage() {
       cell: (o) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label={`Actions for ${o.reference}`}
+            >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -138,26 +144,14 @@ export function BranchOrdersListPage() {
           <>
             <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[150px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                {(
-                  [
-                    "pending",
-                    "accepted",
-                    "assigned",
-                    "admin_accepted",
-                    "processing",
-                    "ready",
-                    "completed",
-                    "ready_for_delivery",
-                    "rejected",
-                  ] as BranchOrderStatus[]
-                ).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {humanize(s)}
+                {ORDER_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -165,9 +159,11 @@ export function BranchOrdersListPage() {
           </>
         }
         emptyState={
-          <div className="py-10 text-center text-sm text-muted-foreground">
-            No branch orders yet.
-          </div>
+          <EmptyState
+            icon={<ShoppingCart className="h-5 w-5" aria-hidden />}
+            title="No branch orders yet"
+            description="Branch orders appear here as soon as they are created."
+          />
         }
       />
     </div>

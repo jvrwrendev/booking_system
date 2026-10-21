@@ -20,7 +20,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -30,11 +29,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import {
-  StatusBadge,
-  getStatusVariantFromGeneric,
-  humanize,
-} from "@/components/common/StatusBadge";
+import { FormField } from "@/components/common/FormPageLayout";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { EmptyState } from "@/components/common/EmptyState";
+import { getStatusVariant, humanize } from "@/lib/status";
 
 import type { Category, CategoryFormValues } from "@/types/category";
 import { formatDate } from "@/lib/utils";
@@ -72,6 +71,7 @@ export function CategoriesListPage() {
   const [editing, setEditing] = useState<Category | null>(null);
   const [values, setValues] = useState<CategoryFormValues>(initialForm);
   const [formError, setFormError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Category | null>(null);
 
@@ -96,9 +96,11 @@ export function CategoriesListPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!values.name.trim()) {
-      setFormError("Category name is required.");
+      setNameError("Category name is required.");
+      setFormError(null);
       return;
     }
+    setNameError(null);
     setSaving(true);
     setFormError(null);
     try {
@@ -157,7 +159,7 @@ export function CategoriesListPage() {
       header: "Status",
       cell: (c) => (
         <StatusBadge
-          variant={getStatusVariantFromGeneric(c.status)}
+          variant={getStatusVariant(c.status)}
           label={humanize(c.status)}
         />
       ),
@@ -179,7 +181,11 @@ export function CategoriesListPage() {
       cell: (c) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label={`Actions for ${c.name}`}
+            >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -227,19 +233,12 @@ export function CategoriesListPage() {
         }
       />
 
-      {error && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <span>{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void refresh()}>
-            Retry
-          </Button>
-        </div>
-      )}
-
       <DataTable<Category>
         data={categories}
         columns={columns}
         loading={loading}
+        error={error}
+        onRetry={() => void refresh()}
         searchPlaceholder="Search categories..."
         rowKey={(c) => c.id}
         serverMode={{
@@ -252,22 +251,18 @@ export function CategoriesListPage() {
           onPageSizeChange: setPageSize,
         }}
         emptyState={
-          <div className="px-6 py-12 text-center">
-            <p className="text-sm font-medium">
-              {filters.search || filters.status !== "all"
-                ? "No categories match your filters"
-                : "No categories yet"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {filters.search || filters.status !== "all"
-                ? "Try a different search term or clear the filters."
-                : "Create a category to start organizing products."}
-            </p>
-          </div>
+          <EmptyState
+            title={filters.search || filters.status !== "all"
+              ? "No categories match your filters"
+              : "No categories yet"}
+            description={filters.search || filters.status !== "all"
+              ? "Try a different search term or clear the filters."
+              : "Create a category to start organizing products."}
+          />
         }
         toolbar={
           <Select value={filters.status} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-9 w-[140px]">
+            <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -294,25 +289,30 @@ export function CategoriesListPage() {
               Categories help organize your product catalog.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {formError && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {formError}
-              </div>
+              <Alert variant="destructive">
+                <AlertDescription>{formError}</AlertDescription>
+              </Alert>
             )}
-            <div className="space-y-1.5">
-              <Label htmlFor="categoryName">Name *</Label>
+            <FormField
+              label="Name"
+              required
+              htmlFor="categoryName"
+              error={nameError ?? undefined}
+            >
               <Input
                 id="categoryName"
                 value={values.name}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, name: e.target.value }))
-                }
+                onChange={(e) => {
+                  setValues((v) => ({ ...v, name: e.target.value }));
+                  setNameError(null);
+                }}
                 placeholder="e.g., Fertilizers"
+                aria-invalid={!!nameError}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="categoryDesc">Description</Label>
+            </FormField>
+            <FormField label="Description" optional htmlFor="categoryDesc">
               <Textarea
                 id="categoryDesc"
                 value={values.description}
@@ -322,9 +322,8 @@ export function CategoriesListPage() {
                 rows={3}
                 placeholder="Short description"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Status</Label>
+            </FormField>
+            <FormField label="Status" htmlFor="categoryStatus">
               <Select
                 value={values.status}
                 onValueChange={(v) =>
@@ -334,7 +333,7 @@ export function CategoriesListPage() {
                   }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="categoryStatus" className="h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -342,7 +341,7 @@ export function CategoriesListPage() {
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
             <DialogFooter>
               <Button
                 type="button"

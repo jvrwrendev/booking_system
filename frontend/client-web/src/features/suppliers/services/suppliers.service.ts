@@ -29,7 +29,6 @@ export function toSupplier(dto: SupplierDto): Supplier {
     id: dto.id,
     name: dto.name,
     contactName: dto.contactName ?? undefined,
-    email: dto.email ?? undefined,
     contactNumber: dto.contactNumber ?? undefined,
     address: dto.address ?? undefined,
     status: dto.status === "ACTIVE" ? "active" : "inactive",
@@ -94,17 +93,22 @@ function toPayload(values: SupplierFormValues): CreateSupplierPayloadDto {
   return {
     name: values.name.trim(),
     contactName: values.contactName.trim() || undefined,
-    email: values.email.trim() || undefined,
     contactNumber: values.contactNumber.trim() || undefined,
     address: values.address.trim() || undefined,
     status: toStatusDto(values.status),
   };
 }
 
+export async function getSupplier(id: string): Promise<Supplier> {
+  const { supplier } = await request<{ supplier: SupplierDto }>(
+    `/suppliers/${id}`,
+  );
+  return toSupplier(supplier);
+}
+
 export async function createSupplier(
   values: SupplierFormValues,
-): Promise<Supplier> {
-  const { supplier } = await request<{ supplier: SupplierDto }>("/suppliers", {
+): Promise<Supplier> {  const { supplier } = await request<{ supplier: SupplierDto }>("/suppliers", {
     method: "POST",
     body: toPayload(values),
   });

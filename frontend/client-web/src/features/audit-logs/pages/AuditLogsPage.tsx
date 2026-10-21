@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import {
   Select,
   SelectContent,
@@ -14,11 +14,24 @@ import {
 import { mockAuditLogs } from "@/data/mock-audit-logs";
 import type { AuditLog } from "@/types/audit";
 import { formatDateTime, relativeTime } from "@/lib/utils";
+import type { StatusVariant } from "@/lib/status";
+
+/**
+ * Maps an audit action to a status colour so the badge treatment matches
+ * the rest of the app.
+ */
+function getActionVariant(action: string): StatusVariant {
+  if (action === "Delete" || action === "Reject") return "destructive";
+  if (action === "Create" || action === "Approve") return "success";
+  if (action === "Update" || action === "Edit") return "warning";
+  return "info";
+}
 
 export function AuditLogsPage() {
   const [moduleFilter, setModuleFilter] = useState<string>("all");
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
+  const [range, setRange] = useState<"all" | "today" | "7d" | "30d">("all");
 
   const modules = useMemo(
     () => Array.from(new Set(mockAuditLogs.map((l) => l.module))),
@@ -39,9 +52,19 @@ export function AuditLogsPage() {
         if (moduleFilter !== "all" && l.module !== moduleFilter) return false;
         if (actionFilter !== "all" && l.action !== actionFilter) return false;
         if (userFilter !== "all" && l.userName !== userFilter) return false;
+        if (range !== "all") {
+          const ageMs = Date.now() - new Date(l.timestamp).getTime();
+          const maxAgeMs =
+            range === "today"
+              ? 24 * 60 * 60 * 1000
+              : range === "7d"
+                ? 7 * 24 * 60 * 60 * 1000
+                : 30 * 24 * 60 * 60 * 1000;
+          if (ageMs > maxAgeMs) return false;
+        }
         return true;
       }),
-    [moduleFilter, actionFilter, userFilter]
+    [moduleFilter, actionFilter, userFilter, range]
   );
 
   const columns: DataTableColumn<AuditLog>[] = [
@@ -61,17 +84,10 @@ export function AuditLogsPage() {
       id: "action",
       header: "Action",
       cell: (l) => (
-        <Badge
-          variant={
-            l.action === "Delete" || l.action === "Reject"
-              ? "destructive"
-              : l.action === "Create" || l.action === "Approve"
-              ? "success"
-              : "info"
-          }
-        >
-          {l.action}
-        </Badge>
+        <StatusBadge
+          variant={getActionVariant(l.action)}
+          label={l.action}
+        />
       ),
       sortable: true,
       sortKey: "action",
@@ -88,8 +104,12 @@ export function AuditLogsPage() {
       id: "description",
       header: "Description",
       cell: (l) => (
-        <span className="line-clamp-1 max-w-[420px] text-sm" title={l.description}>
+        <span
+          className="line-clamp-1 block max-w-[420px] text-sm text-foreground"
+          title={l.description}
+        >
           {l.description}
+          <span className="sr-only">. {l.description}</span>
         </span>
       ),
     },
@@ -128,13 +148,13 @@ export function AuditLogsPage() {
       <DataTable<AuditLog>
         data={filtered}
         columns={columns}
-        searchPlaceholder="Search logs..."
+        searchPlaceholder="Search logs…"
         searchKeys={["description", "userName", "ipAddress"]}
         rowKey={(l) => l.id}
         toolbar={
           <>
             <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="h-9 w-[160px]">
+              <SelectTrigger aria-label="Filter by user" className="h-9 w-full sm:w-[160px]">
                 <SelectValue placeholder="User" />
               </SelectTrigger>
               <SelectContent>
@@ -147,7 +167,7 @@ export function AuditLogsPage() {
               </SelectContent>
             </Select>
             <Select value={moduleFilter} onValueChange={setModuleFilter}>
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger aria-label="Filter by module" className="h-9 w-full sm:w-[150px]">
                 <SelectValue placeholder="Module" />
               </SelectTrigger>
               <SelectContent>
@@ -159,8 +179,19 @@ export function AuditLogsPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={range} onValueChange={(v) => setRange(v as typeof range)}>
+              <SelectTrigger aria-label="Filter by date range" className="h-9 w-full sm:w-[140px]">
+                <SelectValue placeholder="Period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All time</SelectItem>
+                <SelectItem value="today">Last 24 hours</SelectItem>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger className="h-9 w-[140px]">
+              <SelectTrigger aria-label="Filter by action" className="h-9 w-full sm:w-[140px]">
                 <SelectValue placeholder="Action" />
               </SelectTrigger>
               <SelectContent>

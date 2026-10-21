@@ -12,7 +12,6 @@ const SUPPLIER_SELECT = {
   id: true,
   name: true,
   contactName: true,
-  email: true,
   contactNumber: true,
   address: true,
   status: true,
@@ -27,7 +26,6 @@ export interface SupplierView {
   id: string;
   name: string;
   contactName: string | null;
-  email: string | null;
   contactNumber: string | null;
   address: string | null;
   status: SupplierStatus;
@@ -49,7 +47,6 @@ function toSupplierView(supplier: SupplierRecord): SupplierView {
     id: supplier.id,
     name: supplier.name,
     contactName: supplier.contactName,
-    email: supplier.email,
     contactNumber: supplier.contactNumber,
     address: supplier.address,
     status: supplier.status,
@@ -102,7 +99,6 @@ export async function listSuppliers(
     where.OR = [
       { name: { contains: query.search, mode: "insensitive" } },
       { contactName: { contains: query.search, mode: "insensitive" } },
-      { email: { contains: query.search, mode: "insensitive" } },
       { contactNumber: { contains: query.search, mode: "insensitive" } },
     ];
   }
@@ -146,7 +142,6 @@ export async function createSupplier(
       data: {
         name: input.name,
         contactName: input.contactName || null,
-        email: input.email || null,
         contactNumber: input.contactNumber || null,
         address: input.address || null,
         status: input.status,
@@ -181,7 +176,6 @@ export async function updateSupplier(
           ...(input.contactName !== undefined
             ? { contactName: input.contactName || null }
             : {}),
-          ...(input.email !== undefined ? { email: input.email || null } : {}),
           ...(input.contactNumber !== undefined
             ? { contactNumber: input.contactNumber || null }
             : {}),

@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, Filter, MoreHorizontal } from "lucide-react";
+import { Eye, Filter, MoreHorizontal, ShoppingCart } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
+import { EmptyState } from "@/components/common/EmptyState";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import {
-  StatusBadge,
-  getBookingStatusVariant,
+  getStatusVariant,
   humanize,
-} from "@/components/common/StatusBadge";
+  ORDER_STATUS_OPTIONS,
+} from "@/lib/status";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -25,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { useBookingsStore } from "../hooks/useBookingsStore";
-import type { Booking, BookingStatus } from "@/types/booking";
+import type { Booking } from "@/types/booking";
 import { mockBranches } from "@/data/mock-branches";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -97,7 +99,7 @@ export function MyAssignedBookingsPage() {
       cell: (b) => (
         <div className="text-sm">
           <div>{formatDate(b.bookingDate)}</div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             Pickup {formatDate(b.pickupDate)}
           </div>
         </div>
@@ -120,7 +122,7 @@ export function MyAssignedBookingsPage() {
       header: "Status",
       cell: (b) => (
         <StatusBadge
-          variant={getBookingStatusVariant(b.status)}
+          variant={getStatusVariant(b.status)}
           label={humanize(b.status)}
         />
       ),
@@ -132,7 +134,11 @@ export function MyAssignedBookingsPage() {
       cell: (b) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label={`Actions for ${b.reference}`}
+            >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -175,32 +181,20 @@ export function MyAssignedBookingsPage() {
           <>
             <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[150px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                {(
-                  [
-                    "assigned",
-                    "admin_accepted",
-                    "confirmed",
-                    "processing",
-                    "ready",
-                    "completed",
-                    "ready_for_delivery",
-                    "cancelled",
-                    "rejected",
-                  ] as BookingStatus[]
-                ).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {humanize(s)}
+                {ORDER_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger className="h-9 w-[170px]">
+              <SelectTrigger aria-label="Filter by branch" className="h-9 w-full sm:w-[170px]">
                 <SelectValue placeholder="Branch" />
               </SelectTrigger>
               <SelectContent>
@@ -215,9 +209,11 @@ export function MyAssignedBookingsPage() {
           </>
         }
         emptyState={
-          <div className="py-10 text-center text-sm text-muted-foreground">
-            No assigned bookings yet.
-          </div>
+          <EmptyState
+            icon={<ShoppingCart className="h-5 w-5" aria-hidden />}
+            title="No assigned bookings"
+            description="Bookings assigned to you will show up here."
+          />
         }
       />
     </div>

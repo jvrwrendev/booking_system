@@ -1,7 +1,8 @@
 import { Suspense, lazy, useEffect, useState } from "react";
-import { Crosshair, Loader2 } from "lucide-react";
+import { Crosshair } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { MapStyleToggle, type MapStyleId } from "./map-styles";
 import type { MapMarker } from "./MapCanvas";
@@ -65,7 +66,7 @@ export function AgentLocationMap({
       <Suspense
         fallback={
           <div className="flex h-full w-full items-center justify-center bg-muted/40">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <Spinner className="h-5 w-5" />
           </div>
         }
       >
@@ -87,10 +88,10 @@ export function AgentLocationMap({
           type="button"
           size="sm"
           variant="secondary"
-          className="absolute left-3 top-3 z-10 shadow-sm"
+          className="absolute left-3 top-3 z-10"
           onClick={onRecenterClick}
         >
-          <Crosshair className="h-3.5 w-3.5" />
+          <Crosshair className="h-3.5 w-3.5" aria-hidden />
           {recenterLabel}
         </Button>
       )}

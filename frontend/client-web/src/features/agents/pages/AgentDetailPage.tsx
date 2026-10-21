@@ -1,19 +1,19 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Edit, Mail, MapPin, Phone } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  StatusBadge,
-  getStatusVariantFromGeneric,
-  humanize,
-} from "@/components/common/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { getStatusVariant, humanize } from "@/lib/status";
 import { PageHeader } from "@/components/common/PageHeader";
 import { NotFound } from "@/components/common/NotFound";
+import { DescriptionList } from "@/components/common/DescriptionList";
 
 import { useAgentsStore } from "../hooks/useAgentsStore";
+import { AgentEditDialog } from "../components/AgentEditDialog";
 import { useCustomersStore } from "@/features/customers/hooks/useCustomersStore";
 import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
 import { formatDate, initials } from "@/lib/utils";
@@ -26,6 +26,7 @@ export function AgentDetailPage() {
   const { bookings } = useBookingsStore();
   const { can } = usePermissions();
   const navigate = useNavigate();
+  const [editOpen, setEditOpen] = useState(false);
 
   const agent = id ? getAgent(id) : undefined;
   if (!agent) {
@@ -57,11 +58,9 @@ export function AgentDetailPage() {
         ]}
         actions={
           can("agents.manage") && (
-            <Button asChild>
-              <Link to={`/agents/${agent.id}/edit`}>
-                <Edit className="h-4 w-4" />
-                Edit
-              </Link>
+            <Button onClick={() => setEditOpen(true)}>
+              <Edit className="h-4 w-4" aria-hidden />
+              Edit
             </Button>
           )
         }
@@ -80,7 +79,7 @@ export function AgentDetailPage() {
               <div>
                 <div className="text-base font-semibold">{agent.fullName}</div>
                 <StatusBadge
-                  variant={getStatusVariantFromGeneric(agent.status)}
+                  variant={getStatusVariant(agent.status)}
                   label={humanize(agent.status)}
                 />
               </div>
@@ -101,10 +100,15 @@ export function AgentDetailPage() {
               </div>
             </div>
             <Separator />
-            <dl className="grid grid-cols-2 gap-4">
-              <InfoRow label="Date joined" value={formatDate(agent.dateJoined)} />
-              <InfoRow label="Total bookings" value={String(agent.totalBookings)} />
-            </dl>
+            <DescriptionList
+              items={[
+                { label: "Date joined", value: formatDate(agent.dateJoined) },
+                {
+                  label: "Total bookings",
+                  value: String(agent.totalBookings),
+                },
+              ]}
+            />
           </CardContent>
         </Card>
         <div className="space-y-4">
@@ -125,17 +129,12 @@ export function AgentDetailPage() {
           </Card>
         </div>
       </div>
+
+      <AgentEditDialog
+        agent={editOpen ? agent : null}
+        onOpenChange={setEditOpen}
+      />
     </div>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="mt-1 font-medium">{value}</dd>
-    </div>
-  );
-}

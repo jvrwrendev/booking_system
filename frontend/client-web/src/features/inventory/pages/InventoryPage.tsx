@@ -14,11 +14,8 @@ import {
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
-import {
-  StatusBadge,
-  getStockStatusVariant,
-  humanize,
-} from "@/components/common/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { getStatusVariant, humanize } from "@/lib/status";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -46,6 +43,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatisticsCard } from "@/components/common/StatisticsCard";
+import { EmptyState } from "@/components/common/EmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 import { useInventoryStore } from "../hooks/useInventoryStore";
 import { useCategoriesStore } from "@/features/categories/hooks/useCategoriesStore";
@@ -126,7 +127,7 @@ export function InventoryPage() {
       cell: (i) => (
         <div>
           <div className="text-sm font-medium">{i.productName}</div>
-          <div className="font-mono text-[11px] text-muted-foreground">
+          <div className="font-mono text-xs text-muted-foreground">
             {i.sku}
           </div>
         </div>
@@ -152,7 +153,7 @@ export function InventoryPage() {
       cell: (i) => (
         <div className="text-sm">
           <div className="font-medium">{formatNumber(i.currentStock)}</div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             Available {i.availableStock}
           </div>
         </div>
@@ -171,7 +172,7 @@ export function InventoryPage() {
       header: "Status",
       cell: (i) => (
         <StatusBadge
-          variant={getStockStatusVariant(i.status)}
+          variant={getStatusVariant(i.status)}
           label={humanize(i.status)}
         />
       ),
@@ -223,7 +224,7 @@ export function InventoryPage() {
       cell: (t) => (
         <div>
           <div className="text-sm font-medium">{t.productName}</div>
-          <div className="text-[11px] text-muted-foreground">{t.branchName}</div>
+          <div className="text-xs text-muted-foreground">{t.branchName}</div>
         </div>
       ),
       sortable: true,
@@ -234,11 +235,10 @@ export function InventoryPage() {
       header: "Quantity",
       cell: (t) => (
         <span
-          className={
-            t.quantity >= 0
-              ? "font-medium text-emerald-600"
-              : "font-medium text-rose-600"
-          }
+          className={cn(
+            "font-medium tabular-nums",
+            t.quantity >= 0 ? "text-success" : "text-destructive"
+          )}
         >
           {t.quantity > 0 ? "+" : ""}
           {t.quantity}
@@ -377,50 +377,61 @@ export function InventoryPage() {
         breadcrumbs={[{ label: "Operations" }, { label: "Inventory" }]}
       />
 
-      {(error || summaryError) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <span>{error ?? summaryError}</span>
-          <Button variant="outline" size="sm" onClick={() => void refresh()}>
-            Retry
-          </Button>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatisticsCard
           label="Total units"
-          value={summaryLoading ? "…" : formatNumber(summary.totalUnits)}
+          value={
+            summaryLoading ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              formatNumber(summary.totalUnits)
+            )
+          }
           hint={`${summary.totalProducts} products tracked`}
           icon={<Boxes className="h-4 w-4" />}
         />
         <StatisticsCard
           label="Inventory value"
-          value={summaryLoading ? "…" : formatCurrency(summary.inventoryValue)}
+          value={
+            summaryLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              formatCurrency(summary.inventoryValue)
+            )
+          }
           hint="At cost price"
           icon={<Banknote className="h-4 w-4" />}
         />
         <StatisticsCard
           label="Low stock"
           value={
-            summaryLoading
-              ? "…"
-              : summary.lowStockCount + summary.criticalCount
+            summaryLoading ? (
+              <Skeleton className="h-7 w-10" />
+            ) : (
+              summary.lowStockCount + summary.criticalCount
+            )
           }
           hint={`${summary.criticalCount} critical`}
           icon={<AlertTriangle className="h-4 w-4" />}
         />
         <StatisticsCard
           label="Out of stock"
-          value={summaryLoading ? "…" : summary.outOfStockCount}
+          value={
+            summaryLoading ? (
+              <Skeleton className="h-7 w-10" />
+            ) : (
+              summary.outOfStockCount
+            )
+          }
           hint="Needs restocking"
           icon={<PackageCheck className="h-4 w-4" />}
         />
       </div>
 
       {summary.alerts.length > 0 && (
-        <Card className="border-amber-300/60 bg-amber-50/60">
+        <Card className="border-warning/40 bg-warning/8">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm text-amber-900">
+            <CardTitle className="flex items-center gap-2 text-sm text-warning">
               <AlertTriangle className="h-4 w-4" />
               Low-stock alerts
             </CardTitle>
@@ -436,11 +447,11 @@ export function InventoryPage() {
             {summary.alerts.slice(0, 3).map((alert) => (
               <div
                 key={`${alert.productId}-${alert.branchId}`}
-                className="flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900"
+                className="flex flex-wrap items-center justify-between gap-2 text-xs text-warning"
               >
                 <span className="font-medium">
                   {alert.productName}{" "}
-                  <span className="font-mono text-[11px] opacity-70">
+                  <span className="font-mono text-xs opacity-70">
                     {alert.sku}
                   </span>
                 </span>
@@ -450,7 +461,7 @@ export function InventoryPage() {
               </div>
             ))}
             {summary.alerts.length > 3 && (
-              <p className="text-[11px] text-amber-800">
+              <p className="text-xs text-warning">
                 +{summary.alerts.length - 3} more product(s) need attention.
               </p>
             )}
@@ -472,7 +483,9 @@ export function InventoryPage() {
             data={items}
             columns={inventoryColumns}
             loading={loading}
-            searchPlaceholder="Search by product, SKU, branch..."
+            error={error ?? summaryError}
+            onRetry={() => void refresh()}
+            searchPlaceholder="Search by product, SKU, branch…"
             rowKey={(i) => i.id}
             serverMode={{
               search: filters.search,
@@ -484,19 +497,15 @@ export function InventoryPage() {
               onPageSizeChange: setPageSize,
             }}
             emptyState={
-              <div className="px-6 py-12 text-center">
-                <p className="text-sm font-medium">
-                  {filters.search ||
-                  filters.categoryId !== "all" ||
-                  filters.branchId !== "all" ||
-                  filters.status !== "all"
-                    ? "No stock records match your filters"
-                    : "No stock records yet"}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Add a product to start tracking its inventory.
-                </p>
-              </div>
+              <EmptyState
+                title={filters.search ||
+                filters.categoryId !== "all" ||
+                filters.branchId !== "all" ||
+                filters.status !== "all"
+                ? "No stock records match your filters"
+                : "No stock records yet"}
+                description="Add a product to start tracking its inventory."
+              />
             }
             toolbar={
               <>
@@ -505,7 +514,7 @@ export function InventoryPage() {
                   value={filters.categoryId}
                   onValueChange={setCategoryFilter}
                 >
-                  <SelectTrigger className="h-9 w-[150px]">
+                  <SelectTrigger aria-label="Filter by category" className="h-9 w-full sm:w-[150px]">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -521,7 +530,7 @@ export function InventoryPage() {
                   value={filters.status}
                   onValueChange={setStatusFilter}
                 >
-                  <SelectTrigger className="h-9 w-[150px]">
+                  <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[150px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -536,7 +545,7 @@ export function InventoryPage() {
                   value={filters.branchId}
                   onValueChange={setBranchFilter}
                 >
-                  <SelectTrigger className="h-9 w-[180px]">
+                  <SelectTrigger aria-label="Filter by branch" className="h-9 w-full sm:w-[180px]">
                     <SelectValue placeholder="Branch" />
                   </SelectTrigger>
                   <SelectContent>
@@ -592,14 +601,10 @@ export function InventoryPage() {
                   onPageSizeChange: setTransactionPageSize,
                 }}
                 emptyState={
-                  <div className="px-6 py-12 text-center">
-                    <p className="text-sm font-medium">
-                      No transactions match your filters
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Stock movements will appear here as inventory changes.
-                    </p>
-                  </div>
+                  <EmptyState
+                    title="No transactions match your filters"
+                    description="Stock movements will appear here as inventory changes."
+                  />
                 }
                 toolbar={
                   <>
@@ -607,7 +612,7 @@ export function InventoryPage() {
                       value={transactionFilters.type}
                       onValueChange={setTransactionTypeFilter}
                     >
-                      <SelectTrigger className="h-9 w-[170px]">
+                      <SelectTrigger aria-label="Filter by type" className="h-9 w-full sm:w-[170px]">
                         <SelectValue placeholder="Type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -626,7 +631,7 @@ export function InventoryPage() {
                       value={transactionFilters.branchId}
                       onValueChange={setTransactionBranchFilter}
                     >
-                      <SelectTrigger className="h-9 w-[180px]">
+                      <SelectTrigger aria-label="Filter by branch" className="h-9 w-full sm:w-[180px]">
                         <SelectValue placeholder="Branch" />
                       </SelectTrigger>
                       <SelectContent>
@@ -666,11 +671,11 @@ export function InventoryPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             {actionError && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {actionError}
-              </div>
+              <Alert variant="destructive">
+                <AlertDescription>{actionError}</AlertDescription>
+              </Alert>
             )}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {(
                 [
                   { value: "stock_in", label: "Stock In" },
@@ -684,6 +689,7 @@ export function InventoryPage() {
                   type="button"
                   variant={actionType === option.value ? "default" : "outline"}
                   size="sm"
+                  aria-pressed={actionType === option.value}
                   onClick={() => {
                     setActionType(option.value);
                     setActionError(null);
@@ -697,12 +703,12 @@ export function InventoryPage() {
             </div>
             {actionType === "transfer" && (
               <div className="space-y-1.5">
-                <Label>Destination branch</Label>
+                <Label htmlFor="destination-branch">Destination branch</Label>
                 <Select
                   value={destinationBranchId}
                   onValueChange={setDestinationBranchId}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="destination-branch" className="h-9">
                     <SelectValue placeholder="Select branch" />
                   </SelectTrigger>
                   <SelectContent>
@@ -728,9 +734,10 @@ export function InventoryPage() {
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 disabled={submitting}
+                className="h-9"
               />
               {activeItem && (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Current: {activeItem.currentStock} · Minimum:{" "}
                   {activeItem.minimumStock}
                 </p>
@@ -745,7 +752,7 @@ export function InventoryPage() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
-                placeholder="Why this stock movement is needed..."
+                placeholder="Why this stock movement is needed…"
                 disabled={submitting}
               />
             </div>
@@ -771,14 +778,14 @@ export function InventoryPage() {
 
 function getTransactionIcon(type: TransactionType) {
   if (type === "stock_in" || type === "order_release")
-    return <ArrowDownCircle className="h-4 w-4 text-emerald-600" />;
+    return <ArrowDownCircle className="h-4 w-4 text-success" aria-hidden />;
   if (type === "stock_out" || type === "order_commit")
-    return <ArrowUpCircle className="h-4 w-4 text-rose-600" />;
+    return <ArrowUpCircle className="h-4 w-4 text-destructive" aria-hidden />;
   if (type === "transfer")
-    return <ArrowLeftRight className="h-4 w-4 text-sky-600" />;
+    return <ArrowLeftRight className="h-4 w-4 text-info" aria-hidden />;
   if (type === "reservation")
-    return <Boxes className="h-4 w-4 text-amber-600" />;
+    return <Boxes className="h-4 w-4 text-warning" aria-hidden />;
   if (type === "release")
-    return <Boxes className="h-4 w-4 text-emerald-600" />;
-  return <Truck className="h-4 w-4 text-muted-foreground" />;
+    return <Boxes className="h-4 w-4 text-success" aria-hidden />;
+  return <Truck className="h-4 w-4 text-muted-foreground" aria-hidden />;
 }

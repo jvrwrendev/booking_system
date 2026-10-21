@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Package } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -120,39 +120,25 @@ export function ProductForm({
       className={cn(dense && "space-y-6", !dense && "space-y-12")}
     >
       {error && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       <FormSection
         title="Product image"
         description="Upload a photo of the product. Shown in listings and detail views."
       >
-        <div className="flex items-start gap-6">
-          <div
-            className={cn(
-              "flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed bg-muted/40",
-              dense ? "h-32 w-32" : "h-40 w-40"
-            )}
-          >
-            <ImageUpload
-              value={values.image}
-              onChange={(img) => setValues((v) => ({ ...v, image: img }))}
-            />
-          </div>
-          <div className="min-w-0 space-y-2 pt-1">
-            <p className="text-sm font-medium">Product photo</p>
+        <div className="flex flex-wrap items-start gap-6">
+          <ImageUpload
+            value={values.image}
+            onChange={(img) => setValues((v) => ({ ...v, image: img }))}
+            aspect={dense ? "square" : "square"}
+          />
+          <div className="min-w-0 flex-1 space-y-1.5 pt-1">
+            <p className="text-sm font-medium text-foreground">Product photo</p>
             <p className="text-xs text-muted-foreground">
               JPG, PNG or GIF. Max 5MB. Square format recommended.
             </p>
-            {!values.image && (
-              <div className="flex h-28 w-28 items-center justify-center rounded-lg border border-dashed bg-muted/30">
-                <div className="flex flex-col items-center gap-1 text-muted-foreground">
-                  <Package className="h-6 w-6" />
-                  <span className="text-[10px]">No image</span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </FormSection>
@@ -381,23 +367,25 @@ export function ProductForm({
         title="Description"
         description="Optional details about the product's features, usage, or specifications."
       >
-        <Textarea
-          id="description"
-          value={values.description}
-          onChange={(e) =>
-            setValues((v) => ({ ...v, description: e.target.value }))
-          }
-          rows={3}
-          placeholder="A short description of the product..."
-          className="resize-none"
-        />
+        <FormField label="Description" optional htmlFor="description">
+          <Textarea
+            id="description"
+            value={values.description}
+            onChange={(e) =>
+              setValues((v) => ({ ...v, description: e.target.value }))
+            }
+            rows={3}
+            placeholder="A short description of the product…"
+            className="resize-none"
+          />
+        </FormField>
       </FormSection>
 
       <FormSection
         title="Status"
         description="Control whether this product is visible and available for bookings."
       >
-        <div className="max-w-xs">
+        <FormField label="Status" htmlFor="status" className="max-w-xs">
           <Select
             value={values.status}
             onValueChange={(v) =>
@@ -407,7 +395,7 @@ export function ProductForm({
               }))
             }
           >
-            <SelectTrigger className="h-10">
+            <SelectTrigger id="status" className="h-10">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -416,7 +404,7 @@ export function ProductForm({
               <SelectItem value="out_of_stock">Out of stock</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </FormField>
       </FormSection>
 
       {!hideFooter && (

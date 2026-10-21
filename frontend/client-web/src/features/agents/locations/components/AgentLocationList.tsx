@@ -1,6 +1,7 @@
 import { MapPinOff, MapPin } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { EmptyState } from "@/components/common/EmptyState";
 import { cn, initials, relativeTime } from "@/lib/utils";
 import { LocationStatusBadge } from "./LocationStatusBadge";
 import type { AgentLocation } from "../types";
@@ -20,17 +21,12 @@ export function AgentLocationList({
 }: AgentLocationListProps) {
   if (locations.length === 0) {
     return (
-      <div
-        className={cn(
-          "flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed p-8 text-center",
-          className
-        )}
-      >
-        <p className="text-sm font-medium">No agents match</p>
-        <p className="text-xs text-muted-foreground">
-          Try a different search term or status filter.
-        </p>
-      </div>
+      <EmptyState
+        icon={<MapPinOff className="h-5 w-5" aria-hidden />}
+        title="No agents match"
+        description="Try a different search term or status filter."
+        className={cn("border-0", className)}
+      />
     );
   }
 
@@ -45,30 +41,30 @@ export function AgentLocationList({
             <button
               type="button"
               onClick={() => onSelect(location.agentId)}
-              aria-current={isSelected}
+              aria-pressed={isSelected}
               className={cn(
-                "flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
+                "flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                 isSelected && "bg-muted"
               )}
             >
               <Avatar className="mt-0.5 h-8 w-8 shrink-0">
-                <AvatarFallback>
+                <AvatarFallback className="text-xs">
                   {initials(location.agentName)}
                 </AvatarFallback>
               </Avatar>
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-medium">
+                  <span className="truncate text-sm font-medium text-foreground">
                     {location.agentName}
                   </span>
                   <LocationStatusBadge status={location.status} />
                 </div>
                 <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                   {hasFix ? (
-                    <MapPin className="h-3 w-3 shrink-0" />
+                    <MapPin className="h-3 w-3 shrink-0" aria-hidden />
                   ) : (
-                    <MapPinOff className="h-3 w-3 shrink-0" />
+                    <MapPinOff className="h-3 w-3 shrink-0" aria-hidden />
                   )}
                   <span className="truncate">
                     {hasFix

@@ -13,9 +13,11 @@ const NONE = "__none__";
 interface NameSuffixSelectProps {
   value: string;
   onChange: (value: string) => void;
+  /** Ties the trigger to the surrounding `<Label>`. */
+  id?: string;
 }
 
-export function NameSuffixSelect({ value, onChange }: NameSuffixSelectProps) {
+export function NameSuffixSelect({ value, onChange, id }: NameSuffixSelectProps) {
   const handleChange = (v: string) => {
     if (v === NONE) {
       onChange("");
@@ -26,7 +28,7 @@ export function NameSuffixSelect({ value, onChange }: NameSuffixSelectProps) {
 
   return (
     <Select value={value || NONE} onValueChange={handleChange}>
-      <SelectTrigger className="h-10 w-full">
+      <SelectTrigger id={id} className="h-10 w-full">
         <SelectValue placeholder="—" />
       </SelectTrigger>
       <SelectContent>

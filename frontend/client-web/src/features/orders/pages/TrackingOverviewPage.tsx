@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -12,33 +12,30 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
+import { AssignedAdminCell } from "@/components/common/AssignedAdminCell";
 import {
-  StatusBadge,
-  getBookingStatusVariant,
-  getBranchOrderStatusVariant,
-  humanize,
-} from "@/components/common/StatusBadge";
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import { EmptyState } from "@/components/common/EmptyState";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { getStatusVariant, humanize } from "@/lib/status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
+
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
 import { useBranchOrdersStore } from "@/features/branch-orders/hooks/useBranchOrdersStore";
-import { mockUsers } from "@/data/mock-users";
-import { initials, relativeTime } from "@/lib/utils";
+
+import { relativeTime } from "@/lib/utils";
 import { ORDER_JOURNEY, orderJourneyIndex } from "../lib/journey";
 
 const AGENT_STATUS_OPTIONS = [
@@ -72,7 +69,7 @@ function JourneyProgress({ status }: { status: string }) {
   const pct = idx >= 0 ? ((idx + 1) / ORDER_JOURNEY.length) * 100 : 0;
   return (
     <div className="w-full min-w-0">
-      <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+      <div className="mb-1 flex items-center justify-between gap-2 text-xs">
         <span className="text-muted-foreground">
           {idx >= 0
             ? `Step ${idx + 1} of ${ORDER_JOURNEY.length}`
@@ -87,40 +84,6 @@ function JourneyProgress({ status }: { status: string }) {
           }`}
           style={{ width: `${pct}%` }}
         />
-      </div>
-    </div>
-  );
-}
-
-function AssignedChip({
-  adminId,
-  adminName,
-}: {
-  adminId?: string | null;
-  adminName?: string | null;
-}) {
-  const role = adminId
-    ? mockUsers.find((u) => u.id === adminId)?.role
-    : undefined;
-  if (!adminId || !adminName) {
-    return <Badge variant="muted">Unassigned</Badge>;
-  }
-  return (
-    <div className="flex items-center gap-2">
-      <Avatar className="h-7 w-7">
-        <AvatarFallback className="text-[10px]">
-          {initials(adminName)}
-        </AvatarFallback>
-      </Avatar>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-foreground/80">
-          {adminName}
-        </p>
-        {role === "SUPER_ADMIN" && (
-          <Badge variant="secondary" className="mt-0.5 text-[10px]">
-            Super Admin
-          </Badge>
-        )}
       </div>
     </div>
   );
@@ -166,11 +129,15 @@ function TrackingCard({
 
         <div className="flex items-center justify-between gap-2 border-t pt-3">
           <div className="min-w-0">
-            <p className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+            <p className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
               <UserRound className="h-3 w-3" />
               Assigned
             </p>
-            <AssignedChip adminId={adminId} adminName={adminName} />
+            <AssignedAdminCell
+              adminId={adminId}
+              adminName={adminName}
+              stacked
+            />
           </div>
           <Button asChild variant="outline" size="sm" className="shrink-0">
             <Link to={href}>
@@ -198,10 +165,14 @@ export function TrackingOverviewPage() {
   const [agentStatus, setAgentStatus] = useState<string>("all");
   const [branchStatus, setBranchStatus] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("agent");
+  const [page, setPage] = useState(0);
 
   const q = search.trim().toLowerCase();
-  const matchesQuery = (...fields: Array<string | null | undefined>) =>
-    !q || fields.some((f) => f?.toLowerCase().includes(q));
+  const matchesQuery = useCallback(
+    (...fields: Array<string | null | undefined>) =>
+      !q || fields.some((f) => f?.toLowerCase().includes(q)),
+    [q]
+  );
 
   const filteredAgentOrders = useMemo(
     () =>
@@ -218,7 +189,7 @@ export function TrackingOverviewPage() {
             )
         )
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [bookings, search, agentStatus]
+    [bookings, agentStatus, matchesQuery]
   );
 
   const filteredBranchOrders = useMemo(
@@ -234,8 +205,28 @@ export function TrackingOverviewPage() {
             )
         )
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [branchOrders, search, branchStatus]
+    [branchOrders, branchStatus, matchesQuery]
   );
+
+  // Both card grids share the same pagination control.
+  const pageSize = 9;
+  const activeCount =
+    activeTab === "agent" ? filteredAgentOrders.length : filteredBranchOrders.length;
+  const totalPages = Math.max(1, Math.ceil(activeCount / pageSize));
+  const safePage = Math.min(page, totalPages - 1);
+  const paginatedAgentOrders = filteredAgentOrders.slice(
+    safePage * pageSize,
+    safePage * pageSize + pageSize
+  );
+  const paginatedBranchOrders = filteredBranchOrders.slice(
+    safePage * pageSize,
+    safePage * pageSize + pageSize
+  );
+
+  // A new search or filter always returns the user to the first page.
+  useEffect(() => {
+    setPage(0);
+  }, [search, agentStatus, branchStatus]);
 
   const activeStatus =
     activeTab === "agent" ? agentStatus : branchStatus;
@@ -258,10 +249,7 @@ export function TrackingOverviewPage() {
             variant="outline"
             className="gap-1.5 border-primary/40 bg-primary/5 text-primary"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-            </span>
+            <span className="h-2 w-2 rounded-full bg-primary" aria-hidden />
             Live
             <span className="tabular-nums">
               {new Date(now).toLocaleTimeString()}
@@ -277,17 +265,18 @@ export function TrackingOverviewPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by order no., customer, branch..."
+              placeholder="Search by order no., customer, branch…"
+              aria-label="Search orders"
               className="pl-8 pr-8"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 aria-label="Clear search"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden />
               </button>
             )}
           </div>
@@ -295,7 +284,7 @@ export function TrackingOverviewPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
           <Select value={activeStatus} onValueChange={setActiveStatus}>
-            <SelectTrigger className="h-9 w-[160px]">
+            <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[160px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -322,14 +311,14 @@ export function TrackingOverviewPage() {
 
         <TabsContent value="agent">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredAgentOrders.map((booking) => (
+            {paginatedAgentOrders.map((booking) => (
               <TrackingCard
                 key={booking.id}
                 href={`/bookings/track/${booking.id}`}
                 reference={booking.reference}
                 statusBadge={
                   <StatusBadge
-                    variant={getBookingStatusVariant(booking.status)}
+                    variant={getStatusVariant(booking.status)}
                     label={humanize(booking.status)}
                   />
                 }
@@ -355,27 +344,24 @@ export function TrackingOverviewPage() {
             ))}
           </div>
           {filteredAgentOrders.length === 0 && (
-            <Card>
-              <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-                <Radio className="h-8 w-8 text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">
-                  No agent orders match your search or filters.
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={<Radio className="h-5 w-5" aria-hidden />}
+              title="No agent orders match"
+              description="Try a different search term or clear the status filter."
+            />
           )}
         </TabsContent>
 
         <TabsContent value="branch">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredBranchOrders.map((order) => (
+            {paginatedBranchOrders.map((order) => (
               <TrackingCard
                 key={order.id}
                 href={`/tracking/branch/${order.id}`}
                 reference={order.reference}
                 statusBadge={
                   <StatusBadge
-                    variant={getBranchOrderStatusVariant(order.status)}
+                    variant={getStatusVariant(order.status)}
                     label={humanize(order.status)}
                   />
                 }
@@ -398,16 +384,61 @@ export function TrackingOverviewPage() {
             ))}
           </div>
           {filteredBranchOrders.length === 0 && (
-            <Card>
-              <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-                <Radio className="h-8 w-8 text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">
-                  No branch orders match your search or filters.
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={<Radio className="h-5 w-5" aria-hidden />}
+              title="No branch orders match"
+              description="Try a different search term or clear the status filter."
+            />
           )}
         </TabsContent>
+        {activeCount > pageSize && (
+          <div className="mt-4 flex flex-col gap-3 rounded-lg border bg-card px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {safePage * pageSize + 1}
+              </span>–
+              <span className="font-medium text-foreground">
+                {Math.min(activeCount, safePage * pageSize + pageSize)}
+              </span>{" "}
+              of{" "}
+              <span className="font-medium text-foreground">{activeCount}</span>
+            </p>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    aria-disabled={safePage === 0}
+                    className={safePage === 0 ? "pointer-events-none opacity-50" : undefined}
+                  />
+                </PaginationItem>
+                {Array.from({ length: totalPages }).map((_, index) => (
+                  <PaginationItem key={index}>
+                    <PaginationLink
+                      isActive={index === safePage}
+                      onClick={() => setPage(index)}
+                      aria-label={`Page ${index + 1}`}
+                    >
+                      {index + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    aria-disabled={safePage >= totalPages - 1}
+                    className={
+                      safePage >= totalPages - 1
+                        ? "pointer-events-none opacity-50"
+                        : undefined
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </Tabs>
     </div>
   );

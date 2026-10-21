@@ -19,7 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState } from "./EmptyState";
+import { ErrorState } from "./ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { PAGE_SIZE_DEFAULT } from "@/lib/constants";
@@ -59,6 +68,10 @@ interface DataTableProps<T> {
   toolbar?: ReactNode;
   emptyState?: ReactNode;
   loading?: boolean;
+  /** Error surfaced above the table when the data failed to load. */
+  error?: string | null;
+  /** Retry handler paired with `error`. */
+  onRetry?: () => void;
   pageSize?: number;
   rowKey: (row: T) => string;
   onRowClick?: (row: T) => void;
@@ -70,11 +83,13 @@ interface DataTableProps<T> {
 export function DataTable<T>({
   data,
   columns,
-  searchPlaceholder = "Search...",
+  searchPlaceholder = "Search…",
   searchKeys,
   toolbar,
   emptyState,
   loading = false,
+  error = null,
+  onRetry,
   pageSize: initialPageSize = PAGE_SIZE_DEFAULT,
   rowKey,
   onRowClick,
@@ -167,10 +182,21 @@ export function DataTable<T>({
   const start = rowCount === 0 ? 0 : safePageIndex * effectivePageSize + 1;
   const end = Math.min(rowCount, (safePageIndex + 1) * effectivePageSize);
 
+  const activeSearch = isServer ? (serverMode?.search ?? "") : search;
+
+  const clearSearch = () => {
+    if (isServer) {
+      serverMode?.onSearchChange("");
+    } else {
+      setSearch("");
+      setPageIndex(0);
+    }
+  };
+
   // A full skeleton is fine for a first load, but in server mode it would
   // unmount the toolbar on every keystroke and steal focus from the search
   // box. There the table stays mounted and is marked busy instead.
-  if (loading && !isServer) {
+  if (loading && !isServer && !error) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-9 w-64" />
@@ -186,9 +212,12 @@ export function DataTable<T>({
           <div className="flex flex-1 flex-wrap items-center gap-2">
             {showSearch && (
               <div className="relative w-full max-w-xs flex-1 sm:w-auto">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search
+                  className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden
+                />
                 <Input
-                  value={isServer ? (serverMode?.search ?? "") : search}
+                  value={activeSearch}
                   onChange={(e) => {
                     if (isServer) {
                       serverMode?.onSearchChange(e.target.value);
@@ -198,22 +227,17 @@ export function DataTable<T>({
                     }
                   }}
                   placeholder={searchPlaceholder}
+                  aria-label={searchPlaceholder}
                   className="pl-8 pr-8"
                 />
-                {(isServer ? serverMode?.search : search) && (
+                {activeSearch && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (isServer) {
-                        serverMode?.onSearchChange("");
-                      } else {
-                        setSearch("");
-                      }
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={clearSearch}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     aria-label="Clear search"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4" aria-hidden />
                   </button>
                 )}
               </div>
@@ -226,170 +250,178 @@ export function DataTable<T>({
         </div>
       )}
 
-      <div className="relative overflow-hidden rounded-lg border bg-card">
-        {isServer && loading && (
-          <div
-            className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 bg-background/70 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur"
-            role="status"
-          >
-            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-            Updating…
-          </div>
-        )}
-        <div
-          className="overflow-x-auto"
-          aria-busy={isServer && loading ? true : undefined}
-        >
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                {columns.map((col) => (
-                  <th
-                    key={col.id}
-                    className={cn(
-                      "h-10 px-3 text-left font-medium",
-                      col.className,
-                      col.hideOnMobile && "hidden md:table-cell"
-                    )}
-                  >
-                    {col.sortable ? (
-                      <button
-                        type="button"
-                        onClick={() => handleSort(col)}
-                        disabled={isServer}
-                        title={
-                          isServer
-                            ? "Sorting is handled by the server"
-                            : undefined
-                        }
-                        className="inline-flex items-center gap-1 hover:text-foreground disabled:cursor-default disabled:opacity-70"
-                      >
-                        {col.header}
-                        {sort && sort.key === col.sortKey && (
-                          <span className="text-foreground">
-                            {sort.direction === "asc" ? "↑" : "↓"}
-                          </span>
-                        )}
-                      </button>
-                    ) : (
-                      col.header
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {paginated.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="p-0">
-                    {emptyState ?? (
-                      <EmptyState
-                        title="No results"
-                        description="Try adjusting your search or filters to find what you're looking for."
-                      />
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                paginated.map((row) => (
-                  <tr
-                    key={rowKey(row)}
-                    onClick={() => onRowClick?.(row)}
-                    className={cn(
-                      "border-b transition-colors last:border-0",
-                      onRowClick && "cursor-pointer hover:bg-muted/40"
-                    )}
-                  >
-                    {columns.map((col) => (
-                      <td
-                        key={col.id}
-                        className={cn(
-                          "p-3 align-middle",
-                          col.className,
-                          col.hideOnMobile && "hidden md:table-cell"
-                        )}
-                      >
-                        {col.cell(row)}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        {rowCount > 0 && (
-          <div className="flex flex-col gap-3 border-t px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-muted-foreground">
-              Showing <span className="font-medium text-foreground">{start}</span>–
-              <span className="font-medium text-foreground">{end}</span> of{" "}
-              <span className="font-medium text-foreground">{rowCount}</span>
+      {error ? (
+        <ErrorState
+          title="Couldn't load this list"
+          message={error}
+          onRetry={onRetry}
+        />
+      ) : (
+        <div className="relative overflow-hidden rounded-lg border bg-card">
+          {isServer && loading && (
+            <div
+              className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 border-b bg-background px-3 py-1.5 text-xs text-muted-foreground"
+              role="status"
+            >
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              Updating…
             </div>
-            <div className="flex items-center gap-2">
-              <Select
-                value={String(effectivePageSize)}
-                onValueChange={(v) => changePageSize(Number(v))}
-              >
-                <SelectTrigger className="h-8 w-[110px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[10, 20, 50, 100].map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n} / page
-                    </SelectItem>
+          )}
+          <div
+            className="min-w-full"
+            aria-busy={isServer && loading ? true : undefined}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {columns.map((col) => (
+                    <TableHead
+                      key={col.id}
+                      scope="col"
+                      aria-sort={
+                        sort && sort.key === col.sortKey
+                          ? sort.direction === "asc"
+                          ? "ascending"
+                            : "descending"
+                          : undefined
+                      }
+                      className={cn(
+                        col.className,
+                        col.hideOnMobile && "hidden md:table-cell"
+                      )}
+                    >
+                      {col.sortable ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSort(col)}
+                          disabled={isServer}
+                          title={isServer
+                            ? "Sorting is handled by the server"
+                            : undefined}
+                          className="inline-flex items-center gap-1 rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-default disabled:opacity-70"
+                        >
+                          {col.header}
+                          {sort && sort.key === col.sortKey && (
+                            <span className="text-foreground" aria-hidden>
+                              {sort.direction === "asc" ? "↑" : "↓"}
+                            </span>
+                          )}
+                        </button>
+                      ) : (
+                        col.header
+                      )}
+                    </TableHead>
                   ))}
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => goToPage(0)}
-                  disabled={safePageIndex === 0}
-                  aria-label="First page"
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginated.length === 0 ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={columns.length} className="p-0">
+                      {emptyState ?? (
+                        <EmptyState
+                          title="No results"
+                          description="Try adjusting your search or filters to find what you're looking for."
+                        />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginated.map((row) => (
+                    <TableRow
+                      key={rowKey(row)}
+                      onClick={() => onRowClick?.(row)}
+                      className={cn(onRowClick && "cursor-pointer")}
+                    >
+                      {columns.map((col) => (
+                        <TableCell
+                          key={col.id}
+                          className={cn(
+                            col.className,
+                            col.hideOnMobile && "hidden md:table-cell"
+                          )}
+                        >
+                          {col.cell(row)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          {rowCount > 0 && (
+            <div className="flex flex-col gap-3 border-t px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-muted-foreground">
+                Showing <span className="font-medium text-foreground">{start}</span>–
+                <span className="font-medium text-foreground">{end}</span> of{" "}
+                <span className="font-medium text-foreground">{rowCount}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select
+                  value={String(effectivePageSize)}
+                  onValueChange={(v) => changePageSize(Number(v))}
                 >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => goToPage(safePageIndex - 1)}
-                  disabled={safePageIndex === 0}
-                  aria-label="Previous page"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="px-2 text-xs text-muted-foreground">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => goToPage(safePageIndex + 1)}
-                  disabled={safePageIndex >= totalPages - 1}
-                  aria-label="Next page"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => goToPage(totalPages - 1)}
-                  disabled={safePageIndex >= totalPages - 1}
-                  aria-label="Last page"
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
+                  <SelectTrigger
+                    className="h-8 w-[110px]"
+                    aria-label="Rows per page"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[10, 20, 50, 100].map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n} / page
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="iconSm"
+                    onClick={() => goToPage(0)}
+                    disabled={safePageIndex === 0}
+                    aria-label="First page"
+                  >
+                    <ChevronsLeft className="h-4 w-4" aria-hidden />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="iconSm"
+                    onClick={() => goToPage(safePageIndex - 1)}
+                    disabled={safePageIndex === 0}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="h-4 w-4" aria-hidden />
+                  </Button>
+                  <span className="px-2 text-xs text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="iconSm"
+                    onClick={() => goToPage(safePageIndex + 1)}
+                    disabled={safePageIndex >= totalPages - 1}
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="h-4 w-4" aria-hidden />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="iconSm"
+                    onClick={() => goToPage(totalPages - 1)}
+                    disabled={safePageIndex >= totalPages - 1}
+                    aria-label="Last page"
+                  >
+                    <ChevronsRight className="h-4 w-4" aria-hidden />
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

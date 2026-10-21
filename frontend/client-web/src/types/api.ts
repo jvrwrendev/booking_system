@@ -136,7 +136,6 @@ export interface SupplierDto {
   id: string;
   name: string;
   contactName: string | null;
-  email: string | null;
   contactNumber: string | null;
   address: string | null;
   status: SupplierStatusDto;
@@ -156,7 +155,6 @@ export interface ListSuppliersResponseDto {
 export interface CreateSupplierPayloadDto {
   name: string;
   contactName?: string;
-  email?: string;
   contactNumber?: string;
   address?: string;
   status: SupplierStatusDto;

@@ -7,7 +7,8 @@ import { getUser as fetchUser } from "../services/users.service";
 import { usePermissions } from "@/hooks/usePermissions";
 import { NotFound } from "@/components/common/NotFound";
 import { FormPageLayout } from "@/components/common/FormPageLayout";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingState } from "@/components/common/LoadingState";
+import { ErrorState } from "@/components/common/ErrorState";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { formatStatus } from "../lib/user-mapper";
 import { ApiError } from "@/lib/api-client";
@@ -24,6 +25,8 @@ export function UserEditPage() {
   const [notFound, setNotFound] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadSignal, setReloadSignal] = useState(0);
 
   useEffect(() => {
     if (!id) {
@@ -34,6 +37,7 @@ export function UserEditPage() {
 
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
 
     fetchUser(id)
       .then((result) => {
@@ -46,7 +50,7 @@ export function UserEditPage() {
         if (error instanceof ApiError && error.status === 404) {
           setNotFound(true);
         } else {
-          setSubmitError(
+          setLoadError(
             error instanceof ApiError ? error.message : "Could not load this user."
           );
         }
@@ -58,27 +62,24 @@ export function UserEditPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, reloadSignal]);
 
   if (!can("users.manage")) {
     return <NotFound permission title="Permission denied" />;
   }
 
   if (loading) {
+    return <LoadingState variant="detail" />;
+  }
+
+  if (loadError) {
     return (
       <div className="space-y-6">
-        <div className="space-y-2">
-          <Skeleton className="h-7 w-56" />
-          <Skeleton className="h-4 w-80" />
-        </div>
-        <div className="space-y-8">
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Skeleton className="h-10 sm:col-span-2" />
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-          </div>
-        </div>
+        <ErrorState
+          title="Couldn't load this user"
+          message={loadError}
+          onRetry={() => setReloadSignal((n) => n + 1)}
+        />
       </div>
     );
   }

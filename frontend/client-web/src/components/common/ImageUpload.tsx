@@ -62,10 +62,10 @@ export function ImageUpload({
             <button
               type="button"
               onClick={remove}
-              className="absolute right-2 top-2 rounded-full bg-background/90 p-1.5 text-muted-foreground opacity-0 shadow transition-opacity hover:text-destructive group-hover:opacity-100"
+              className="absolute right-2 top-2 rounded-md border border-border bg-background p-1.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background group-hover:opacity-100"
               aria-label="Remove image"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden />
             </button>
           </>
         ) : (
@@ -74,7 +74,7 @@ export function ImageUpload({
             onClick={() => inputRef.current?.click()}
             className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
           >
-            <ImagePlus className="h-8 w-8" />
+            <ImagePlus className="h-8 w-8" aria-hidden />
             <span className="text-xs font-medium">Upload image</span>
           </button>
         )}
@@ -86,13 +86,13 @@ export function ImageUpload({
         className="hidden"
         onChange={(e) => handleFile(e.target.files?.[0])}
       />
-      {error && <p className="text-[11px] text-destructive">{error}</p>}
-      <p className="text-[11px] text-muted-foreground">
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      <p className="text-xs text-muted-foreground">
         {preview ? (
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="text-primary hover:underline"
+            className="rounded-sm text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             Replace image
           </button>

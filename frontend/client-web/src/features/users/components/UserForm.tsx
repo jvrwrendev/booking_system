@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PasswordInput } from "@/components/common/PasswordInput";
 import {
   Select,
   SelectContent,
@@ -17,6 +18,13 @@ import {
 
 import type { AuthUser } from "@/types/auth";
 import type { UserFormValues } from "../lib/user-mapper";
+import {
+  hasErrors,
+  isBlank,
+  isEmail,
+  MIN_PASSWORD_LENGTH,
+  type FieldErrors,
+} from "@/lib/validation";
 
 interface UserFormProps {
   initial?: AuthUser;
@@ -32,7 +40,6 @@ interface UserFormProps {
 }
 
 /** Mirrors the API's `createUserDto` minimum, so the UI never under-promises. */
-const MIN_PASSWORD_LENGTH = 8;
 
 export function UserForm({
   initial,
@@ -55,20 +62,23 @@ export function UserForm({
       : { name: "", email: "", role: "ADMIN", status: "active", password: "" }
   );
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FieldErrors<UserField>>({});
+  const formRef = useRef<HTMLFormElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
 
-    const localError = validate(values, confirmPassword, Boolean(initial));
-    if (localError) {
-      setError(localError);
+    const nextErrors = validate(values, confirmPassword, Boolean(initial));
+    setErrors(nextErrors);
+    if (hasErrors(nextErrors)) {
+      requestAnimationFrame(() => {
+        formRef.current
+          ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+          ?.focus();
+      });
       return;
     }
-
-    setError(null);
     // Drop the password on edit; changing it is a separate, admin-only action.
     const payload = initial
       ? { name: values.name, email: values.email, role: values.role, status: values.status }
@@ -76,14 +86,20 @@ export function UserForm({
     await onSubmit(payload);
   };
 
-  const visibleError = error ?? submitError;
+  const visibleError = submitError;
 
   return (
-    <form id={formId} onSubmit={handleSubmit} className="space-y-12">
+    <form
+      id={formId}
+      ref={formRef}
+      onSubmit={handleSubmit}
+      className="space-y-10"
+      noValidate
+    >
       {visibleError && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {visibleError}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{visibleError}</AlertDescription>
+        </Alert>
       )}
 
       <FormSection
@@ -97,15 +113,18 @@ export function UserForm({
               required
               htmlFor="name"
               hint="As it should appear on audit logs and orders."
+              error={errors.name}
             >
               <Input
                 id="name"
                 value={values.name}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, name: e.target.value }))
-                }
+                onChange={(e) => {
+                  setValues((v) => ({ ...v, name: e.target.value }));
+                  setErrors((e) => ({ ...e, name: undefined }));
+                }}
                 placeholder="e.g., Juan Dela Cruz"
                 autoComplete="name"
+                aria-invalid={!!errors.name}
                 className="h-10"
               />
             </FormField>
@@ -115,16 +134,19 @@ export function UserForm({
             required
             htmlFor="email"
             hint="Used for signing in. Must be unique."
+            error={errors.email}
           >
             <Input
               id="email"
               type="email"
               value={values.email}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, email: e.target.value }))
-              }
+              onChange={(e) => {
+                setValues((v) => ({ ...v, email: e.target.value }));
+                setErrors((e) => ({ ...e, email: undefined }));
+              }}
               placeholder="admin@agrivet.ph"
               autoComplete="email"
+              aria-invalid={!!errors.email}
               className="h-10"
             />
           </FormField>
@@ -187,45 +209,37 @@ export function UserForm({
               required
               htmlFor="password"
               hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
+              error={errors.password}
             >
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={values.password ?? ""}
-                  onChange={(e) =>
-                    setValues((v) => ({ ...v, password: e.target.value }))
-                  }
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                  className="h-10 pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
+              <PasswordInput
+                id="password"
+                value={values.password ?? ""}
+                onChange={(e) => {
+                  setValues((v) => ({ ...v, password: e.target.value }));
+                  setErrors((e) => ({ ...e, password: undefined }));
+                }}
+                placeholder="••••••••"
+                autoComplete="new-password"
+                aria-invalid={!!errors.password}
+                className="h-10"
+              />
             </FormField>
             <FormField
               label="Confirm password"
               required
               htmlFor="confirmPassword"
+              error={errors.confirmPassword}
             >
-              <Input
+              <PasswordInput
                 id="confirmPassword"
-                type={showPassword ? "text" : "password"}
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setErrors((e) => ({ ...e, confirmPassword: undefined }));
+                }}
                 placeholder="••••••••"
                 autoComplete="new-password"
+                aria-invalid={!!errors.confirmPassword}
                 className="h-10"
               />
             </FormField>
@@ -244,25 +258,34 @@ export function UserForm({
   );
 }
 
+type UserField = "name" | "email" | "password" | "confirmPassword";
+
 function validate(
   values: UserFormValues,
   confirmPassword: string,
   isEdit: boolean
-): string | null {
-  if (!values.name.trim()) return "Full name is required.";
-  if (!values.email.trim()) return "Email is required.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
-    return "Enter a valid email address.";
+): FieldErrors<UserField> {
+  const errors: FieldErrors<UserField> = {};
+
+  if (isBlank(values.name)) {
+    errors.name = "Full name is required.";
+  }
+  if (isBlank(values.email)) {
+    errors.email = "Email is required.";
+  } else if (!isEmail(values.email)) {
+    errors.email = "Enter a valid email address.";
   }
 
-  if (isEdit) return null;
+  if (!isEdit) {
+    if (isBlank(values.password)) {
+      errors.password = "Password is required.";
+    } else if (values.password!.length < MIN_PASSWORD_LENGTH) {
+      errors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+    }
+    if (values.password !== confirmPassword) {
+      errors.confirmPassword = "Passwords do not match.";
+    }
+  }
 
-  if (!values.password) return "Password is required.";
-  if (values.password.length < MIN_PASSWORD_LENGTH) {
-    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
-  }
-  if (values.password !== confirmPassword) {
-    return "Passwords do not match.";
-  }
-  return null;
+  return errors;
 }

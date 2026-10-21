@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -22,6 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NotFound } from "@/components/common/NotFound";
 import { PageHeader } from "@/components/common/PageHeader";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 import {
   ALL_PERMISSIONS,
@@ -30,7 +31,7 @@ import {
   type Permission,
   type Role,
 } from "@/lib/permissions";
-import { humanize } from "@/lib/utils";
+import { humanize } from "@/lib/status";
 import { mockUsers } from "@/data/mock-users";
 import { ACCESS_MODULES } from "../data/access-modules";
 import { useRolesPermissionsStore } from "../hooks/useRolesPermissionsStore";
@@ -39,6 +40,7 @@ export function RolePermissionsPage() {
   const { roleId } = useParams<{ roleId: string }>();
   const { getRolePermissions, grant, revoke, setModule, resetRole } =
     useRolesPermissionsStore();
+  const [resetOpen, setResetOpen] = useState(false);
 
   const role: Role | null = useMemo(() => {
     if (!roleId) return null;
@@ -120,16 +122,34 @@ export function RolePermissionsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline" size="sm">
               <Link to="/roles">
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4" aria-hidden />
                 Roles
               </Link>
             </Button>
-            <Button variant="outline" size="sm" className="gap-2" onClick={handleReset}>
-              <RotateCcw className="h-4 w-4" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setResetOpen(true)}
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden />
               Reset to defaults
             </Button>
           </div>
         }
+      />
+
+      <ConfirmDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        title="Reset to default permissions?"
+        description={`Every custom permission for the ${ROLE_LABELS[role]} role will be replaced with the defaults. This cannot be undone.`}
+        confirmText="Reset permissions"
+        destructive
+        onConfirm={() => {
+          handleReset();
+          setResetOpen(false);
+        }}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -199,11 +219,13 @@ export function RolePermissionsPage() {
                   </div>
                 </div>
                 <Switch
+                  id={`module-${module.key}`}
                   checked={granted}
                   disabled={locked}
                   onCheckedChange={(checked) =>
                     toggleModule(module.key, module.permissions, checked)
                   }
+                  aria-label={`${module.label} module`}
                 />
               </div>
             );
@@ -247,11 +269,13 @@ export function RolePermissionsPage() {
                     )}
                   </span>
                   <Switch
+                    id={`permission-${permission}`}
                     checked={granted}
                     disabled={locked}
                     onCheckedChange={(checked) =>
                       togglePermission(permission, checked)
                     }
+                    aria-label={humanize(permission)}
                   />
                 </div>
               );

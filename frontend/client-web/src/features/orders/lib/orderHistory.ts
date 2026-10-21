@@ -1,5 +1,5 @@
 import type { TimelineEvent } from "@/components/common/ActivityTimeline";
-import { humanize } from "@/components/common/StatusBadge";
+import { humanize } from "@/lib/status";
 import { formatDateTime } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
 import type { BranchOrder } from "@/types/branch-order";

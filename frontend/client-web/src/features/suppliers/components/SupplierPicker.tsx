@@ -3,24 +3,14 @@ import {
   Building2,
   Check,
   ChevronsUpDown,
-  Loader2,
   Plus,
   Search,
   X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Popover,
   PopoverContent,
@@ -28,13 +18,14 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/common/EmptyState";
 import { useDebounce, usePermissions } from "@/hooks/usePermissions";
-import { ApiError } from "@/lib/api-client";
-import type { Supplier, SupplierFormValues } from "@/types/supplier";
+import type { Supplier } from "@/types/supplier";
 import {
   createSupplier,
   listAllSuppliers,
 } from "../services/suppliers.service";
+import { SupplierAddDialog } from "./SupplierAddDialog";
 
 interface SupplierPickerProps {
   id?: string;
@@ -43,15 +34,6 @@ interface SupplierPickerProps {
   onChange: (supplierId: string, supplierName: string) => void;
   disabled?: boolean;
 }
-
-const EMPTY_SUPPLIER_FORM: SupplierFormValues = {
-  name: "",
-  contactName: "",
-  email: "",
-  contactNumber: "",
-  address: "",
-  status: "active",
-};
 
 export function SupplierPicker({
   id,
@@ -70,9 +52,6 @@ export function SupplierPicker({
   const debouncedSearch = useDebounce(search, 300);
 
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState<SupplierFormValues>(EMPTY_SUPPLIER_FORM);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async (term: string) => {
     setLoading(true);
@@ -115,40 +94,8 @@ export function SupplierPicker({
   };
 
   const openAddDialog = () => {
-    setForm(EMPTY_SUPPLIER_FORM);
-    setFormError(null);
     setOpen(false);
     setAddOpen(true);
-  };
-
-  const handleCreate = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!form.name.trim()) {
-      setFormError("Supplier name is required.");
-      return;
-    }
-    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      setFormError("Enter a valid email address.");
-      return;
-    }
-
-    setSaving(true);
-    setFormError(null);
-    try {
-      const supplier = await createSupplier(form);
-      setAddOpen(false);
-      onChange(supplier.id, supplier.name);
-      setSearch("");
-      await load("");
-    } catch (err) {
-      setFormError(
-        err instanceof ApiError
-          ? err.message
-          : "Could not create the supplier.",
-      );
-    } finally {
-      setSaving(false);
-    }
   };
 
   return (
@@ -197,14 +144,15 @@ export function SupplierPicker({
                 autoFocus
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search suppliers..."
+                placeholder="Search suppliers…"
+                aria-label="Search suppliers"
                 className="h-9 pl-8"
               />
             </div>
           </div>
 
           <ScrollArea className="max-h-64">
-            <div className="p-1">
+            <div className="p-1" role="listbox" aria-label="Suppliers">
               {loading ? (
                 <div className="space-y-2 p-2">
                   {Array.from({ length: 4 }).map((_, index) => (
@@ -224,28 +172,30 @@ export function SupplierPicker({
                   </Button>
                 </div>
               ) : suppliers.length === 0 ? (
-                <div className="px-3 py-6 text-center">
-                  <p className="text-sm font-medium">
-                    {hasLoaded ? "No suppliers found" : "No suppliers yet"}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {search
+                <EmptyState
+                  icon={<Building2 className="h-5 w-5" aria-hidden />}
+                  title={hasLoaded ? "No suppliers found" : "No suppliers yet"}
+                  description={
+                    search
                       ? "Try a different supplier name."
-                      : "Add a supplier to start linking products."}
-                  </p>
-                </div>
+                      : "Add a supplier to start linking products."
+                  }
+                  className="border-0 py-8"
+                />
               ) : (
                 suppliers.map((supplier) => (
                   <button
                     key={supplier.id}
                     type="button"
+                    role="option"
+                    aria-selected={supplier.id === value}
                     onClick={() => handleSelect(supplier)}
-                    className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                    className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
                     <span className="min-w-0">
                       <span className="block truncate">{supplier.name}</span>
                       {supplier.status === "inactive" && (
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           Inactive
                         </span>
                       )}
@@ -259,7 +209,7 @@ export function SupplierPicker({
             </div>
           </ScrollArea>
 
-          <div className="flex items-center justify-between border-t px-3 py-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-muted-foreground">
             <span>
               {loading
                 ? "Loading suppliers…"
@@ -270,7 +220,7 @@ export function SupplierPicker({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-6 gap-1 px-2 text-[11px]"
+                className="h-6 gap-1 px-2 text-xs"
                 onClick={openAddDialog}
               >
                 <Plus className="h-3 w-3" />
@@ -282,121 +232,32 @@ export function SupplierPicker({
       </Popover>
 
       {value && !disabled && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="iconSm"
           onClick={handleClear}
-          className="absolute right-8 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="absolute right-8 top-1/2 -translate-y-1/2"
           aria-label="Clear supplier"
         >
-          <X className="h-3.5 w-3.5" />
-        </button>
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </Button>
       )}
 
       {loading && open && (
-        <Loader2 className="absolute right-8 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+        <Spinner className="absolute right-8 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
       )}
 
-      <Dialog
+      <SupplierAddDialog
         open={addOpen}
-        onOpenChange={(next) => {
-          if (!saving) setAddOpen(next);
+        onOpenChange={setAddOpen}
+        onSubmit={createSupplier}
+        onCreated={async (supplier) => {
+          onChange(supplier.id, supplier.name);
+          setSearch("");
+          await load("");
         }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add supplier</DialogTitle>
-            <DialogDescription>
-              Create a supplier here and it will be selected on this product.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4">
-            {formError && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {formError}
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <Label htmlFor="new-supplier-name">Supplier name *</Label>
-              <Input
-                id="new-supplier-name"
-                value={form.name}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, name: event.target.value }))
-                }
-                placeholder="Supplier name"
-                disabled={saving}
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="new-supplier-contact">Contact person</Label>
-                <Input
-                  id="new-supplier-contact"
-                  value={form.contactName}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      contactName: event.target.value,
-                    }))
-                  }
-                  disabled={saving}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="new-supplier-phone">Contact number</Label>
-                <Input
-                  id="new-supplier-phone"
-                  value={form.contactNumber}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      contactNumber: event.target.value,
-                    }))
-                  }
-                  disabled={saving}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-supplier-email">Email</Label>
-              <Input
-                id="new-supplier-email"
-                type="email"
-                value={form.email}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, email: event.target.value }))
-                }
-                disabled={saving}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-supplier-address">Address</Label>
-              <Textarea
-                id="new-supplier-address"
-                value={form.address}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, address: event.target.value }))
-                }
-                rows={2}
-                disabled={saving}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setAddOpen(false)}
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Saving…" : "Create supplier"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      />
     </div>
   );
 }

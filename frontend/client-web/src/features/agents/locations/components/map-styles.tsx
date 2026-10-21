@@ -89,7 +89,7 @@ export function MapStyleToggle({
       role="group"
       aria-label="Map style"
       className={cn(
-        "absolute bottom-3 left-3 z-10 flex overflow-hidden rounded-md border bg-background/95 shadow-sm",
+        "absolute bottom-3 left-3 z-10 flex overflow-hidden rounded-md border bg-background",
         className
       )}
     >
@@ -105,13 +105,13 @@ export function MapStyleToggle({
             aria-pressed={isActive}
             onClick={() => onChange(option.id)}
             className={cn(
-              "h-7 gap-1.5 rounded-none px-2.5 text-[11px]",
+              "h-8 gap-1.5 rounded-none px-2.5 text-xs",
               isActive
                 ? "bg-primary/10 font-medium text-primary hover:bg-primary/15"
                 : "text-muted-foreground hover:bg-accent"
             )}
           >
-            <Icon className="h-3.5 w-3.5" />
+            <Icon className="h-3.5 w-3.5" aria-hidden />
             {option.label}
           </Button>
         );

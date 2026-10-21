@@ -121,7 +121,7 @@ export function UsersProvider({ children }: { children: ReactNode }) {
   // so a narrowed result set never strands the user on an empty page.
   useEffect(() => {
     void load(page, pageSize);
-  }, [debouncedSearch, filters.role, filters.status, page, pageSize]);
+  }, [load, page, pageSize]);
 
   const setSearch = useCallback((value: string) => {
     setFilters((prev) => ({ ...prev, search: value }));

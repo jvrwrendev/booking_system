@@ -5,17 +5,14 @@ import { ArrowLeft, Edit, Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import {
-  StatusBadge,
-  getStatusVariantFromGeneric,
-  getStockStatusVariant,
-  humanize,
-} from "@/components/common/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { getStatusVariant, humanize } from "@/lib/status";
 import { PageHeader } from "@/components/common/PageHeader";
 import { NotFound } from "@/components/common/NotFound";
+import { DescriptionList } from "@/components/common/DescriptionList";
 import { LoadingState } from "@/components/common/LoadingState";
 
-import { ProductFormSheet } from "../components/ProductFormSheet";
+import { ProductFormDialog } from "../components/ProductFormDialog";
 import { getProduct } from "../services/products.service";
 import { ApiError } from "@/lib/api-client";
 import type { Product } from "@/types/product";
@@ -139,7 +136,7 @@ export function ProductDetailPage() {
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
-              <div className="h-28 w-28 overflow-hidden rounded-lg border bg-muted/40 sm:w-32">
+              <div className="h-28 w-28 shrink-0 overflow-hidden rounded-lg border bg-muted/40 sm:h-32 sm:w-32">
                 {product.image ? (
                   <img
                     src={product.image}
@@ -162,19 +159,24 @@ export function ProductDetailPage() {
               </div>
             </div>
             <Separator />
-            <dl className="grid grid-cols-2 gap-4 md:grid-cols-3">
-              <InfoRow label="Brand" value={product.brand || "—"} />
-              <InfoRow label="Unit" value={product.unit} />
-              <InfoRow label="Supplier" value={product.supplier || "—"} />
-              <InfoRow label="Cost Price" value={formatCurrency(product.costPrice)} />
-              <InfoRow label="Selling Price" value={formatCurrency(product.sellingPrice)} />
-              <InfoRow
-                label="Margin"
-                value={`${formatCurrency(margin)} (${marginPercent}%)`}
-              />
-              <InfoRow label="Created" value={formatDate(product.createdAt)} />
-              <InfoRow label="Updated" value={formatDate(product.updatedAt)} />
-            </dl>
+            <DescriptionList
+              items={[
+                { label: "Brand", value: product.brand || "—" },
+                { label: "Unit", value: product.unit },
+                { label: "Supplier", value: product.supplier || "—" },
+                { label: "Cost price", value: formatCurrency(product.costPrice) },
+                {
+                  label: "Selling price",
+                  value: formatCurrency(product.sellingPrice),
+                },
+                {
+                  label: "Margin",
+                  value: `${formatCurrency(margin)} (${marginPercent}%)`,
+                },
+                { label: "Created", value: formatDate(product.createdAt) },
+                { label: "Updated", value: formatDate(product.updatedAt) },
+              ]}
+            />
           </CardContent>
         </Card>
         <div className="space-y-4">
@@ -186,14 +188,14 @@ export function ProductDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Catalog Status</span>
                 <StatusBadge
-                  variant={getStatusVariantFromGeneric(product.status)}
+                  variant={getStatusVariant(product.status)}
                   label={humanize(product.status)}
                 />
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Stock Status</span>
                 <StatusBadge
-                  variant={getStockStatusVariant(stockStatus)}
+                  variant={getStatusVariant(stockStatus)}
                   label={humanize(stockStatus)}
                 />
               </div>
@@ -223,7 +225,7 @@ export function ProductDetailPage() {
         </div>
       </div>
 
-      <ProductFormSheet
+      <ProductFormDialog
         open={editOpen}
         onOpenChange={setEditOpen}
         product={product}
@@ -233,13 +235,3 @@ export function ProductDetailPage() {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="mt-1 font-medium">{value}</dd>
-    </div>
-  );
-}

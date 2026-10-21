@@ -1,70 +1,34 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarRange, Eye, Filter, User, Store } from "lucide-react";
-import {
-  endOfMonth,
-  endOfWeek,
-  endOfYear,
-  format,
-  startOfMonth,
-  startOfWeek,
-  startOfYear,
-} from "date-fns";
+import { CalendarRange, Eye, Filter, ShoppingCart, Store, User } from "lucide-react";
+import { endOfMonth, endOfWeek, endOfYear, format, startOfMonth, startOfWeek, startOfYear } from "date-fns";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
+import { AssignedAdminCell } from "@/components/common/AssignedAdminCell";
+import { EmptyState } from "@/components/common/EmptyState";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import {
-  StatusBadge,
-  getBookingStatusVariant,
-  getBranchOrderStatusVariant,
+  getStatusVariant,
   humanize,
-} from "@/components/common/StatusBadge";
+  ORDER_STATUS_OPTIONS,
+} from "@/lib/status";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 
 import { useMyOrders } from "../hooks/useMyOrders";
 import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
 import { useBranchOrdersStore } from "@/features/branch-orders/hooks/useBranchOrdersStore";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
-import { mockUsers } from "@/data/mock-users";
+
 import { mockBranches } from "@/data/mock-branches";
-import type { Booking, BookingStatus } from "@/types/booking";
-import type { BranchOrder, BranchOrderStatus } from "@/types/branch-order";
-import { formatCurrency, formatDate, initials } from "@/lib/utils";
+import { Booking } from "@/types/booking";
+import { BranchOrder } from "@/types/branch-order";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
-const BRANCH_STATUS_OPTIONS: BranchOrderStatus[] = [
-  "pending",
-  "accepted",
-  "assigned",
-  "admin_accepted",
-  "processing",
-  "ready",
-  "ready_for_delivery",
-  "rejected",
-];
 
-const AGENT_STATUS_OPTIONS: BookingStatus[] = [
-  "pending",
-  "accepted",
-  "assigned",
-  "admin_accepted",
-  "confirmed",
-  "processing",
-  "ready",
-  "ready_for_delivery",
-  "cancelled",
-  "rejected",
-];
 
 type DatePreset = "all" | "today" | "week" | "month" | "year";
 
@@ -99,40 +63,6 @@ function withinPreset(dateStr: string, preset: DatePreset): boolean {
       return dateStr >= start && dateStr <= end;
     }
   }
-}
-
-function AssignedAdminCell({
-  assignedAdminId,
-  assignedAdminName,
-}: {
-  assignedAdminId?: string | null;
-  assignedAdminName?: string | null;
-}) {
-  if (!assignedAdminName) {
-    return (
-      <Badge variant="muted" className="text-[10px]">
-        Unassigned
-      </Badge>
-    );
-  }
-  const assignedUser = assignedAdminId
-    ? mockUsers.find((u) => u.id === assignedAdminId)
-    : undefined;
-  return (
-    <div className="flex items-center gap-2">
-      <Avatar className="h-6 w-6">
-        <AvatarFallback className="text-[10px]">
-          {initials(assignedAdminName)}
-        </AvatarFallback>
-      </Avatar>
-      <span className="text-sm font-medium">{assignedAdminName}</span>
-      {assignedUser?.role === "SUPER_ADMIN" && (
-        <Badge variant="outline" className="text-[10px]">
-          Super Admin
-        </Badge>
-      )}
-    </div>
-  );
 }
 
 function branchManager(branchId?: string | null): string {
@@ -237,7 +167,7 @@ export function OrdersPage() {
       header: "Status",
       cell: (b) => (
         <StatusBadge
-          variant={getBookingStatusVariant(b.status)}
+          variant={getStatusVariant(b.status)}
           label={humanize(b.status)}
         />
       ),
@@ -247,8 +177,8 @@ export function OrdersPage() {
       header: "Assigned Admin",
       cell: (b) => (
         <AssignedAdminCell
-          assignedAdminId={b.assignedAdminId}
-          assignedAdminName={b.assignedAdminName}
+          adminId={b.assignedAdminId}
+          adminName={b.assignedAdminName}
         />
       ),
       className: "hidden md:table-cell",
@@ -328,7 +258,7 @@ export function OrdersPage() {
       header: "Status",
       cell: (o) => (
         <StatusBadge
-          variant={getBranchOrderStatusVariant(o.status)}
+          variant={getStatusVariant(o.status)}
           label={humanize(o.status)}
         />
       ),
@@ -338,8 +268,8 @@ export function OrdersPage() {
       header: "Assigned Admin",
       cell: (o) => (
         <AssignedAdminCell
-          assignedAdminId={o.assignedAdminId}
-          assignedAdminName={o.assignedAdminName}
+          adminId={o.assignedAdminId}
+          adminName={o.assignedAdminName}
         />
       ),
       className: "hidden md:table-cell",
@@ -384,14 +314,14 @@ export function OrdersPage() {
           <TabsTrigger value="agent" className="gap-2">
             <User className="h-4 w-4" />
             Agent Orders
-            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
               {filteredAgentOrders.length}
             </span>
           </TabsTrigger>
           <TabsTrigger value="branch" className="gap-2">
             <Store className="h-4 w-4" />
             Branch Orders
-            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
               {filteredBranchOrders.length}
             </span>
           </TabsTrigger>
@@ -408,16 +338,16 @@ export function OrdersPage() {
               <>
                 <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
                 <Select value={agentStatus} onValueChange={setAgentStatus}>
-                  <SelectTrigger className="h-9 w-[150px]">
+                  <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[150px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All statuses</SelectItem>
-                    {AGENT_STATUS_OPTIONS.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {humanize(s)}
-                      </SelectItem>
-                    ))}
+{ORDER_STATUS_OPTIONS.map((option) => (
+  <SelectItem key={option.value} value={option.value}>
+    {option.label}
+  </SelectItem>
+))}
                   </SelectContent>
                 </Select>
                 <CalendarRange className="hidden h-4 w-4 text-muted-foreground sm:block" />
@@ -425,7 +355,7 @@ export function OrdersPage() {
                   value={agentDate}
                   onValueChange={(v) => setAgentDate(v as DatePreset)}
                 >
-                  <SelectTrigger className="h-9 w-[130px]">
+                  <SelectTrigger aria-label="Filter by date" className="h-9 w-full sm:w-[130px]">
                     <SelectValue placeholder="Date" />
                   </SelectTrigger>
                   <SelectContent>
@@ -439,11 +369,19 @@ export function OrdersPage() {
               </>
             }
             emptyState={
-              <div className="py-10 text-center text-sm text-muted-foreground">
-                {isSuperAdmin
-                  ? "No agent orders yet."
-                  : "No agent orders assigned to you yet."}
-              </div>
+              <EmptyState
+                icon={<ShoppingCart className="h-5 w-5" aria-hidden />}
+                title={
+                  isSuperAdmin
+                    ? "No agent orders yet"
+                    : "No agent orders assigned to you"
+                }
+                description={
+                  isSuperAdmin
+                    ? "Agent orders appear here as soon as they are created."
+                    : "Bookings assigned to you will show up here."
+                }
+              />
             }
           />
         </TabsContent>
@@ -459,16 +397,16 @@ export function OrdersPage() {
               <>
                 <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
                 <Select value={branchStatus} onValueChange={setBranchStatus}>
-                  <SelectTrigger className="h-9 w-[150px]">
+                  <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[150px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All statuses</SelectItem>
-                    {BRANCH_STATUS_OPTIONS.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {humanize(s)}
-                      </SelectItem>
-                    ))}
+{ORDER_STATUS_OPTIONS.map((option) => (
+  <SelectItem key={option.value} value={option.value}>
+    {option.label}
+  </SelectItem>
+))}
                   </SelectContent>
                 </Select>
                 <CalendarRange className="hidden h-4 w-4 text-muted-foreground sm:block" />
@@ -476,7 +414,7 @@ export function OrdersPage() {
                   value={branchDate}
                   onValueChange={(v) => setBranchDate(v as DatePreset)}
                 >
-                  <SelectTrigger className="h-9 w-[130px]">
+                  <SelectTrigger aria-label="Filter by date" className="h-9 w-full sm:w-[130px]">
                     <SelectValue placeholder="Date" />
                   </SelectTrigger>
                   <SelectContent>
@@ -490,11 +428,19 @@ export function OrdersPage() {
               </>
             }
             emptyState={
-              <div className="py-10 text-center text-sm text-muted-foreground">
-                {isSuperAdmin
-                  ? "No branch orders yet."
-                  : "No branch orders assigned to you yet."}
-              </div>
+              <EmptyState
+                icon={<ShoppingCart className="h-5 w-5" aria-hidden />}
+                title={
+                  isSuperAdmin
+                    ? "No branch orders yet"
+                    : "No branch orders assigned to you"
+                }
+                description={
+                  isSuperAdmin
+                    ? "Branch orders appear here as soon as they are created."
+                    : "Branch orders assigned to you will show up here."
+                }
+              />
             }
           />
         </TabsContent>

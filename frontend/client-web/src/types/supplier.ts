@@ -4,7 +4,6 @@ export interface Supplier {
   id: string;
   name: string;
   contactName?: string;
-  email?: string;
   contactNumber?: string;
   address?: string;
   status: SupplierStatus;
@@ -16,7 +15,6 @@ export interface Supplier {
 export interface SupplierFormValues {
   name: string;
   contactName: string;
-  email: string;
   contactNumber: string;
   address: string;
   status: SupplierStatus;

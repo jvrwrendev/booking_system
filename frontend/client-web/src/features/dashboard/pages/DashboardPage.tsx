@@ -8,12 +8,26 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Link } from "react-router-dom";
+import {
+  ShoppingCart,
+  Package,
+  AlertTriangle,
+  Users as UsersIcon,
+  UserCog,
+  Building2,
+  CircleDollarSign,
+} from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatisticsCard } from "@/components/common/StatisticsCard";
+import { ChartCard } from "@/components/common/ChartCard";
+import { EmptyState } from "@/components/common/EmptyState";
 import { NotificationsCard } from "@/features/notifications/components/NotificationsCard";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -22,18 +36,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import {
-  ShoppingCart,
-  Package,
-  AlertTriangle,
-  Boxes,
-  Users as UsersIcon,
-  UserCog,
-  Building2,
-  CircleDollarSign,
-} from "lucide-react";
 
 import { mockCustomers } from "@/data/mock-customers";
 import { mockAgents } from "@/data/mock-agents";
@@ -44,19 +46,34 @@ import {
   formatCurrency,
   formatDate,
   formatNumber,
-  humanize,
+  initials,
 } from "@/lib/utils";
+import { getStatusVariant, humanize } from "@/lib/status";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import {
-  getBookingStatusVariant,
-  getStockStatusVariant,
-  StatusBadge,
-} from "@/components/common/StatusBadge";
+  axisProps,
+  gridProps,
+  tooltipProps,
+} from "@/lib/chart-theme";
 import { getInventorySummary } from "@/features/inventory/services/inventory.service";
 import type { InventorySummary } from "@/types/inventory";
+
+/**
+ * Marks a panel whose figures come from the seeded sample dataset rather
+ * than the live API, so no metric is mistaken for a real measurement.
+ */
+function SampleDataBadge() {
+  return (
+    <Badge variant="muted" className="shrink-0 text-xs">
+      Sample data
+    </Badge>
+  );
+}
 
 export function DashboardPage() {
   const [inventorySummary, setInventorySummary] =
     useState<InventorySummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,14 +84,15 @@ export function DashboardPage() {
       .catch(() => {
         // The dashboard still renders booking and customer metrics if the
         // inventory summary cannot be loaded.
+      })
+      .finally(() => {
+        if (!cancelled) setSummaryLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const totalProducts = inventorySummary?.totalProducts ?? 0;
-  const totalInventoryValue = inventorySummary?.inventoryValue ?? 0;
   const lowStockItems = inventorySummary?.alerts ?? [];
   const pendingBookings = mockBookings.filter((b) => b.status === "pending");
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -106,11 +124,21 @@ export function DashboardPage() {
     []
   );
 
+  const branchPerformance = useMemo(
+    () =>
+      [...mockReports.branchPerformance].sort(
+        (a, b) => b.bookings - a.bookings
+      ),
+    []
+  );
+
   const maxBranchBookings = Math.max(
-    ...mockReports.branchPerformance.map((b) => b.bookings)
+    ...mockReports.branchPerformance.map((b) => b.bookings),
+    1
   );
   const maxAgentRevenue = Math.max(
-    ...mockReports.agentPerformance.map((a) => a.revenue)
+    ...mockReports.agentPerformance.map((a) => a.revenue),
+    1
   );
 
   return (
@@ -120,201 +148,190 @@ export function DashboardPage() {
         description="Overview of bookings, inventory, and business performance."
       />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatisticsCard
           label="Total Products"
-          value={formatNumber(totalProducts)}
-          icon={<Package className="h-4 w-4" />}
-          trend={{ value: 8, direction: "up", label: "vs last month" }}
+          value={
+            summaryLoading ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              formatNumber(inventorySummary?.totalProducts ?? 0)
+            )
+          }
+          icon={<Package className="h-4 w-4" aria-hidden />}
         />
         <StatisticsCard
           label="Inventory Value"
-          value={formatCurrency(totalInventoryValue)}
-          icon={<CircleDollarSign className="h-4 w-4" />}
-          trend={{ value: 4, direction: "up", label: "vs last month" }}
+          value={
+            summaryLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              formatCurrency(inventorySummary?.inventoryValue ?? 0)
+            )
+          }
+          icon={<CircleDollarSign className="h-4 w-4" aria-hidden />}
         />
         <StatisticsCard
           label="Low Stock Items"
-          value={formatNumber(lowStockItems.length)}
-          icon={<AlertTriangle className="h-4 w-4" />}
+          value={
+            summaryLoading ? (
+              <Skeleton className="h-7 w-10" />
+            ) : (
+              formatNumber(lowStockItems.length)
+            )
+          }
+          icon={<AlertTriangle className="h-4 w-4" aria-hidden />}
           hint="Items below minimum stock level"
         />
         <StatisticsCard
           label="Pending Bookings"
           value={formatNumber(pendingBookings.length)}
-          icon={<ShoppingCart className="h-4 w-4" />}
+          icon={<ShoppingCart className="h-4 w-4" aria-hidden />}
+          badge={<SampleDataBadge />}
         />
         <StatisticsCard
           label="Today's Bookings"
           value={formatNumber(todaysBookings.length)}
-          icon={<ShoppingCart className="h-4 w-4" />}
+          icon={<ShoppingCart className="h-4 w-4" aria-hidden />}
+          badge={<SampleDataBadge />}
         />
         <StatisticsCard
           label="Total Customers"
           value={formatNumber(totalCustomers)}
-          icon={<UsersIcon className="h-4 w-4" />}
-          trend={{ value: 12, direction: "up", label: "new this month" }}
+          icon={<UsersIcon className="h-4 w-4" aria-hidden />}
+          badge={<SampleDataBadge />}
         />
         <StatisticsCard
           label="Active Agents"
           value={formatNumber(totalAgents)}
-          icon={<UserCog className="h-4 w-4" />}
+          icon={<UserCog className="h-4 w-4" aria-hidden />}
+          badge={<SampleDataBadge />}
         />
         <StatisticsCard
           label="Active Branches"
           value={formatNumber(totalBranches)}
-          icon={<Building2 className="h-4 w-4" />}
+          icon={<Building2 className="h-4 w-4" aria-hidden />}
+          badge={<SampleDataBadge />}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="space-y-1">
-              <CardTitle className="text-sm font-medium">Booking Volume</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Monthly booking count for the current year.
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={mockReports.bookingVolumeMonthly}
-                  margin={{ left: 0, right: 0, top: 4, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="booking" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="0%"
-                        stopColor="hsl(var(--primary))"
-                        stopOpacity={0.2}
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor="hsl(var(--primary))"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    stroke="hsl(var(--border))"
-                    strokeDasharray="3 3"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="month"
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--popover))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      padding: "8px 12px",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="count"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    fill="url(#booking)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        <ChartCard
+          className="lg:col-span-2"
+          title="Booking Volume"
+          description="Monthly booking count for the current year."
+          actions={<SampleDataBadge />}
+          height="h-[240px]"
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={mockReports.bookingVolumeMonthly}
+              margin={{ left: 0, right: 0, top: 4, bottom: 0 }}
+            >
+              <CartesianGrid {...gridProps} />
+              <XAxis dataKey="month" {...axisProps} />
+              <YAxis {...axisProps} />
+              <Tooltip {...tooltipProps} />
+              <Area
+                type="monotone"
+                dataKey="count"
+                stroke="hsl(var(--chart-1))"
+                strokeWidth={2}
+                fill="hsl(var(--chart-1))"
+                fillOpacity={0.1}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartCard>
 
         <NotificationsCard />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="space-y-1">
-              <CardTitle className="text-sm font-medium">Branch Performance</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Bookings and revenue by branch location.
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
+        <ChartCard
+          title="Branch Performance"
+          description="Bookings and revenue by branch location."
+          actions={<SampleDataBadge />}
+          height="auto"
+        >
+          {branchPerformance.length === 0 ? (
+            <EmptyState
+              title="No branch data"
+              description="Branch performance will appear here once bookings are recorded."
+            />
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[180px]">Branch</TableHead>
-                  <TableHead className="text-right">Bookings</TableHead>
-                  <TableHead className="text-right">Revenue</TableHead>
-                  <TableHead className="w-[120px]">Activity</TableHead>
+                  <TableHead scope="col">Branch</TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Bookings
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Revenue
+                  </TableHead>
+                  <TableHead scope="col" className="w-[140px]">
+                    Activity
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockReports.branchPerformance
-                  .sort((a, b) => b.bookings - a.bookings)
-                  .map((bp) => (
-                    <TableRow key={bp.branch}>
-                      <TableCell className="font-medium">{bp.branch}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatNumber(bp.bookings)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatCurrency(bp.revenue)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-primary/80"
-                              style={{
-                                width: `${(bp.bookings / maxBranchBookings) * 100}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="text-[11px] tabular-nums text-muted-foreground">
-                            {Math.round(
-                              (bp.bookings / maxBranchBookings) * 100
-                            )}
-                            %
-                          </span>
+                {branchPerformance.map((bp) => (
+                  <TableRow key={bp.branch}>
+                    <TableCell className="font-medium">{bp.branch}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatNumber(bp.bookings)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatCurrency(bp.revenue)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{
+                              width: `${(bp.bookings / maxBranchBookings) * 100}%`,
+                            }}
+                          />
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
+                          {Math.round((bp.bookings / maxBranchBookings) * 100)}%
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          )}
+        </ChartCard>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="space-y-1">
-              <CardTitle className="text-sm font-medium">Agent Leaderboard</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Top performing sales agents by revenue.
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
+        <ChartCard
+          title="Agent Leaderboard"
+          description="Top performing sales agents by revenue."
+          actions={<SampleDataBadge />}
+          height="auto"
+        >
+          {mockReports.agentPerformance.length === 0 ? (
+            <EmptyState
+              title="No agent data"
+              description="Agent performance will appear here once bookings are recorded."
+            />
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[180px]">Agent</TableHead>
-                  <TableHead className="text-right">Bookings</TableHead>
-                  <TableHead className="text-right">Revenue</TableHead>
-                  <TableHead className="w-[120px]">Performance</TableHead>
+                  <TableHead scope="col">Agent</TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Bookings
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Revenue
+                  </TableHead>
+                  <TableHead scope="col" className="w-[140px]">
+                    Performance
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -338,17 +355,14 @@ export function DashboardPage() {
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                           <div
-                            className="h-full rounded-full bg-emerald-500"
+                            className="h-full rounded-full bg-primary"
                             style={{
                               width: `${(ap.revenue / maxAgentRevenue) * 100}%`,
                             }}
                           />
                         </div>
-                        <span className="text-[11px] tabular-nums text-muted-foreground">
-                          {Math.round(
-                            (ap.revenue / maxAgentRevenue) * 100
-                          )}
-                          %
+                        <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
+                          {Math.round((ap.revenue / maxAgentRevenue) * 100)}%
                         </span>
                       </div>
                     </TableCell>
@@ -356,40 +370,49 @@ export function DashboardPage() {
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          )}
+        </ChartCard>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="space-y-1">
-              <CardTitle className="text-sm font-medium">Recent Bookings</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Latest booking transactions across all branches.
-              </p>
-            </div>
-            <Button asChild variant="ghost" size="sm" className="h-8">
-              <Link to="/bookings">View all</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="pt-0">
+        <ChartCard
+          title="Recent Bookings"
+          description="Latest booking transactions across all branches."
+          actions={
+            <>
+              <SampleDataBadge />
+              <Button asChild variant="ghost" size="sm" className="h-8">
+                <Link to="/bookings">View all</Link>
+              </Button>
+            </>
+          }
+          height="auto"
+        >
+          {recentBookings.length === 0 ? (
+            <EmptyState
+              title="No bookings yet"
+              description="New bookings will appear here as soon as they are created."
+            />
+          ) : (
             <ul className="divide-y">
               {recentBookings.map((booking) => (
                 <li key={booking.id} className="flex items-center gap-3 py-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
-                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                    <ShoppingCart
+                      className="h-4 w-4 text-muted-foreground"
+                      aria-hidden
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <Link
                         to={`/bookings/${booking.id}`}
-                        className="text-sm font-medium hover:text-primary"
+                        className="truncate text-sm font-medium text-foreground hover:text-primary"
                       >
                         {booking.reference}
                       </Link>
                       <StatusBadge
-                        variant={getBookingStatusVariant(booking.status)}
+                        variant={getStatusVariant(booking.status)}
                         label={humanize(booking.status)}
                       />
                     </div>
@@ -397,8 +420,8 @@ export function DashboardPage() {
                       {booking.customerName} · {booking.branchName}
                     </div>
                   </div>
-                  <div className="text-right text-xs">
-                    <div className="font-medium tabular-nums">
+                  <div className="shrink-0 text-right text-xs">
+                    <div className="font-medium tabular-nums text-foreground">
                       {formatCurrency(booking.totalAmount)}
                     </div>
                     <div className="text-muted-foreground">
@@ -408,101 +431,105 @@ export function DashboardPage() {
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
+          )}
+        </ChartCard>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="space-y-1">
-              <CardTitle className="text-sm font-medium">Low Stock Alert</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Products that need restocking attention.
-              </p>
-            </div>
+        <ChartCard
+          title="Low Stock Alert"
+          description="Products that need restocking attention."
+          actions={
             <Button asChild variant="ghost" size="sm" className="h-8">
               <Link to="/inventory">Manage stock</Link>
             </Button>
-          </CardHeader>
-          <CardContent className="pt-0">
+          }
+          height="auto"
+        >
+          {lowStockItems.length === 0 ? (
+            <EmptyState
+              title="Stock levels are healthy"
+              description="No products are currently below their minimum stock level."
+            />
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[180px]">Product</TableHead>
-                  <TableHead className="text-right">Stock</TableHead>
-                  <TableHead className="text-right">Minimum</TableHead>
-                  <TableHead className="text-right">Status</TableHead>
+                  <TableHead scope="col">Product</TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Stock
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Minimum
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Status
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lowStockItems.slice(0, 5).map((product) => {
-                  const stockStatus = product.status;
-                  return (
-                    <TableRow key={`${product.productId}-${product.branchId}`}>
-                      <TableCell>
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">
-                            {product.productName}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {product.sku}
-                          </div>
+                {lowStockItems.slice(0, 5).map((product) => (
+                  <TableRow key={`${product.productId}-${product.branchId}`}>
+                    <TableCell>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-foreground">
+                          {product.productName}
                         </div>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums font-medium">
-                        {product.currentStock}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {product.minimumStock}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge
-                          variant={getStockStatusVariant(stockStatus)}
-                          className="text-[10px]"
-                        >
-                          {stockStatus === "out_of_stock"
-                            ? "Out"
-                            : stockStatus === "critical"
-                            ? "Critical"
-                            : "Low"}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                        <div className="text-xs text-muted-foreground">
+                          {product.sku}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">
+                      {product.currentStock}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {product.minimumStock}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <StatusBadge
+                        variant={getStatusVariant(product.status)}
+                        label={humanize(product.status)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          )}
+        </ChartCard>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <div className="space-y-1">
-            <CardTitle className="text-sm font-medium">Recent Customers</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Newly registered customers.
-            </p>
-          </div>
-          <Button asChild variant="ghost" size="sm" className="h-8">
-            <Link to="/customers">View all</Link>
-          </Button>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <ChartCard
+        title="Recent Customers"
+        description="Newly registered customers."
+        actions={
+          <>
+            <SampleDataBadge />
+            <Button asChild variant="ghost" size="sm" className="h-8">
+              <Link to="/customers">View all</Link>
+            </Button>
+          </>
+        }
+        height="auto"
+      >
+        {recentCustomers.length === 0 ? (
+          <EmptyState
+            title="No customers yet"
+            description="Newly registered customers will appear here."
+          />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {recentCustomers.map((customer) => (
               <div
                 key={customer.id}
                 className="flex items-center gap-3 rounded-lg border p-3"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                  {customer.fullName
-                    .split(" ")
-                    .map((p) => p[0])
-                    .slice(0, 2)
-                    .join("")}
-                </div>
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                    {initials(customer.fullName)}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">
+                  <div className="truncate text-sm font-medium text-foreground">
                     {customer.fullName}
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
@@ -512,8 +539,8 @@ export function DashboardPage() {
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </ChartCard>
     </div>
   );
 }

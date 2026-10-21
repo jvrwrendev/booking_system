@@ -121,7 +121,11 @@ export function DiscountDialog({
               inputMode="decimal"
               className="h-10"
             />
-            {error && <p className="text-xs text-destructive">{error}</p>}
+            {error && (
+              <p id="discount-amount-error" role="alert" className="text-xs text-destructive">
+                {error}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -139,13 +143,18 @@ export function DiscountDialog({
               </SelectContent>
             </Select>
             {reasonType === "custom" && (
-              <Input
-                id="discount-note"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Type your own reason"
-                className="h-10"
-              />
+              <div className="space-y-1.5">
+                <Label htmlFor="discount-note" className="text-xs font-normal text-muted-foreground">
+                  Custom reason
+                </Label>
+                <Input
+                  id="discount-note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Type your own reason"
+                  className="h-10"
+                />
+              </div>
             )}
           </div>
 

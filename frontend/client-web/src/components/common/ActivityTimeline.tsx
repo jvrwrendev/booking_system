@@ -37,12 +37,12 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
                 {event.description}
               </div>
             )}
-            <div className="text-[11px] text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               {event.by && <span>{event.by}</span>}
               {event.by && event.timestamp && <span> · </span>}
               {event.timestamp && <span>{event.timestamp}</span>}
               {idx === events.length - 1 && (
-                <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <span className="ml-2 rounded-sm bg-muted px-1.5 py-0.5 text-xs uppercase tracking-wider text-muted-foreground">
                   Latest
                 </span>
               )}

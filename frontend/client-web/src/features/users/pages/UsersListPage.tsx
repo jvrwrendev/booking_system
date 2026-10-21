@@ -5,11 +5,15 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
+import { EmptyState } from "@/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PasswordInput } from "@/components/common/PasswordInput";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { getStatusVariant } from "@/lib/status";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,7 +41,7 @@ import type { AuthUser } from "@/types/auth";
 import { useUsersStore } from "../hooks/useUsersStore";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { formatStatus } from "../lib/user-mapper";
-import { initials } from "@/lib/utils";
+import { formatDate, initials } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -60,6 +64,7 @@ export function UsersListPage() {
     setStatus,
     setPassword,
     removeUser,
+    refresh,
   } = useUsersStore();
 
   const [passwordTarget, setPasswordTarget] = useState<AuthUser | null>(null);
@@ -82,7 +87,7 @@ export function UsersListPage() {
       cell: (u) => (
         <div className="flex items-center gap-2.5">
           <Avatar className="h-8 w-8">
-            <AvatarFallback>{initials(u.fullName)}</AvatarFallback>
+            <AvatarFallback className="text-xs">{initials(u.fullName)}</AvatarFallback>
           </Avatar>
           <div>
             <div className="text-sm font-medium">{u.fullName}</div>
@@ -116,17 +121,10 @@ export function UsersListPage() {
       id: "status",
       header: "Status",
       cell: (u) => (
-        <Badge
-          variant={
-            u.status === "active"
-              ? "success"
-              : u.status === "suspended"
-                ? "destructive"
-                : "muted"
-          }
-        >
-          {formatStatus(u.status)}
-        </Badge>
+        <StatusBadge
+          variant={getStatusVariant(u.status)}
+          label={formatStatus(u.status)}
+        />
       ),
     },
     {
@@ -134,7 +132,7 @@ export function UsersListPage() {
       header: "Created",
       cell: (u) => (
         <span className="text-xs text-muted-foreground">
-          {new Date(u.createdAt).toLocaleDateString()}
+          {formatDate(u.createdAt)}
         </span>
       ),
       className: "hidden lg:table-cell",
@@ -146,19 +144,23 @@ export function UsersListPage() {
       cell: (u) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <MoreHorizontal className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label={`Actions for ${u.fullName}`}
+            >
+              <MoreHorizontal className="h-4 w-4" aria-hidden />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
               <Link to={`/users/${u.id}/edit`}>
-                <Pencil className="h-4 w-4" />
+                <Pencil className="h-4 w-4" aria-hidden />
                 Edit
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setPasswordTarget(u)}>
-              <KeyRound className="h-4 w-4" />
+              <KeyRound className="h-4 w-4" aria-hidden />
               Set password
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -170,9 +172,9 @@ export function UsersListPage() {
             <DropdownMenuItem
               onSelect={() => setDeleteTarget(u)}
               disabled={u.id === currentUser?.id}
-              className="text-destructive"
+              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" aria-hidden />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -197,31 +199,24 @@ export function UsersListPage() {
         }
       />
 
-      {error && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
       <DataTable<AuthUser>
         data={users}
         columns={columns}
         loading={loading}
-        searchPlaceholder="Search by name or email..."
+        error={error}
+        onRetry={() => void refresh()}
+        searchPlaceholder="Search by name or email…"
         rowKey={(u) => u.id}
         emptyState={
-          <div className="px-6 py-12 text-center">
-            <p className="text-sm font-medium">
-              {filters.search || filters.role !== "all" || filters.status !== "all"
-                ? "No users match your filters"
-                : "No users yet"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {filters.search || filters.role !== "all" || filters.status !== "all"
-                ? "Try a different search term or clear the filters."
-                : "Add the first admin account to get started."}
-            </p>
-          </div>
+          <EmptyState
+            icon={<ShieldCheck className="h-5 w-5" aria-hidden />}
+            title={filters.search || filters.role !== "all" || filters.status !== "all"
+              ? "No users match your filters"
+              : "No users yet"}
+            description={filters.search || filters.role !== "all" || filters.status !== "all"
+              ? "Try a different search term or clear the filters."
+              : "Add the first admin account to get started."}
+          />
         }
         serverMode={{
           search: filters.search,
@@ -235,7 +230,10 @@ export function UsersListPage() {
         toolbar={
           <>
             <Select value={filters.role} onValueChange={setRoleFilter}>
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger
+                className="h-9 w-full sm:w-[150px]"
+                aria-label="Filter by role"
+              >
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
@@ -245,7 +243,10 @@ export function UsersListPage() {
               </SelectContent>
             </Select>
             <Select value={filters.status} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[140px]">
+              <SelectTrigger
+                className="h-9 w-full sm:w-[140px]"
+                aria-label="Filter by status"
+              >
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -345,42 +346,52 @@ function SetPasswordDialog({ user, onOpenChange, onSubmit }: SetPasswordDialogPr
 
         <div className="space-y-4">
           {error && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
           <div className="space-y-1.5">
             <Label htmlFor="new-password">New password</Label>
-            <Input
+            <PasswordInput
               id="new-password"
-              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               autoComplete="new-password"
-              className="h-10"
+              label="new password"
+              aria-invalid={!!error}
             />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="confirm-new-password">Confirm password</Label>
-            <Input
+            <PasswordInput
               id="confirm-new-password"
-              type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="••••••••"
               autoComplete="new-password"
-              className="h-10"
+              label="new password confirmation"
+              aria-invalid={!!error}
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
             Cancel
           </Button>
-          <Button onClick={handleConfirm} disabled={saving} className="min-w-[130px]">
-            {saving ? "Saving..." : "Set password"}
+          <Button
+            type="button"
+            onClick={handleConfirm}
+            disabled={saving}
+            className="min-w-[130px]"
+          >
+            {saving ? "Saving…" : "Set password"}
           </Button>
         </DialogFooter>
       </DialogContent>

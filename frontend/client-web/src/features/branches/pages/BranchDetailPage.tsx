@@ -1,18 +1,18 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Edit, Mail, MapPin, Phone } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import {
-  StatusBadge,
-  getStatusVariantFromGeneric,
-  humanize,
-} from "@/components/common/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { getStatusVariant, humanize } from "@/lib/status";
 import { PageHeader } from "@/components/common/PageHeader";
 import { NotFound } from "@/components/common/NotFound";
+import { DescriptionList } from "@/components/common/DescriptionList";
 
 import { useBranchesStore } from "../hooks/useBranchesStore";
+import { BranchEditDialog } from "../components/BranchEditDialog";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -21,6 +21,7 @@ export function BranchDetailPage() {
   const { getBranch } = useBranchesStore();
   const { can } = usePermissions();
   const navigate = useNavigate();
+  const [editOpen, setEditOpen] = useState(false);
 
   const branch = id ? getBranch(id) : undefined;
   if (!branch) {
@@ -49,11 +50,9 @@ export function BranchDetailPage() {
         ]}
         actions={
           can("branches.manage") && (
-            <Button asChild>
-              <Link to={`/branches/${branch.id}/edit`}>
-                <Edit className="h-4 w-4" />
-                Edit
-              </Link>
+            <Button onClick={() => setEditOpen(true)}>
+              <Edit className="h-4 w-4" aria-hidden />
+              Edit
             </Button>
           )
         }
@@ -72,7 +71,7 @@ export function BranchDetailPage() {
               <div>
                 <div className="text-base font-semibold">{branch.name}</div>
                 <StatusBadge
-                  variant={getStatusVariantFromGeneric(branch.status)}
+                  variant={getStatusVariant(branch.status)}
                   label={humanize(branch.status)}
                 />
               </div>
@@ -93,10 +92,12 @@ export function BranchDetailPage() {
               </div>
             </div>
             <Separator />
-            <dl className="grid grid-cols-2 gap-4">
-              <InfoRow label="Manager" value={branch.manager || "—"} />
-              <InfoRow label="Established" value={formatDate(branch.createdAt)} />
-            </dl>
+            <DescriptionList
+              items={[
+                { label: "Manager", value: branch.manager || "—" },
+                { label: "Established", value: formatDate(branch.createdAt) },
+              ]}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -109,17 +110,11 @@ export function BranchDetailPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
-}
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="mt-1 font-medium">{value}</dd>
+      <BranchEditDialog
+        branch={editOpen ? branch : null}
+        onOpenChange={setEditOpen}
+      />
     </div>
   );
 }

@@ -5,13 +5,10 @@ import { Eye, MoreHorizontal, Package, Plus, Trash2, Pencil } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
 import { PageHeader } from "@/components/common/PageHeader";
-import { ProductFormSheet } from "../components/ProductFormSheet";
-import {
-  StatusBadge,
-  getStatusVariantFromGeneric,
-  getStockStatusVariant,
-  humanize,
-} from "@/components/common/StatusBadge";
+import { EmptyState } from "@/components/common/EmptyState";
+import { ProductFormDialog } from "../components/ProductFormDialog";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { getStatusVariant, humanize } from "@/lib/status";
 import {
   Select,
   SelectContent,
@@ -58,6 +55,7 @@ export function ProductsListPage() {
 
   const [deleting, setDeleting] = useState<Product | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   // Categories and suppliers link here with ?category=<id> / ?search=<term>.
   useEffect(() => {
@@ -72,6 +70,12 @@ export function ProductsListPage() {
     // Only react to the URL parameter, not to every filter change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  const hasFilters =
+    !!filters.search ||
+    filters.categoryId !== "all" ||
+    filters.status !== "all" ||
+    filters.stockStatus !== "all";
 
   const columns: DataTableColumn<Product>[] = [
     {
@@ -88,14 +92,14 @@ export function ProductsListPage() {
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-primary">
-                <Package className="h-4 w-4" />
+                <Package className="h-4 w-4" aria-hidden />
               </div>
             )}
           </div>
           <div className="min-w-0">
             <Link
               to={`/products/${p.id}`}
-              className="block truncate text-sm font-medium hover:text-primary"
+              className="block truncate text-sm font-medium text-foreground hover:text-primary"
             >
               {p.name}
             </Link>
@@ -129,8 +133,10 @@ export function ProductsListPage() {
       header: "Price",
       cell: (p) => (
         <div className="text-sm">
-          <div className="font-medium">{formatCurrency(p.sellingPrice)}</div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="font-medium tabular-nums text-foreground">
+            {formatCurrency(p.sellingPrice)}
+          </div>
+          <div className="text-xs text-muted-foreground">
             Cost {formatCurrency(p.costPrice)}
           </div>
         </div>
@@ -143,8 +149,10 @@ export function ProductsListPage() {
       header: "Stock",
       cell: (p) => (
         <div className="text-sm">
-          <div className="font-medium">{p.stockQuantity}</div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="font-medium tabular-nums text-foreground">
+            {p.stockQuantity}
+          </div>
+          <div className="text-xs text-muted-foreground">
             Min {p.minimumStockLevel}
           </div>
         </div>
@@ -161,11 +169,11 @@ export function ProductsListPage() {
           <div className="flex flex-col items-start gap-1">
             <StatusBadge
               label={humanize(p.status)}
-              variant={getStatusVariantFromGeneric(p.status)}
+              variant={getStatusVariant(p.status)}
             />
             <StatusBadge
               label={humanize(stock)}
-              variant={getStockStatusVariant(stock)}
+              variant={getStatusVariant(stock)}
             />
           </div>
         );
@@ -190,29 +198,33 @@ export function ProductsListPage() {
       cell: (p) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <MoreHorizontal className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label={`Actions for ${p.name}`}
+            >
+              <MoreHorizontal className="h-4 w-4" aria-hidden />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
               <Link to={`/products/${p.id}`}>
-                <Eye className="h-4 w-4" />
+                <Eye className="h-4 w-4" aria-hidden />
                 View details
               </Link>
             </DropdownMenuItem>
             {can("products.update") && (
               <DropdownMenuItem onSelect={() => setEditing(p)}>
-                <Pencil className="h-4 w-4" />
+                <Pencil className="h-4 w-4" aria-hidden />
                 Edit
               </DropdownMenuItem>
             )}
             {can("products.delete") && (
               <DropdownMenuItem
-                className="text-destructive"
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                 onSelect={() => setDeleting(p)}
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" aria-hidden />
                 Delete
               </DropdownMenuItem>
             )}
@@ -230,30 +242,21 @@ export function ProductsListPage() {
         breadcrumbs={[{ label: "Operations" }, { label: "Products" }]}
         actions={
           can("products.create") && (
-            <Button asChild>
-              <Link to="/products/add">
-                <Plus className="h-4 w-4" />
-                Add Product
-              </Link>
+            <Button onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden />
+              Add Product
             </Button>
           )
         }
       />
 
-      {error && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <span>{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void refresh()}>
-            Retry
-          </Button>
-        </div>
-      )}
-
       <DataTable<Product>
         data={products}
         columns={columns}
         loading={loading}
-        searchPlaceholder="Search products by name, SKU, or brand..."
+        error={error}
+        onRetry={() => void refresh()}
+        searchPlaceholder="Search products by name, SKU, or brand…"
         rowKey={(p) => p.id}
         serverMode={{
           search: filters.search,
@@ -265,24 +268,38 @@ export function ProductsListPage() {
           onPageSizeChange: setPageSize,
         }}
         emptyState={
-          <div className="px-6 py-12 text-center">
-            <p className="text-sm font-medium">
-              {filters.search ||
-              filters.categoryId !== "all" ||
-              filters.status !== "all" ||
-              filters.stockStatus !== "all"
-                ? "No products match your filters"
-                : "No products yet"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {filters.search ||
-              filters.categoryId !== "all" ||
-              filters.status !== "all" ||
-              filters.stockStatus !== "all"
+          <EmptyState
+            icon={<Package className="h-5 w-5" aria-hidden />}
+            title={
+              hasFilters ? "No products match your filters" : "No products yet"
+            }
+            description={
+              hasFilters
                 ? "Try a different search term or clear the filters."
-                : "Add the first product to build your catalog."}
-            </p>
-          </div>
+                : "Add the first product to build your catalog."
+            }
+            action={
+              hasFilters ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearch("");
+                    setCategoryFilter("all");
+                    setStatusFilter("all");
+                    setStockStatusFilter("all");
+                  }}
+                >
+                  Clear filters
+                </Button>
+              ) : can("products.create") ? (
+                <Button size="sm" onClick={() => setAddOpen(true)}>
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Add Product
+                </Button>
+              ) : undefined
+            }
+          />
         }
         toolbar={
           <>
@@ -290,7 +307,10 @@ export function ProductsListPage() {
               value={filters.categoryId}
               onValueChange={setCategoryFilter}
             >
-              <SelectTrigger className="h-9 w-[160px]">
+              <SelectTrigger
+                className="h-9 w-full sm:w-[160px]"
+                aria-label="Filter by category"
+              >
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -303,7 +323,10 @@ export function ProductsListPage() {
               </SelectContent>
             </Select>
             <Select value={filters.status} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[140px]">
+              <SelectTrigger
+                className="h-9 w-full sm:w-[140px]"
+                aria-label="Filter by status"
+              >
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -317,7 +340,10 @@ export function ProductsListPage() {
               value={filters.stockStatus}
               onValueChange={setStockStatusFilter}
             >
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger
+                className="h-9 w-full sm:w-[150px]"
+                aria-label="Filter by stock level"
+              >
                 <SelectValue placeholder="Stock level" />
               </SelectTrigger>
               <SelectContent>
@@ -332,7 +358,12 @@ export function ProductsListPage() {
         }
       />
 
-      <ProductFormSheet
+      <ProductFormDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+      />
+
+      <ProductFormDialog
         open={!!editing}
         onOpenChange={(o) => !o && setEditing(null)}
         product={editing ?? undefined}

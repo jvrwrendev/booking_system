@@ -1,5 +1,6 @@
+import { Spinner } from "@/components/ui/spinner";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, MapPinOff, Pause, Play } from "lucide-react";
+import { MapPinOff, Pause, Play } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -70,7 +71,7 @@ export function AgentTrackingTab() {
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[240px] flex-1 space-y-1.5">
+          <div className="w-full space-y-1.5 sm:min-w-[240px] sm:flex-1">
             <Label htmlFor="tracking-agent">Agent</Label>
             <Select value={selectedAgentId} onValueChange={handleSelectAgent}>
               <SelectTrigger id="tracking-agent" className="h-9">
@@ -94,9 +95,9 @@ export function AgentTrackingTab() {
             />
             <Label htmlFor="live-updates" className="flex items-center gap-1.5">
               {isLive ? (
-                <Play className="h-3 w-3 text-primary" />
+                <Play className="h-3 w-3 text-primary" aria-hidden />
               ) : (
-                <Pause className="h-3 w-3 text-muted-foreground" />
+                <Pause className="h-3 w-3 text-muted-foreground" aria-hidden />
               )}
               Live updates
             </Label>
@@ -112,7 +113,7 @@ export function AgentTrackingTab() {
           initialZoom={hasFix ? 13 : DEFAULT_MAP_ZOOM}
           selectedZoom={14}
           fitSignal={fitSignal}
-          className="h-[420px] border"
+          className="h-[320px] border md:h-[420px]"
           onRecenterClick={() => setFitSignal((n) => n + 1)}
         />
       </div>
@@ -125,7 +126,7 @@ export function AgentTrackingTab() {
           <CardContent className="space-y-4 text-sm">
             {loading && locations.length === 0 ? (
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Spinner className="h-4 w-4" />
                 Loading location data...
               </div>
             ) : !selectedAgentId ? (
@@ -199,7 +200,7 @@ function Row({
 }) {
   return (
     <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+      <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </dt>
       <dd className="mt-1 font-medium">{children}</dd>

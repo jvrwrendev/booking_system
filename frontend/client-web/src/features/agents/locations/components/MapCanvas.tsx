@@ -16,7 +16,6 @@ import {
 import { mapStyle, type MapStyleId } from "./map-styles";
 import type { LocationStatus } from "../types";
 
-
 export interface MapMarker {
   id: string;
   latitude: number;
@@ -137,16 +136,31 @@ export default function MapCanvas({
               onSelect(marker.id);
             }}
           >
-            <div className="relative flex h-9 w-9 cursor-pointer items-center justify-center">
+            <div
+              className="relative flex h-9 w-9 cursor-pointer items-center justify-center"
+              role="button"
+              tabIndex={0}
+              aria-label={`${marker.name}, ${LOCATION_STATUS_LABEL[marker.status]}`}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelect(marker.id);
+                }
+              }}
+            >
               {marker.status === "tracking" && (
-                <span className="absolute inset-0 animate-ping rounded-full bg-primary/40" />
+                <span
+                  className="absolute inset-0 rounded-full bg-primary/25"
+                  aria-hidden
+                />
               )}
               <span
                 className={cn(
-                  "relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-background text-xs font-semibold text-white shadow-md transition-transform hover:scale-110",
+                  "relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-background text-xs font-semibold text-primary-foreground transition-transform hover:scale-110",
                   marker.status === "offline" && "opacity-60",
                   LOCATION_STATUS_MARKER_COLOR[marker.status]
                 )}
+                aria-hidden
               >
                 {marker.initials}
               </span>
@@ -181,9 +195,14 @@ export default function MapCanvas({
       </Map>
 
       {mapError && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/90 p-6 text-center">
+        <div
+          role="alert"
+          className="absolute inset-0 z-10 flex items-center justify-center bg-background/90 p-6 text-center"
+        >
           <div className="space-y-1">
-            <p className="text-sm font-medium">Map unavailable</p>
+            <p className="text-sm font-medium text-foreground">
+              Map unavailable
+            </p>
             <p className="max-w-sm text-xs text-muted-foreground">{mapError}</p>
           </div>
         </div>

@@ -7,13 +7,13 @@ import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 
 import { ProductsListPage } from "@/features/products/pages/ProductsListPage";
 import { ProductDetailPage } from "@/features/products/pages/ProductDetailPage";
-import { ProductAddPage } from "@/features/products/pages/ProductAddPage";
 import { ProductsProvider } from "@/features/products/hooks/useProductsStore";
 
 import { CategoriesListPage } from "@/features/categories/pages/CategoriesListPage";
 import { CategoriesProvider } from "@/features/categories/hooks/useCategoriesStore";
 
 import { SuppliersListPage } from "@/features/suppliers/pages/SuppliersListPage";
+import { SupplierEditPage } from "@/features/suppliers/pages/SupplierEditPage";
 
 import { InventoryPage } from "@/features/inventory/pages/InventoryPage";
 import { InventoryProvider } from "@/features/inventory/hooks/useInventoryStore";
@@ -32,22 +32,16 @@ import { BranchOrderDetailPage } from "@/features/branch-orders/pages/BranchOrde
 import { BranchOrdersProvider } from "@/features/branch-orders/hooks/useBranchOrdersStore";
 
 import { CustomersListPage } from "@/features/customers/pages/CustomersListPage";
-import { CustomerAddPage } from "@/features/customers/pages/CustomerAddPage";
-import { CustomerEditPage } from "@/features/customers/pages/CustomerEditPage";
 import { CustomerDetailPage } from "@/features/customers/pages/CustomerDetailPage";
 import { CustomersProvider } from "@/features/customers/hooks/useCustomersStore";
 
 import { AgentsListPage } from "@/features/agents/pages/AgentsListPage";
-import { AgentAddPage } from "@/features/agents/pages/AgentAddPage";
-import { AgentEditPage } from "@/features/agents/pages/AgentEditPage";
 import { AgentDetailPage } from "@/features/agents/pages/AgentDetailPage";
 import { AgentLocationPage } from "@/features/agents/pages/AgentLocationPage";
 import { AgentsProvider } from "@/features/agents/hooks/useAgentsStore";
 
 import { BranchesListPage } from "@/features/branches/pages/BranchesPages";
-import { BranchAddPage } from "@/features/branches/pages/BranchAddPage";
 import { BranchDetailPage } from "@/features/branches/pages/BranchDetailPage";
-import { BranchEditPage } from "@/features/branches/pages/BranchEditPage";
 import { BranchesProvider } from "@/features/branches/hooks/useBranchesStore";
 
 import { UsersListPage } from "@/features/users/pages/UsersListPage";
@@ -57,6 +51,7 @@ import { UsersProvider } from "@/features/users/hooks/useUsersStore";
 import { ReportsPage } from "@/features/reports/pages/ReportsPage";
 import { AuditLogsPage } from "@/features/audit-logs/pages/AuditLogsPage";
 import { SettingsPage } from "@/features/settings/pages/SettingsPage";
+import { NotFound } from "@/components/common/NotFound";
 
 import { RolesOverviewPage } from "@/features/roles-permissions/pages/RolesOverviewPage";
 import { RolePermissionsPage } from "@/features/roles-permissions/pages/RolePermissionsPage";
@@ -114,14 +109,6 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "products/add",
-        element: (
-          <PermissionRoute permission="products.create">
-            <ProductAddPage />
-          </PermissionRoute>
-        ),
-      },
-      {
         path: "products/:id",
         element: (
           <PermissionRoute permission="products.view">
@@ -142,6 +129,14 @@ export const router = createBrowserRouter([
         element: (
           <PermissionRoute permission="suppliers.view">
             <SuppliersListPage />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "suppliers/:id/edit",
+        element: (
+          <PermissionRoute permission="suppliers.update">
+            <SupplierEditPage />
           </PermissionRoute>
         ),
       },
@@ -250,14 +245,6 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "customers/add",
-        element: (
-          <PermissionRoute permission="customers.manage">
-            <CustomerAddPage />
-          </PermissionRoute>
-        ),
-      },
-      {
         path: "customers/:id",
         element: (
           <PermissionRoute permission="customers.view">
@@ -266,26 +253,10 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "customers/:id/edit",
-        element: (
-          <PermissionRoute permission="customers.manage">
-            <CustomerEditPage />
-          </PermissionRoute>
-        ),
-      },
-      {
         path: "agents",
         element: (
           <PermissionRoute permission="agents.view">
             <AgentsListPage />
-          </PermissionRoute>
-        ),
-      },
-      {
-        path: "agents/add",
-        element: (
-          <PermissionRoute permission="agents.manage">
-            <AgentAddPage />
           </PermissionRoute>
         ),
       },
@@ -307,14 +278,6 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "agents/:id/edit",
-        element: (
-          <PermissionRoute permission="agents.manage">
-            <AgentEditPage />
-          </PermissionRoute>
-        ),
-      },
-      {
         path: "branches",
         element: (
           <PermissionRoute permission="branches.view">
@@ -323,26 +286,10 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "branches/add",
-        element: (
-          <PermissionRoute permission="branches.manage">
-            <BranchAddPage />
-          </PermissionRoute>
-        ),
-      },
-      {
         path: "branches/:id",
         element: (
           <PermissionRoute permission="branches.view">
             <BranchDetailPage />
-          </PermissionRoute>
-        ),
-      },
-      {
-        path: "branches/:id/edit",
-        element: (
-          <PermissionRoute permission="branches.manage">
-            <BranchEditPage />
           </PermissionRoute>
         ),
       },
@@ -413,11 +360,12 @@ export const router = createBrowserRouter([
       {
         path: "*",
         element: (
-          <div className="flex min-h-[40vh] flex-col items-center justify-center text-center">
-            <h2 className="text-lg font-semibold">Page not found</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              The page you are looking for does not exist.
-            </p>
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <NotFound
+              backHref="/dashboard"
+              backLabel="Back to dashboard"
+              className="w-full max-w-md"
+            />
           </div>
         ),
       },
