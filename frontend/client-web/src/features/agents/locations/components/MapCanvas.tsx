@@ -12,6 +12,7 @@ import { cn, relativeTime } from "@/lib/utils";
 import {
   LOCATION_STATUS_LABEL,
   LOCATION_STATUS_MARKER_COLOR,
+  LocationStatusDot,
 } from "./LocationStatusBadge";
 import { mapStyle, type MapStyleId } from "./map-styles";
 import type { LocationStatus } from "../types";
@@ -101,7 +102,13 @@ export default function MapCanvas({
   }, [markerKey, selectedId, fitSignal, selectedZoom]);
 
   return (
-    <div className={cn("relative h-full w-full", className)}>
+    <div
+      className={cn("relative h-full w-full", className)}
+      role="application"
+      aria-label={`Agent location map with ${markers.length} agent${
+        markers.length === 1 ? "" : "s"
+      }`}
+    >
       <Map
         ref={mapRef}
         mapStyle={mapStyle(styleId)}
@@ -123,68 +130,81 @@ export default function MapCanvas({
           onError?.(message);
         }}
       >
-        <NavigationControl position="top-right" />
+        <NavigationControl position="bottom-right" showCompass={false} />
 
-        {markers.map((marker) => (
-          <Marker
-            key={marker.id}
-            longitude={marker.longitude}
-            latitude={marker.latitude}
-            anchor="center"
-            onClick={(event) => {
-              event.originalEvent.stopPropagation();
-              onSelect(marker.id);
-            }}
-          >
-            <div
-              className="relative flex h-9 w-9 cursor-pointer items-center justify-center"
-              role="button"
-              tabIndex={0}
-              aria-label={`${marker.name}, ${LOCATION_STATUS_LABEL[marker.status]}`}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelect(marker.id);
-                }
+        {markers.map((marker) => {
+          const isSelected = marker.id === selectedId;
+          return (
+            <Marker
+              key={marker.id}
+              longitude={marker.longitude}
+              latitude={marker.latitude}
+              anchor="center"
+              onClick={(event) => {
+                event.originalEvent.stopPropagation();
+                onSelect(marker.id);
               }}
             >
-              {marker.status === "tracking" && (
-                <span
-                  className="absolute inset-0 rounded-full bg-primary/25"
-                  aria-hidden
-                />
-              )}
-              <span
-                className={cn(
-                  "relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-background text-xs font-semibold text-primary-foreground transition-transform hover:scale-110",
-                  marker.status === "offline" && "opacity-60",
-                  LOCATION_STATUS_MARKER_COLOR[marker.status]
-                )}
-                aria-hidden
+              <div
+                className="relative flex h-9 w-9 cursor-pointer items-center justify-center"
+                role="button"
+                tabIndex={0}
+                aria-label={`${marker.name}, ${LOCATION_STATUS_LABEL[marker.status]}`}
+                aria-pressed={isSelected}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelect(marker.id);
+                  }
+                }}
               >
-                {marker.initials}
-              </span>
-            </div>
-          </Marker>
-        ))}
+                {marker.status === "tracking" && (
+                  <span
+                    className="absolute inset-0 rounded-full bg-primary/20"
+                    aria-hidden
+                  />
+                )}
+                <span
+                  className={cn(
+                    "relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-background text-xs font-semibold text-primary-foreground transition-transform",
+                    marker.status === "offline" && "opacity-70",
+                    isSelected && "scale-110 ring-2 ring-primary ring-offset-2 ring-offset-background",
+                    LOCATION_STATUS_MARKER_COLOR[marker.status]
+                  )}
+                  aria-hidden
+                >
+                  {marker.initials}
+                </span>
+              </div>
+            </Marker>
+          );
+        })}
 
         {selected && (
           <Popup
             longitude={selected.longitude}
             latitude={selected.latitude}
             anchor="bottom"
-            offset={18}
+            offset={22}
             closeOnClick={false}
             onClose={() => onSelect(null)}
             maxWidth="260px"
+            className="agrivet-map-popup"
           >
-            <div className="space-y-1.5 p-1">
-              <div className="text-sm font-semibold">{selected.name}</div>
-              <div className="text-xs text-muted-foreground">
+            <div className="space-y-1 p-0.5">
+              <div className="text-sm font-semibold text-foreground">
+                {selected.name}
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <LocationStatusDot status={selected.status} />
                 {LOCATION_STATUS_LABEL[selected.status]}
               </div>
               <div className="text-xs text-muted-foreground">
                 {selected.place}
+              </div>
+              <div className="pt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+                {selected.latitude.toFixed(5)},{" "}
+                {selected.longitude.toFixed(5)}
               </div>
               <div className="text-xs text-muted-foreground">
                 Updated {relativeTime(selected.lastUpdated)}
@@ -197,7 +217,7 @@ export default function MapCanvas({
       {mapError && (
         <div
           role="alert"
-          className="absolute inset-0 z-10 flex items-center justify-center bg-background/90 p-6 text-center"
+          className="absolute inset-0 z-10 flex items-center justify-center bg-background/95 p-6 text-center"
         >
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">

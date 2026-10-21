@@ -21,6 +21,8 @@ interface AgentLocationsContextValue {
   getLocation: (agentId: string) => AgentLocation | undefined;
   /** ISO timestamp of the most recent feed emission. */
   lastSyncedAt: string | null;
+  /** Re-runs the snapshot fetch after a failure. */
+  reload: () => void;
 }
 
 const AgentLocationsContext =
@@ -43,6 +45,7 @@ export function AgentLocationsProvider({
   const [error, setError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(true);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [reloadSignal, setReloadSignal] = useState(0);
   const [isTabVisible, setIsTabVisible] = useState(
     () => typeof document === "undefined" || !document.hidden
   );
@@ -88,12 +91,14 @@ export function AgentLocationsProvider({
       cancelled = true;
       unsubscribe();
     };
-  }, [service, isLive, isTabVisible]);
+  }, [service, isLive, isTabVisible, reloadSignal]);
 
   const getLocation = useCallback(
     (agentId: string) => locations.find((l) => l.agentId === agentId),
     [locations]
   );
+
+  const reload = useCallback(() => setReloadSignal((n) => n + 1), []);
 
   const value = useMemo<AgentLocationsContextValue>(
     () => ({
@@ -104,8 +109,9 @@ export function AgentLocationsProvider({
       setIsLive,
       getLocation,
       lastSyncedAt,
+      reload,
     }),
-    [locations, loading, error, isLive, getLocation, lastSyncedAt]
+    [locations, loading, error, isLive, getLocation, lastSyncedAt, reload]
   );
 
   return (

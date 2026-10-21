@@ -74,7 +74,12 @@ export function mapStyle(id: MapStyleId): StyleSpecification {
   );
 }
 
-/** Floating layer switcher. Positioned away from the map's own controls. */
+/**
+ * Base-layer switcher.
+ *
+ * Renders as a borderless segment so the parent can compose it into a single
+ * flat control cluster together with the recenter action.
+ */
 export function MapStyleToggle({
   value,
   onChange,
@@ -87,11 +92,8 @@ export function MapStyleToggle({
   return (
     <div
       role="group"
-      aria-label="Map style"
-      className={cn(
-        "absolute bottom-3 left-3 z-10 flex overflow-hidden rounded-md border bg-background",
-        className
-      )}
+      aria-label="Map base layer"
+      className={cn("flex items-center", className)}
     >
       {MAP_STYLE_OPTIONS.map((option) => {
         const Icon = option.icon;
@@ -112,7 +114,7 @@ export function MapStyleToggle({
             )}
           >
             <Icon className="h-3.5 w-3.5" aria-hidden />
-            {option.label}
+            <span className="hidden sm:inline">{option.label}</span>
           </Button>
         );
       })}

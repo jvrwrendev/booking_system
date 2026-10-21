@@ -2,9 +2,11 @@ import { Suspense, lazy, useEffect, useState } from "react";
 import { Crosshair } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { MapStyleToggle, type MapStyleId } from "./map-styles";
+import { MapLegend } from "./MapLegend";
 import type { MapMarker } from "./MapCanvas";
 
 export type { MapMarker } from "./MapCanvas";
@@ -35,6 +37,8 @@ interface AgentLocationMapProps {
   showRecenter?: boolean;
   onRecenterClick?: () => void;
   recenterLabel?: string;
+  /** Hides the status legend, e.g. when only one agent is on the map. */
+  showLegend?: boolean;
 }
 
 export function AgentLocationMap({
@@ -48,7 +52,8 @@ export function AgentLocationMap({
   className,
   showRecenter = true,
   onRecenterClick,
-  recenterLabel = "Recenter Map",
+  recenterLabel = "Recenter",
+  showLegend = true,
 }: AgentLocationMapProps) {
   const [styleId, setStyleId] = useState<MapStyleId>(readStoredStyle);
 
@@ -62,11 +67,19 @@ export function AgentLocationMap({
   }, [styleId]);
 
   return (
-    <div className={cn("relative overflow-hidden rounded-lg", className)}>
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-lg border bg-muted/40",
+        className
+      )}
+    >
       <Suspense
         fallback={
-          <div className="flex h-full w-full items-center justify-center bg-muted/40">
-            <Spinner className="h-5 w-5" />
+          <div
+            className="flex h-full w-full items-center justify-center bg-muted/40"
+            aria-busy="true"
+          >
+            <Spinner className="h-5 w-5" label="Loading map" />
           </div>
         }
       >
@@ -83,20 +96,27 @@ export function AgentLocationMap({
         />
       </Suspense>
 
-      {showRecenter && (
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          className="absolute left-3 top-3 z-10"
-          onClick={onRecenterClick}
-        >
-          <Crosshair className="h-3.5 w-3.5" aria-hidden />
-          {recenterLabel}
-        </Button>
-      )}
+      {showLegend && <MapLegend />}
 
-      <MapStyleToggle value={styleId} onChange={setStyleId} />
+      <div className="absolute right-3 top-3 z-10 flex items-center overflow-hidden rounded-md border bg-background">
+        <MapStyleToggle value={styleId} onChange={setStyleId} />
+        {showRecenter && (
+          <>
+            <Separator orientation="vertical" className="h-8" />
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={onRecenterClick}
+              className="h-8 gap-1.5 rounded-none px-2.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <Crosshair className="h-3.5 w-3.5" aria-hidden />
+              <span className="hidden sm:inline">{recenterLabel}</span>
+              <span className="sr-only sm:hidden">{recenterLabel}</span>
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

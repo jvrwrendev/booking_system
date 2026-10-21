@@ -3,7 +3,10 @@ import { MapPinOff, MapPin } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/common/EmptyState";
 import { cn, initials, relativeTime } from "@/lib/utils";
-import { LocationStatusBadge } from "./LocationStatusBadge";
+import {
+  LocationStatusDot,
+  LOCATION_STATUS_META,
+} from "./LocationStatusBadge";
 import type { AgentLocation } from "../types";
 
 interface AgentLocationListProps {
@@ -25,7 +28,7 @@ export function AgentLocationList({
         icon={<MapPinOff className="h-5 w-5" aria-hidden />}
         title="No agents match"
         description="Try a different search term or status filter."
-        className={cn("border-0", className)}
+        className={cn("m-4 border-0 bg-transparent", className)}
       />
     );
   }
@@ -35,6 +38,7 @@ export function AgentLocationList({
       {locations.map((location) => {
         const isSelected = location.agentId === selectedId;
         const hasFix = location.latitude !== null;
+        const meta = LOCATION_STATUS_META[location.status];
 
         return (
           <li key={location.agentId}>
@@ -43,10 +47,18 @@ export function AgentLocationList({
               onClick={() => onSelect(location.agentId)}
               aria-pressed={isSelected}
               className={cn(
-                "flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                isSelected && "bg-muted"
+                "relative flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors",
+                "hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                isSelected && "bg-primary/5"
               )}
             >
+              {isSelected && (
+                <span
+                  className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary"
+                  aria-hidden
+                />
+              )}
+
               <Avatar className="mt-0.5 h-8 w-8 shrink-0">
                 <AvatarFallback className="text-xs">
                   {initials(location.agentName)}
@@ -55,10 +67,20 @@ export function AgentLocationList({
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-medium text-foreground">
+                  <span
+                    className={cn(
+                      "truncate text-sm",
+                      isSelected
+                        ? "font-semibold text-foreground"
+                        : "font-medium text-foreground"
+                    )}
+                  >
                     {location.agentName}
                   </span>
-                  <LocationStatusBadge status={location.status} />
+                  <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    <LocationStatusDot status={location.status} />
+                    {meta.short}
+                  </span>
                 </div>
                 <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                   {hasFix ? (
@@ -67,9 +89,7 @@ export function AgentLocationList({
                     <MapPinOff className="h-3 w-3 shrink-0" aria-hidden />
                   )}
                   <span className="truncate">
-                    {hasFix
-                      ? location.locationLabel
-                      : "No position reported"}
+                    {hasFix ? location.locationLabel : "No position reported"}
                   </span>
                 </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">

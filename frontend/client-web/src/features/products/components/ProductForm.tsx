@@ -132,7 +132,7 @@ export function ProductForm({
           <ImageUpload
             value={values.image}
             onChange={(img) => setValues((v) => ({ ...v, image: img }))}
-            aspect={dense ? "square" : "square"}
+            aspect="square"
           />
           <div className="min-w-0 flex-1 space-y-1.5 pt-1">
             <p className="text-sm font-medium text-foreground">Product photo</p>
