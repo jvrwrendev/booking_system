@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ApiError, onUnauthorized } from "@/lib/api-client";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ApiError, onUnauthorized, resetSessionState } from "@/lib/api-client";
 import { getCurrentUser, login as loginRequest, logout as logoutRequest } from "@/features/auth/services/auth.service";
 import type { AuthUser } from "@/types/auth";
 import { toAuthUser } from "@/features/users/lib/user-mapper";
@@ -17,6 +17,12 @@ interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /**
+   * True when a live session was rejected mid-use (expired or revoked), as
+   * opposed to never having signed in. The login page uses it to explain why
+   * the user was sent back.
+   */
+  sessionExpired: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -27,8 +33,18 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Read inside the 401 handler to tell "session died" apart from "never
+  // signed in" — the cold-boot `/auth/me` probe also 401s when there is no
+  // cookie, and that must not be reported as an expiry.
+  const hadUserRef = useRef(false);
+  useEffect(() => {
+    hadUserRef.current = Boolean(user);
+  }, [user]);
 
   const clearSession = useCallback(() => {
+    if (hadUserRef.current) setSessionExpired(true);
     setUser(null);
   }, []);
 
@@ -62,6 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     try {
       const result = await loginRequest({ email, password });
+      // A fresh cookie exists, so protected calls may flow again.
+      resetSessionState();
+      setSessionExpired(false);
       setUser(toAuthUser(result.user));
       return { success: true };
     } catch (error) {
@@ -80,6 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // user in a signed-in shell.
     } finally {
       setUser(null);
+      // A deliberate sign-out is not an expiry.
+      setSessionExpired(false);
     }
   }, []);
 
@@ -97,11 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: Boolean(user),
       isLoading,
+      sessionExpired,
       login,
       logout,
       refreshUser,
     }),
-    [user, isLoading, login, logout, refreshUser]
+    [user, isLoading, sessionExpired, login, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

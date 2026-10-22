@@ -9,8 +9,10 @@ import {
   changePasswordDto,
   loginDto,
   registerDto,
+  resendVerificationDto,
   sessionParamsDto,
   updateProfileDto,
+  verifyEmailDto,
 } from "./dto/index.js";
 import {
   changePassword,
@@ -18,10 +20,12 @@ import {
   getCurrentUser,
   login,
   register,
+  resendVerificationEmail,
   revokeAllSessions,
   revokeSession,
   revokeSessionById,
   updateProfile,
+  verifyEmail,
 } from "./auth.service.js";
 
 const cookieOptions: CookieOptions = {
@@ -50,18 +54,42 @@ export const loginController = asyncHandler(async (req: Request, res) => {
 export const registerController = asyncHandler(async (req: Request, res) => {
   const dto = registerDto.parse(req.body);
 
-  const { accessToken, user, session } = await register(dto, {
+  const { user } = await register(dto, {
     ip: req.ip,
     userAgent: req.headers["user-agent"],
   });
 
-  res.cookie(AUTH_COOKIE_NAME, accessToken, {
-    ...cookieOptions,
-    maxAge: sessionTtlMs(),
+  // Registration no longer issues a session: the user must verify their email
+  // before they can log in.
+  return sendSuccess(res, { user }, 201);
+});
+
+export const verifyEmailController = asyncHandler(async (req: Request, res) => {
+  const dto = verifyEmailDto.parse({
+    token: req.body?.token ?? req.query.token,
   });
 
-  return sendSuccess(res, { user, session }, 201);
+  const { user } = await verifyEmail(dto.token);
+
+  return sendSuccess(res, {
+    user,
+    message: "Email verified successfully. You can now sign in.",
+  });
 });
+
+export const resendVerificationEmailController = asyncHandler(
+  async (req: Request, res) => {
+    const dto = resendVerificationDto.parse(req.body);
+
+    await resendVerificationEmail(dto.email);
+
+    // Always return success to avoid leaking whether the email is registered.
+    return sendSuccess(res, {
+      message:
+        "If an unverified account exists for this email, a verification link has been sent.",
+    });
+  },
+);
 
 export const updateProfileController = asyncHandler(
   async (req: AuthenticatedRequest, res) => {

@@ -52,6 +52,9 @@ export type RootStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
+  VerifyEmail: { email: string };
+  VerificationSuccess: undefined;
+  VerificationFailure: { email?: string; message?: string };
   Agent: NavigatorScreenParams<AgentStackParamList>;
   Branch: NavigatorScreenParams<BranchStackParamList>;
 };

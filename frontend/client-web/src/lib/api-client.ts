@@ -38,6 +38,25 @@ type UnauthorizedHandler = () => void;
 const unauthorizedHandlers = new Set<UnauthorizedHandler>();
 
 /**
+ * Set the moment a protected request comes back 401.
+ *
+ * Without this, every provider and page effect keeps firing its own request
+ * after the session has already died — nine data providers mount together, so
+ * an expired cookie produces a burst of identical 401s on every navigation.
+ * Once flipped, protected calls fail fast without touching the network.
+ */
+let sessionInvalid = false;
+
+/** Called after a successful sign-in so requests start flowing again. */
+export function resetSessionState(): void {
+  sessionInvalid = false;
+}
+
+export function isSessionInvalid(): boolean {
+  return sessionInvalid;
+}
+
+/**
  * Registers a callback invoked whenever a request comes back 401.
  *
  * `useAuth` subscribes to this so an expired or revoked session tears down
@@ -84,6 +103,17 @@ export async function request<T>(
 ): Promise<T> {
   const isPublic = PUBLIC_PATHS.has(path);
 
+  // Short-circuit once the session is known to be dead. Every one of these
+  // would otherwise be dispatched, answered with 401, and logged by the
+  // browser — the redirect to /login is what actually resolves it.
+  if (sessionInvalid && !isPublic) {
+    throw new ApiError(
+      401,
+      "SESSION_EXPIRED",
+      "Your session has expired. Please sign in again."
+    );
+  }
+
   let response: Response;
   try {
     response = await fetch(buildUrl(path, query), {
@@ -103,9 +133,13 @@ export async function request<T>(
   }
 
   // A 401 on a public route (e.g. a failed login) is an expected answer, not
-  // a session teardown.
+  // a session teardown. For protected routes, notify subscribers once and stop
+  // accepting further calls until a new session is established.
   if (response.status === 401 && !isPublic) {
-    unauthorizedHandlers.forEach((handler) => handler());
+    if (!sessionInvalid) {
+      sessionInvalid = true;
+      unauthorizedHandlers.forEach((handler) => handler());
+    }
   }
 
   if (response.status === 204) return undefined as T;

@@ -12,6 +12,14 @@ const envSchema = z.object({
   SEED_ADMIN_NAME: z.string().default("System Administrator"),
   SEED_ADMIN_EMAIL: z.string().email().default("admin@agrivet.local"),
   SEED_ADMIN_PASSWORD: z.string().min(8).default("StrongPass!2026"),
+
+  RESEND_API_KEY: z.string().min(1, "RESEND_API_KEY is required"),
+  RESEND_FROM_EMAIL: z.string().email().default("onboarding@resend.dev"),
+  RESEND_FROM_NAME: z.string().default("Agrivet Supply"),
+
+  EMAIL_VERIFICATION_TTL: z.string().regex(/^\d+[smhd]$/, "Invalid TTL").default("60m"),
+
+  PUBLIC_BASE_URL: z.string().url().default("http://localhost:4000"),
 });
 
 function loadEnv() {

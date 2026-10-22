@@ -7,6 +7,7 @@ export const PUBLIC_USER_SELECT = {
   email: true,
   role: true,
   status: true,
+  emailVerified: true,
   contactNumber: true,
   address: true,
   avatar: true,
@@ -26,6 +27,7 @@ export interface PublicUser {
   email: string;
   role: Role;
   status: AccountStatus;
+  emailVerified: Date | null;
   contactNumber: string | null;
   address: string | null;
   avatar: string | null;

@@ -1,5 +1,4 @@
 import type { Branch } from "@/types/branch";
-import type { AuthAccount } from "@/types/auth";
 
 export const mockBranches: Branch[] = [
   {
@@ -69,17 +68,3 @@ export const mockBranches: Branch[] = [
     createdAt: "2024-03-15T08:00:00Z",
   },
 ];
-
-export const mockBranchAuthAccounts: AuthAccount[] = mockBranches.map((b) => ({
-  id: `BR-USR-${b.id}`,
-  fullName: b.name,
-  email: b.email,
-  username: b.email.split("@")[0],
-  contactNumber: b.contactNumber,
-  role: "BRANCH",
-  status: b.status === "active" ? "active" : "inactive",
-  lastLogin: b.createdAt,
-  createdAt: b.createdAt,
-  branchId: b.id,
-  password: b.password,
-}));

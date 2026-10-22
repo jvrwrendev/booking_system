@@ -15,6 +15,8 @@ const PUBLIC_PATHS = new Set([
   "/auth/register",
   "/auth/login",
   "/auth/logout",
+  "/auth/verify-email",
+  "/auth/verify-email/resend",
 ]);
 
 export class ApiError extends Error {

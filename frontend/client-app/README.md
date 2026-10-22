@@ -45,15 +45,19 @@ npm run lint        # eslint
 
 ## Demo accounts
 
-The bundled mock service ships with these demo logins (also tappable on the Login screen):
+Authentication is handled by the real backend API (`api/`) — there is no mock auth.
+The backend seed creates these accounts (all pre-verified):
 
-| Role   | Email                          | Password   |
-| ------ | ------------------------------ | ---------- |
-| AGENT  | `roberto.garcia@agrivet.ph`    | `password` |
-| AGENT  | `liza.tan@agrivet.ph`          | `password` |
-| BRANCH | `qc@agrivet.ph`                | `password` |
-| BRANCH | `cebu@agrivet.ph`              | `password` |
-| BRANCH | `davao@agrivet.ph`             | `password` |
+| Role        | Email                 | Password           |
+| ----------- | --------------------- | ------------------ |
+| SUPER_ADMIN | `admin@agrivet.local` | `StrongPass!2026`  |
+| AGENT       | `agent@agrivet.local` | `StrongPass!2026`  |
+| BRANCH      | `branch@agrivet.local`| `StrongPass!2026`  |
+
+> The seeded password is controlled by `SEED_ADMIN_PASSWORD` in `api/.env`.
+
+New accounts created through the app start **unverified** and cannot sign in until
+the email address is confirmed. See [Authentication & email verification](#authentication--email-verification).
 
 ---
 
@@ -91,6 +95,87 @@ The bundled mock service ships with these demo logins (also tappable on the Logi
 
 ---
 
+## Authentication & email verification
+
+The app uses email + password authentication against the backend API in `api/`.
+Google sign-in has been removed; there is no social login.
+
+### Flow
+
+1. **Register** (`Register` screen) → `POST /api/v1/auth/register`.
+   The backend creates the account with `emailVerified = null` and emails a
+   time-limited, single-use verification token.
+2. **Verify email** (`VerifyEmail` screen) → `POST /api/v1/auth/verify-email`
+   (or the link in the email → `GET /api/v1/auth/verify-email?token=…`).
+   Tokens expire (`EMAIL_VERIFICATION_TTL`), are single-use, and are stored only
+   as a SHA-256 hash.
+3. **Success** (`VerificationSuccess` screen) → the user returns to Login.
+4. **Login** (`Login` screen) → `POST /api/v1/auth/login`.
+   The session is issued as an **HTTP-only cookie**; unverified accounts receive
+   `403 EMAIL_NOT_VERIFIED` and can resend the verification email from the login
+   screen.
+5. **Protected screens** are only reachable once the user is authenticated *and*
+   verified. The backend also rejects any authenticated request from an
+   unverified account, so the check cannot be bypassed by calling the API
+   directly.
+
+`VerificationFailure` handles invalid, expired, already-used, and
+already-verified tokens, and offers "Request a new code" / "Try again".
+
+### Frontend environment
+
+Create `frontend/client-app/.env`:
+
+```bash
+# Backend API base URL (iOS simulator / web)
+EXPO_PUBLIC_API_URL=http://localhost:4000/api/v1
+# Android emulator: use http://10.0.2.2:4000/api/v1
+# Physical device:  use http://<your-LAN-IP>:4000/api/v1
+```
+
+No secrets belong in the app — the Resend API key never leaves the backend.
+
+### Backend environment (`api/.env`)
+
+```bash
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxx      # from https://resend.com/api-keys
+RESEND_FROM_EMAIL=onboarding@resend.dev # verified sender address
+RESEND_FROM_NAME="Agrivet Supply"
+EMAIL_VERIFICATION_TTL=60m              # 30m, 1h, 1d, ...
+PUBLIC_BASE_URL=http://localhost:4000   # public API URL used in email links
+```
+
+### Resend setup
+
+1. Create a Resend account and an **API key** (<https://resend.com/api-keys>).
+2. **Verify a sending domain** (<https://resend.com/domains>) and set
+   `RESEND_FROM_EMAIL` to an address on that domain (e.g. `no-reply@yourdomain.com`).
+3. Without a verified domain you can test with `onboarding@resend.dev`, but Resend
+   only delivers to the **account owner's** email address in that mode.
+4. Restart the API after changing environment variables.
+
+> **Development fallback:** when delivery fails and `NODE_ENV !== production`, the
+> API logs the verification link to the console
+> (`[dev] Verification link for <email>: …`), so the flow can be exercised
+> locally without a verified domain.
+
+### Auth endpoints
+
+| Method | Path                              | Purpose                              |
+| ------ | --------------------------------- | ------------------------------------ |
+| POST   | `/api/v1/auth/register`           | Create account + send verification   |
+| POST   | `/api/v1/auth/login`              | Sign in (verified accounts only)     |
+| POST   | `/api/v1/auth/logout`             | Revoke session + clear cookie        |
+| GET    | `/api/v1/auth/me`                 | Current user (protected)             |
+| POST   | `/api/v1/auth/verify-email`       | Verify using a token in the body     |
+| GET    | `/api/v1/auth/verify-email?token` | Verify from an emailed link          |
+| POST   | `/api/v1/auth/verify-email/resend`| Resend the verification email        |
+
+Rate limits: login 20 / 15 min, register 10 / hour, verification 30 / 15 min,
+resend 5 / hour (per IP + email).
+
+---
+
 ## Project structure
 
 ```
@@ -119,7 +204,8 @@ client-app/
     │                          #  BottomSheet, ScreenHeader, StatCard, InfoRow)
     │
     ├── features/
-    │   ├── auth/screens/      # login-screen.tsx
+    │   ├── auth/screens/      # welcome, login, register, verify-email,
+    │   │                      #  verification-success, verification-failure
     │   ├── dashboard/         # agent + branch dashboards
     │   ├── profile/screens/   # profile-screen.tsx
     │   ├── agent/

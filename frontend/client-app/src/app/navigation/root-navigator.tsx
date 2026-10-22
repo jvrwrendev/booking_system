@@ -6,6 +6,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { LoginScreen } from "@/features/auth/screens/login-screen";
 import { RegisterScreen } from "@/features/auth/screens/register-screen";
 import { WelcomeScreen } from "@/features/auth/screens/welcome-screen";
+import { VerifyEmailScreen } from "@/features/auth/screens/verify-email-screen";
+import { VerificationSuccessScreen } from "@/features/auth/screens/verification-success-screen";
+import { VerificationFailureScreen } from "@/features/auth/screens/verification-failure-screen";
 import { AgentNavigator } from "./agent-navigator";
 import { BranchNavigator } from "./branch-navigator";
 import type { RootStackParamList } from "./types";
@@ -31,7 +34,7 @@ const navTheme: Theme = {
 };
 
 export function RootNavigator() {
-  const { user, isLoading, loggedOut } = useAuth();
+  const { user, isLoading, isAuthenticated, loggedOut } = useAuth();
 
   if (isLoading) {
     return (
@@ -41,22 +44,51 @@ export function RootNavigator() {
     );
   }
 
+  const isVerified = Boolean(user?.emailVerified);
+
+  // Verified users go straight to their role workspace. Everyone else only
+  // has access to the public auth + verification screens.
+  const initialRouteName: keyof RootStackParamList = isAuthenticated
+    ? isVerified
+      ? user?.role === "AGENT"
+        ? "Agent"
+        : "Branch"
+      : "VerifyEmail"
+    : loggedOut
+      ? "Login"
+      : "Welcome";
+
   return (
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
-        initialRouteName={user ? undefined : loggedOut ? "Login" : "Welcome"}
+        initialRouteName={initialRouteName}
       >
-        {!user ? (
-            <>
-              <Stack.Screen name="Welcome" component={WelcomeScreen} />
-              <Stack.Screen name="Login" component={LoginScreen} />
-              <Stack.Screen name="Register" component={RegisterScreen} />
-            </>
-        ) : user.role === "AGENT" ? (
-          <Stack.Screen name="Agent" component={AgentNavigator} />
+        {isAuthenticated && isVerified ? (
+          user?.role === "AGENT" ? (
+            <Stack.Screen name="Agent" component={AgentNavigator} />
+          ) : (
+            <Stack.Screen name="Branch" component={BranchNavigator} />
+          )
         ) : (
-          <Stack.Screen name="Branch" component={BranchNavigator} />
+          <>
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen
+              name="VerifyEmail"
+              component={VerifyEmailScreen}
+              initialParams={{ email: user?.email ?? "" }}
+            />
+            <Stack.Screen
+              name="VerificationSuccess"
+              component={VerificationSuccessScreen}
+            />
+            <Stack.Screen
+              name="VerificationFailure"
+              component={VerificationFailureScreen}
+            />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

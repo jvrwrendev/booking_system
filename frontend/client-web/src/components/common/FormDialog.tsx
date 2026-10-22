@@ -17,15 +17,22 @@ interface FormDialogProps {
   description?: string;
   /** Icon tile rendered to the left of the title. */
   icon?: ReactNode;
-  /** `id` of the `<form>` inside — the footer submit button targets it. */
-  formId: string;
-  submitLabel: string;
+  /**
+   * Fixed strip between the header and the scrollable body.
+   * Used for a stepper, which must stay visible while the fields scroll.
+   */
+  headerExtra?: ReactNode;
+  /** `id` of the `<form>` inside — the default footer submit targets it. */
+  formId?: string;
+  submitLabel?: string;
   submitting?: boolean;
   cancelLabel?: string;
   /** Disables the submit button for reasons other than `submitting`. */
   submitDisabled?: boolean;
   /** Small helper line shown at the start of the footer. */
   hint?: ReactNode;
+  /** Replaces the default Cancel/Submit row — e.g. a wizard's Back/Next. */
+  footer?: ReactNode;
   /** Prevent closing while a request is in flight. */
   busy?: boolean;
   className?: string;
@@ -37,7 +44,7 @@ interface FormDialogProps {
  *
  * Keeps every create/edit dialog in the app on the same header rhythm,
  * scroll behaviour and footer, so the form surface never drifts between
- * modules.
+ * modules. Callers that need their own actions can pass `footer`.
  */
 export function FormDialog({
   open,
@@ -45,12 +52,14 @@ export function FormDialog({
   title,
   description,
   icon,
+  headerExtra,
   formId,
-  submitLabel,
+  submitLabel = "Save",
   submitting = false,
   cancelLabel = "Cancel",
   submitDisabled = false,
   hint,
+  footer,
   busy = false,
   className,
   children,
@@ -79,38 +88,50 @@ export function FormDialog({
             {title}
           </DialogTitle>
           {description && (
-            <DialogDescription className="text-sm">{description}</DialogDescription>
+            <DialogDescription className="text-sm">
+              {description}
+            </DialogDescription>
           )}
         </DialogHeader>
+
+        {headerExtra && (
+          <div className="shrink-0 border-b bg-muted/30 px-6 py-3">
+            {headerExtra}
+          </div>
+        )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 scrollbar-thin">
           {children}
         </div>
 
-        <div className="flex shrink-0 flex-col-reverse gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-muted-foreground">
-            {hint ?? "Fields marked with * are required."}
-          </p>
-          <div className="flex items-center gap-2 sm:ml-auto">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={submitting}
-            >
-              {cancelLabel}
-            </Button>
-            <Button
-              type="submit"
-              form={formId}
-              className="min-w-[140px]"
-              disabled={submitting || submitDisabled}
-              aria-busy={submitting}
-            >
-              {submitting ? "Saving…" : submitLabel}
-            </Button>
+        {footer ? (
+          <div className="shrink-0 border-t px-6 py-4">{footer}</div>
+        ) : (
+          <div className="flex shrink-0 flex-col-reverse gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              {hint ?? "Fields marked with * are required."}
+            </p>
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={submitting}
+              >
+                {cancelLabel}
+              </Button>
+              <Button
+                type="submit"
+                form={formId}
+                className="min-w-[140px]"
+                disabled={submitting || submitDisabled}
+                aria-busy={submitting}
+              >
+                {submitting ? "Saving…" : submitLabel}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );

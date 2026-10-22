@@ -20,6 +20,7 @@ export interface AuthUser {
   username: string;
   role: Role;
   status: "active" | "inactive";
+  emailVerified: boolean;
   avatar?: string;
   contactNumber?: string;
   address?: string;
@@ -27,10 +28,6 @@ export interface AuthUser {
   createdAt: string;
   agentId?: string;
   branchId?: string;
-}
-
-export interface AuthAccount extends AuthUser {
-  password: string;
 }
 
 export interface LoginCredentials {
@@ -56,10 +53,4 @@ export interface UpdateProfileInput {
   contactNumber: string;
   address: string;
   avatar?: string;
-}
-
-export interface GoogleProfile {
-  id: string;
-  email: string;
-  fullName: string;
 }

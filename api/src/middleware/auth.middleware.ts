@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 import { asyncHandler } from "../lib/async-handler.js";
-import { Errors } from "../lib/app-error.js";
+import { AppError, Errors } from "../lib/app-error.js";
 import { verifyAccessToken } from "../lib/jwt.js";
 import { prisma } from "../lib/prisma.js";
 import { PUBLIC_USER_SELECT, toPublicUser } from "../lib/user-select.js";
@@ -56,6 +56,12 @@ export const authenticate: RequestHandler = asyncHandler(
       throw Errors.unauthorized("Account is inactive or suspended");
     }
 
+    if (!user.emailVerified) {
+      throw new AppError(403, "Please verify your email address before continuing.", {
+        code: "EMAIL_NOT_VERIFIED",
+      });
+    }
+
     const authReq = req as AuthenticatedRequest;
     authReq.user = user as AuthUser;
     authReq.session = {
@@ -72,6 +78,8 @@ const PUBLIC_PATHS = [
   "/api/v1/auth/register",
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
+  "/api/v1/auth/verify-email",
+  "/api/v1/auth/verify-email/resend",
 ] as const;
 
 export function unless(

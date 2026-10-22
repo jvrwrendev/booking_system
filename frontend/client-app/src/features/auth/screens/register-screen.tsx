@@ -32,10 +32,7 @@ import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
-import { GoogleButton } from "@/features/auth/components/google-button";
-import { GoogleSignInModal } from "@/features/auth/components/google-sign-in-modal";
 import { APP_FULL_NAME, BUSINESS_NAME } from "@/constants";
-import type { GoogleProfile } from "@/types/auth";
 import type { Role } from "@/types/role";
 import type { RootStackParamList } from "@/app/navigation/types";
 
@@ -57,7 +54,7 @@ const roleOptions: { value: Role; label: string; description: string }[] = [
 ];
 
 export function RegisterScreen() {
-  const { register, googleSignUp } = useAuth();
+  const { register } = useAuth();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { height } = useWindowDimensions();
@@ -75,8 +72,6 @@ export function RegisterScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const [googleVisible, setGoogleVisible] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
 
   const isWideViewport = Platform.OS === "web" && height >= 640;
   const nameLabel = role === "AGENT" ? "Full name" : "Branch name";
@@ -155,18 +150,12 @@ export function RegisterScreen() {
 
     if (!result.success) {
       setError(result.error ?? "Registration failed. Please try again.");
+      return;
     }
-  };
 
-  const onGoogleSignUp = async (profile: GoogleProfile, signUpRole: Role) => {
-    if (googleLoading) return;
-    setGoogleLoading(true);
-    const result = await googleSignUp(profile, signUpRole);
-    setGoogleLoading(false);
-    setGoogleVisible(false);
-    if (!result.success) {
-      setError(result.error ?? "Google sign-up failed. Please try again.");
-    }
+    // Registration succeeded — the account is not active until the email is
+    // verified. Send the user to the verification screen.
+    navigation.navigate("VerifyEmail", { email: email.trim().toLowerCase() });
   };
 
   return (
@@ -496,25 +485,6 @@ export function RegisterScreen() {
                   fullWidth
                 />
               </View>
-
-              {/* Divider - or sign up with Google */}
-              <View className="mt-1 flex-row items-center gap-3">
-                <View className="h-px flex-1 bg-border" />
-                <Text variant="small" tone="muted">
-                  or
-                </Text>
-                <View className="h-px flex-1 bg-border" />
-              </View>
-
-              <GoogleButton
-                label="Sign up with Google"
-                loading={googleLoading}
-                disabled={submitting}
-                onPress={() => {
-                  setError(null);
-                  setGoogleVisible(true);
-                }}
-              />
             </View>
 
             {/* Footer Navigation Link */}
@@ -536,17 +506,6 @@ export function RegisterScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <GoogleSignInModal
-        visible={googleVisible}
-        mode="register"
-        loading={googleLoading}
-        onCancel={() => setGoogleVisible(false)}
-        onSignIn={() => {}}
-        onSignUp={(profile, signUpRole) => {
-          void onGoogleSignUp(profile, signUpRole);
-        }}
-      />
     </SafeAreaView>
   );
 }

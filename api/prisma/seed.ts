@@ -65,6 +65,7 @@ async function seedUsers() {
       passwordHash,
       role: "SUPER_ADMIN",
       status: "ACTIVE",
+      emailVerified: new Date(),
     },
   });
 
@@ -84,6 +85,7 @@ async function seedUsers() {
       contactNumber: "+63 917 555 0101",
       address: "San Pablo City, Laguna",
       agentId: "AGT-DEMO0001",
+      emailVerified: new Date(),
     },
   });
 
@@ -101,6 +103,7 @@ async function seedUsers() {
       contactNumber: "+63 917 555 0102",
       address: "Calamba City, Laguna",
       branchId: "BR-DEMO0001",
+      emailVerified: new Date(),
     },
   });
 

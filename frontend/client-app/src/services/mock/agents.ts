@@ -1,5 +1,4 @@
 import type { Agent } from "@/types/agent";
-import type { AuthAccount } from "@/types/auth";
 
 export const mockAgents: Agent[] = [
   {
@@ -50,17 +49,3 @@ export const mockAgents: Agent[] = [
     dateJoined: "2024-03-15T08:00:00Z",
   },
 ];
-
-export const mockAgentAuthAccounts: AuthAccount[] = mockAgents.map((a) => ({
-  id: a.id,
-  fullName: a.fullName,
-  email: a.email,
-  username: a.email.split("@")[0],
-  contactNumber: a.contactNumber,
-  role: "AGENT",
-  status: a.status === "active" ? "active" : "inactive",
-  lastLogin: a.dateJoined,
-  createdAt: a.dateJoined,
-  agentId: a.id,
-  password: a.password,
-}));

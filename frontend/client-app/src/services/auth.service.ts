@@ -1,18 +1,11 @@
 import { ApiError, request } from "@/lib/api-client";
-import { mockAgentAuthAccounts } from "./mock/agents";
-import { mockBranchAuthAccounts } from "./mock/branches";
-import { mockGoogleAccounts } from "./mock/google-accounts";
 import type {
-  AuthAccount,
   AuthUser,
-  GoogleProfile,
   LoginCredentials,
   RegisterCredentials,
   UpdateProfileInput,
 } from "@/types/auth";
 import type { Role } from "@/types/role";
-import { NETWORK_DELAY_MS } from "@/constants";
-import { sleep } from "@/lib/utils";
 
 /** Shape of the `user` object returned by the API's auth endpoints. */
 interface ApiUser {
@@ -21,6 +14,7 @@ interface ApiUser {
   email: string;
   role: string;
   status: string;
+  emailVerified: string | null;
   contactNumber: string | null;
   address: string | null;
   avatar: string | null;
@@ -38,6 +32,7 @@ function toAuthUser(apiUser: ApiUser): AuthUser {
     username: apiUser.email.split("@")[0],
     role: apiUser.role as Role,
     status: apiUser.status === "ACTIVE" ? "active" : "inactive",
+    emailVerified: Boolean(apiUser.emailVerified),
     contactNumber: apiUser.contactNumber ?? undefined,
     address: apiUser.address ?? undefined,
     avatar: apiUser.avatar ?? undefined,
@@ -55,7 +50,12 @@ function toErrorMessage(error: unknown): string {
 
 export async function loginRequest(
   credentials: LoginCredentials
-): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+): Promise<{
+  success: boolean;
+  user?: AuthUser;
+  error?: string;
+  code?: string;
+}> {
   try {
     const data = await request<{ user: ApiUser }>("/auth/login", {
       method: "POST",
@@ -66,7 +66,11 @@ export async function loginRequest(
     });
     return { success: true, user: toAuthUser(data.user) };
   } catch (error) {
-    return { success: false, error: toErrorMessage(error) };
+    return {
+      success: false,
+      error: toErrorMessage(error),
+      code: error instanceof ApiError ? error.code : undefined,
+    };
   }
 }
 
@@ -87,6 +91,34 @@ export async function registerRequest(
       },
     });
     return { success: true, user: toAuthUser(data.user) };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
+  }
+}
+
+export async function verifyEmailRequest(
+  token: string
+): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+  try {
+    const data = await request<{ user: ApiUser }>("/auth/verify-email", {
+      method: "POST",
+      body: { token },
+    });
+    return { success: true, user: toAuthUser(data.user) };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
+  }
+}
+
+export async function resendVerificationEmailRequest(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await request("/auth/verify-email/resend", {
+      method: "POST",
+      body: { email: email.trim().toLowerCase() },
+    });
+    return { success: true };
   } catch (error) {
     return { success: false, error: toErrorMessage(error) };
   }
@@ -150,81 +182,4 @@ export async function logoutRequest(): Promise<void> {
   } catch {
     // Best-effort: the local session is cleared regardless.
   }
-}
-
-export function listGoogleAccounts(): GoogleProfile[] {
-  return mockGoogleAccounts;
-}
-
-const mockAuthAccounts: AuthAccount[] = [
-  ...mockAgentAuthAccounts,
-  ...mockBranchAuthAccounts,
-];
-
-function stripPassword(account: AuthAccount): AuthUser {
-  const { password: _password, ...user } = account;
-  return user;
-}
-
-export async function googleSignInRequest(
-  profile: GoogleProfile
-): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
-  await sleep(NETWORK_DELAY_MS);
-
-  const account = mockAuthAccounts.find(
-    (a) => a.email.toLowerCase() === profile.email.trim().toLowerCase()
-  );
-
-  if (!account) {
-    return {
-      success: false,
-      error:
-        "No Agrivet account is linked to this Google account. Create one first.",
-    };
-  }
-
-  if (account.status !== "active") {
-    return {
-      success: false,
-      error: "This account is inactive. Contact your administrator.",
-    };
-  }
-
-  return { success: true, user: stripPassword(account) };
-}
-
-export async function googleSignUpRequest(
-  profile: GoogleProfile,
-  role: Role
-): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
-  await sleep(NETWORK_DELAY_MS);
-
-  const email = profile.email.trim().toLowerCase();
-  if (mockAuthAccounts.some((a) => a.email.toLowerCase() === email)) {
-    return {
-      success: false,
-      error: "An account with this email already exists. Sign in instead.",
-    };
-  }
-
-  const now = new Date().toISOString();
-  const suffix = Date.now().toString(36).toUpperCase();
-  const id = role === "AGENT" ? `AGT-${suffix}` : `BR-${suffix}`;
-
-  const user: AuthUser = {
-    id,
-    fullName: profile.fullName.trim(),
-    email,
-    username: email.split("@")[0],
-    role,
-    status: "active",
-    contactNumber: "",
-    address: "",
-    lastLogin: now,
-    createdAt: now,
-    agentId: role === "AGENT" ? id : undefined,
-    branchId: role === "BRANCH" ? id : undefined,
-  };
-
-  return { success: true, user };
 }

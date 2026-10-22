@@ -11,21 +11,19 @@ import { onUnauthorized } from "@/lib/api-client";
 import {
   changePasswordRequest,
   fetchCurrentUser,
-  googleSignInRequest,
-  googleSignUpRequest,
   loginRequest,
   logoutRequest,
   registerRequest,
+  resendVerificationEmailRequest,
   updateAccountRequest,
+  verifyEmailRequest,
 } from "@/services/auth.service";
 import type {
   AuthUser,
-  GoogleProfile,
   LoginCredentials,
   RegisterCredentials,
   UpdateProfileInput,
 } from "@/types/auth";
-import type { Role } from "@/types/role";
 import { STORAGE_KEYS } from "@/constants";
 
 interface AuthContextValue {
@@ -35,16 +33,15 @@ interface AuthContextValue {
   loggedOut: boolean;
   login: (
     credentials: LoginCredentials
-  ) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{ success: boolean; error?: string; code?: string }>;
   register: (
     credentials: RegisterCredentials
   ) => Promise<{ success: boolean; error?: string }>;
-  googleSignIn: (
-    profile: GoogleProfile
+  verifyEmail: (
+    token: string
   ) => Promise<{ success: boolean; error?: string }>;
-  googleSignUp: (
-    profile: GoogleProfile,
-    role: Role
+  resendVerification: (
+    email: string
   ) => Promise<{ success: boolean; error?: string }>;
   updateProfile: (
     patch: UpdateProfileInput
@@ -92,11 +89,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const stored = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_USER);
         if (stored) {
           const parsed = JSON.parse(stored) as AuthUser;
-          setUser(parsed);
+          // Legacy sessions may predate the `emailVerified` field. Default them
+          // to verified (the backend still enforces verification on every
+          // request) and let the refresh below supply the authoritative value.
+          const restored: AuthUser = {
+            ...parsed,
+            emailVerified: parsed.emailVerified ?? true,
+          };
+          setUser(restored);
           // Validate the session cookie against the API in the background.
           // On 401 the onUnauthorized handler tears the session down; on
           // network failure the restored user is kept so the app stays usable.
-          const fresh = await fetchCurrentUser(parsed.id);
+          const fresh = await fetchCurrentUser(restored.id);
           if (fresh) {
             await persistSession(fresh);
           }
@@ -116,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await persistSession(result.user);
         return { success: true };
       }
-      return { success: false, error: result.error };
+      return { success: false, error: result.error, code: result.code };
     },
     [persistSession]
   );
@@ -125,36 +129,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (credentials: RegisterCredentials) => {
       const result = await registerRequest(credentials);
       if (result.success && result.user) {
-        await persistSession(result.user);
+        // Registration no longer issues a session. The user must verify their
+        // email before they can log in, so we do not persist a session here.
         return { success: true };
       }
       return { success: false, error: result.error };
     },
-    [persistSession]
+    []
   );
 
-  const googleSignIn = useCallback(
-    async (profile: GoogleProfile) => {
-      const result = await googleSignInRequest(profile);
-      if (result.success && result.user) {
-        await persistSession(result.user);
+  const verifyEmail = useCallback(
+    async (token: string) => {
+      const result = await verifyEmailRequest(token);
+      if (result.success) {
+        // Verification does not create a session: the user signs in afterwards,
+        // which sets the HTTP-only session cookie.
         return { success: true };
       }
       return { success: false, error: result.error };
     },
-    [persistSession]
+    []
   );
 
-  const googleSignUp = useCallback(
-    async (profile: GoogleProfile, role: Role) => {
-      const result = await googleSignUpRequest(profile, role);
-      if (result.success && result.user) {
-        await persistSession(result.user);
-        return { success: true };
-      }
-      return { success: false, error: result.error };
+  const resendVerification = useCallback(
+    async (email: string) => {
+      const result = await resendVerificationEmailRequest(email);
+      return { success: result.success, error: result.error };
     },
-    [persistSession]
+    []
   );
 
   const logout = useCallback(async () => {
@@ -211,8 +213,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loggedOut,
       login,
       register,
-      googleSignIn,
-      googleSignUp,
+      verifyEmail,
+      resendVerification,
       updateProfile,
       changePassword,
       logout,
@@ -224,8 +226,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loggedOut,
       login,
       register,
-      googleSignIn,
-      googleSignUp,
+      verifyEmail,
+      resendVerification,
       updateProfile,
       changePassword,
       logout,

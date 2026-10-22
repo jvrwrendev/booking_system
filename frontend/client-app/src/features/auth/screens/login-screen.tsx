@@ -30,10 +30,7 @@ import { cn, validateEmail } from "@/lib/utils";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { GoogleButton } from "@/features/auth/components/google-button";
-import { GoogleSignInModal } from "@/features/auth/components/google-sign-in-modal";
 import { APP_FULL_NAME, BUSINESS_NAME } from "@/constants";
-import type { GoogleProfile } from "@/types/auth";
 import type { RootStackParamList } from "@/app/navigation/types";
 
 const MUTED_ICON = "#64748B";
@@ -57,7 +54,7 @@ const demoAccounts = [
 const CONTENT_MAX_WIDTH = 420;
 
 export function LoginScreen() {
-  const { login, googleSignIn } = useAuth();
+  const { login, resendVerification } = useAuth();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { height } = useWindowDimensions();
@@ -70,8 +67,9 @@ export function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [forgot, setForgot] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [googleVisible, setGoogleVisible] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   const passwordRef = useRef<TextInput>(null);
 
@@ -88,6 +86,8 @@ export function LoginScreen() {
   const resetFeedback = () => {
     setError(null);
     setForgot(false);
+    setUnverified(false);
+    setResendMessage(null);
   };
 
   const onEmailChange = (value: string) => {
@@ -123,19 +123,23 @@ export function LoginScreen() {
     const result = await login({ email: email.trim(), password });
     setSubmitting(false);
     if (!result.success) {
+      setUnverified(result.code === "EMAIL_NOT_VERIFIED");
       setError(result.error ?? "Login failed. Please try again.");
     }
   };
 
-  const onGoogleSignIn = async (profile: GoogleProfile) => {
-    if (googleLoading) return;
-    setGoogleLoading(true);
-    const result = await googleSignIn(profile);
-    setGoogleLoading(false);
-    setGoogleVisible(false);
-    if (!result.success) {
-      setForgot(false);
-      setError(result.error ?? "Google sign-in failed. Please try again.");
+  const onResendVerification = async () => {
+    if (resending) return;
+    setResending(true);
+    setResendMessage(null);
+    const result = await resendVerification(email.trim());
+    setResending(false);
+    if (result.success) {
+      setResendMessage(
+        "A verification code has been sent. Check your inbox, then sign in."
+      );
+    } else {
+      setError(result.error ?? "Could not resend the verification email.");
     }
   };
 
@@ -314,19 +318,44 @@ export function LoginScreen() {
               </Pressable>
 
               {error ? (
-                <View className="flex-row items-start gap-2.5 rounded-xl border border-danger/20 bg-danger/5 p-3.5">
-                  <AlertCircle
-                    size={16}
-                    color="#DC2626"
-                    style={{ marginTop: 2 }}
-                  />
-                  <Text
-                    variant="small"
-                    tone="danger"
-                    className="flex-1 text-xs leading-5"
-                  >
-                    {error}
-                  </Text>
+                <View className="gap-3 rounded-xl border border-danger/20 bg-danger/5 p-3.5">
+                  <View className="flex-row items-start gap-2.5">
+                    <AlertCircle
+                      size={16}
+                      color="#DC2626"
+                      style={{ marginTop: 2 }}
+                    />
+                    <Text
+                      variant="small"
+                      tone="danger"
+                      className="flex-1 text-xs leading-5"
+                    >
+                      {error}
+                    </Text>
+                  </View>
+                  {unverified ? (
+                    <>
+                      <Button
+                        label="Resend verification email"
+                        variant="outline"
+                        size="sm"
+                        loading={resending}
+                        disabled={resending}
+                        onPress={() => {
+                          void onResendVerification();
+                        }}
+                      />
+                      {resendMessage ? (
+                        <Text
+                          variant="small"
+                          tone="success"
+                          className="text-xs leading-5"
+                        >
+                          {resendMessage}
+                        </Text>
+                      ) : null}
+                    </>
+                  ) : null}
                 </View>
               ) : forgot ? (
                 <View className="flex-row items-start gap-2.5 rounded-xl border border-info/20 bg-info/5 p-3.5">
@@ -351,26 +380,6 @@ export function LoginScreen() {
                 loading={submitting}
                 fullWidth
                 className="mt-1 bg-primary opacity-100"
-              />
-
-              {/* Divider - or continue with Google */}
-              <View className="flex-row items-center gap-3">
-                <View className="h-px flex-1 bg-border" />
-                <Text variant="small" tone="muted">
-                  or
-                </Text>
-                <View className="h-px flex-1 bg-border" />
-              </View>
-
-              <GoogleButton
-                label="Continue with Google"
-                loading={googleLoading}
-                disabled={submitting}
-                onPress={() => {
-                  setForgot(false);
-                  setError(null);
-                  setGoogleVisible(true);
-                }}
               />
             </View>
 
@@ -457,17 +466,6 @@ export function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <GoogleSignInModal
-        visible={googleVisible}
-        mode="login"
-        loading={googleLoading}
-        onCancel={() => setGoogleVisible(false)}
-        onSignIn={(profile) => {
-          void onGoogleSignIn(profile);
-        }}
-        onSignUp={() => {}}
-      />
     </SafeAreaView>
   );
 }

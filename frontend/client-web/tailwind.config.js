@@ -64,6 +64,15 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      boxShadow: {
+        /*
+         * Scoped to the sign-in card only. The rest of the app is
+         * deliberately flat, so this is an opt-in token rather than a
+         * change to the global elevation language.
+         */
+        panel:
+          "0 1px 2px 0 hsl(var(--foreground) / 0.04), 0 16px 40px -12px hsl(var(--foreground) / 0.16)",
+      },
       // Intermediate tint steps used by the flat status surfaces
       // (badges, alerts, table row hovers). Tailwind only resolves colour
       // opacity modifiers that exist in this scale.

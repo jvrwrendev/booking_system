@@ -1,7 +1,9 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { hashPassword, verifyPassword } from "../../lib/argon2.js";
-import { Errors } from "../../lib/app-error.js";
+import { AppError, Errors } from "../../lib/app-error.js";
 import { signAccessToken, sessionTtlMs } from "../../lib/jwt.js";
+import { sendVerificationEmail } from "../../lib/email.js";
+import { env } from "../../config/env.js";
 import { prisma } from "../../lib/prisma.js";
 import {
   PUBLIC_USER_SELECT,
@@ -27,10 +29,28 @@ export type LoginResult = {
 };
 
 export type RegisterResult = {
-  accessToken: string;
   user: AuthUser;
-  session: SessionView;
 };
+
+function verificationTtlMs(): number {
+  const unit = env.EMAIL_VERIFICATION_TTL.slice(-1);
+  const value = Number.parseInt(env.EMAIL_VERIFICATION_TTL.slice(0, -1), 10);
+  const multipliers: Record<string, number> = {
+    s: 1000,
+    m: 60_000,
+    h: 3_600_000,
+    d: 86_400_000,
+  };
+  const multiplier = multipliers[unit];
+  if (!multiplier) {
+    throw new Error("Invalid EMAIL_VERIFICATION_TTL");
+  }
+  return value * multiplier;
+}
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 function toSessionView(
   session: {
@@ -83,6 +103,12 @@ export async function login(
     );
   }
 
+  if (!account.emailVerified) {
+    throw new AppError(403, "Please verify your email address before signing in.", {
+      code: "EMAIL_NOT_VERIFIED",
+    });
+  }
+
   const expiresAt = new Date(Date.now() + sessionTtlMs());
 
   const session = await prisma.session.create({
@@ -111,7 +137,7 @@ export async function login(
 
 export async function register(
   input: RegisterDto,
-  meta: LoginMeta,
+  _meta: LoginMeta,
 ): Promise<RegisterResult> {
   const existing = await prisma.user.findUnique({
     where: { email: input.email },
@@ -136,34 +162,135 @@ export async function register(
       avatar: input.avatar,
       agentId,
       branchId,
+      emailVerified: null,
     },
+    select: PUBLIC_USER_SELECT,
   });
 
-  const expiresAt = new Date(Date.now() + sessionTtlMs());
+  // Generate a secure, single-use, time-limited verification token.
+  const token = randomBytes(32).toString("hex");
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + verificationTtlMs());
 
-  const session = await prisma.session.create({
+  await prisma.emailVerificationToken.create({
     data: {
       userId: account.id,
-      ip: meta.ip ?? null,
-      userAgent: meta.userAgent ?? null,
+      tokenHash,
       expiresAt,
     },
   });
 
-  const accessToken = signAccessToken({
-    id: account.id,
-    role: account.role,
-    sessionId: session.id,
+  // Send the verification email via Resend (backend only). Registration still
+  // succeeds even if email delivery fails; the user can request a resend.
+  const verifyUrl = `${env.PUBLIC_BASE_URL}/api/v1/auth/verify-email?token=${token}`;
+  void sendVerificationEmail({
+    to: account.email,
+    userName: account.name,
+    token,
+    verifyUrl,
+  }).catch((error) => {
+    console.error("Failed to send verification email:", error);
   });
 
-  const { passwordHash: _passwordHash, ...user } = account;
-
-  return {
-    accessToken,
-    user,
-    session: toSessionView(session, session.id),
-  };
+  return { user: toPublicUser(account) };
 }
+
+export async function verifyEmail(
+  token: string,
+): Promise<{ user: AuthUser }> {
+  const tokenHash = hashToken(token);
+
+  const verificationToken = await prisma.emailVerificationToken.findUnique({
+    where: { tokenHash },
+    include: { user: { select: PUBLIC_USER_SELECT } },
+  });
+
+  if (!verificationToken) {
+    throw new AppError(400, "Invalid verification token.", {
+      code: "INVALID_TOKEN",
+    });
+  }
+
+  if (verificationToken.usedAt) {
+    throw new AppError(400, "This verification token has already been used.", {
+      code: "TOKEN_ALREADY_USED",
+    });
+  }
+
+  if (verificationToken.expiresAt <= new Date()) {
+    throw new AppError(400, "This verification token has expired.", {
+      code: "EXPIRED_TOKEN",
+    });
+  }
+
+  const user = toPublicUser(verificationToken.user);
+
+  if (user.emailVerified) {
+    throw new AppError(400, "This email address is already verified.", {
+      code: "ALREADY_VERIFIED",
+    });
+  }
+
+  const now = new Date();
+
+  await prisma.$transaction([
+    prisma.emailVerificationToken.update({
+      where: { id: verificationToken.id },
+      data: { usedAt: now },
+    }),
+    prisma.emailVerificationToken.deleteMany({
+      where: { userId: user.id, id: { not: verificationToken.id } },
+    }),
+    prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: now },
+    }),
+  ]);
+
+  return { user: { ...user, emailVerified: now } };
+}
+
+export async function resendVerificationEmail(
+  email: string,
+): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, name: true, email: true, emailVerified: true },
+  });
+
+  // Always return successfully to avoid leaking whether an email is registered.
+  if (!user || user.emailVerified) {
+    return;
+  }
+
+  // Rotate tokens: remove any existing unused tokens for this user.
+  await prisma.emailVerificationToken.deleteMany({
+    where: { userId: user.id },
+  });
+
+  const token = randomBytes(32).toString("hex");
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + verificationTtlMs());
+
+  await prisma.emailVerificationToken.create({
+    data: {
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    },
+  });
+
+  const verifyUrl = `${env.PUBLIC_BASE_URL}/api/v1/auth/verify-email?token=${token}`;
+  void sendVerificationEmail({
+    to: user.email,
+    userName: user.name,
+    token,
+    verifyUrl,
+  }).catch((error) => {
+    console.error("Failed to send verification email:", error);
+  });
+}
+
 
 export async function updateProfile(
   userId: string,
