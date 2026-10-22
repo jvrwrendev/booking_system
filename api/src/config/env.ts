@@ -13,13 +13,28 @@ const envSchema = z.object({
   SEED_ADMIN_EMAIL: z.string().email().default("admin@agrivet.local"),
   SEED_ADMIN_PASSWORD: z.string().min(8).default("StrongPass!2026"),
 
-  RESEND_API_KEY: z.string().min(1, "RESEND_API_KEY is required"),
-  RESEND_FROM_EMAIL: z.string().email().default("onboarding@resend.dev"),
-  RESEND_FROM_NAME: z.string().default("Agrivet Supply"),
+  NODEMAIL_USER: z
+    .string()
+    .trim()
+    .email("NODEMAIL_USER must be a valid Gmail address"),
+  NODEMAIL_PASS: z
+    .string()
+    .transform((value) => value.replace(/\s+/g, ""))
+    .pipe(z.string().min(1, "NODEMAIL_PASS is required")),
+  NODEMAIL_FROM_NAME: z.string().default("Agrivet Supply"),
+  // Optional SMTP overrides. Defaults are Gmail with STARTTLS on port 587.
+  NODEMAIL_HOST: z.string().trim().default("smtp.gmail.com"),
+  NODEMAIL_PORT: z.coerce.number().int().positive().default(587),
+  NODEMAIL_SECURE: z
+    .string()
+    .default("false")
+    .transform((value) => value.toLowerCase() === "true"),
+  NODEMAIL_REQUIRE_TLS: z
+    .string()
+    .default("true")
+    .transform((value) => value.toLowerCase() === "true"),
 
-  EMAIL_VERIFICATION_TTL: z.string().regex(/^\d+[smhd]$/, "Invalid TTL").default("60m"),
-
-  PUBLIC_BASE_URL: z.string().url().default("http://localhost:4000"),
+  EMAIL_VERIFICATION_TTL: z.string().regex(/^\d+[smhd]$/, "Invalid TTL").default("10m"),
 });
 
 function loadEnv() {

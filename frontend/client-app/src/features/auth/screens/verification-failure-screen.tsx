@@ -62,11 +62,13 @@ export function VerificationFailureScreen() {
 
     if (result.success) {
       setResendMessage(
-        "A new verification code has been sent. Check your inbox."
+        result.sent
+          ? "A new verification code has been sent. Check your inbox."
+          : "A code was sent recently. Please use it or wait for the cooldown."
       );
-      setCooldown(RESEND_COOLDOWN_SECONDS);
+      setCooldown(result.retryAfterSeconds ?? RESEND_COOLDOWN_SECONDS);
     } else {
-      setError(result.error ?? "Could not resend the verification email.");
+      setError(result.error ?? "Could not resend the verification code.");
     }
   };
 

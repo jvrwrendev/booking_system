@@ -111,6 +111,59 @@ async function seedUsers() {
     `Seeded BRANCH: ${branchUser.email} (branchId: ${branchUser.branchId})`,
   );
 
+  // Additional verified agent + branch accounts for local/staging use.
+  const reniePasswordHash = await hashPassword("wrenTzy31");
+  const renieBranch = await prisma.user.upsert({
+    where: { email: "renie@aclcbukidnon.com" },
+    update: {
+      name: "Renie ACLC",
+      passwordHash: reniePasswordHash,
+      emailVerified: new Date(),
+      status: "ACTIVE",
+      role: "BRANCH",
+      branchId: "BR-001",
+    },
+    create: {
+      name: "Renie ACLC",
+      email: "renie@aclcbukidnon.com",
+      passwordHash: reniePasswordHash,
+      role: "BRANCH",
+      status: "ACTIVE",
+      branchId: "BR-001",
+      emailVerified: new Date(),
+    },
+  });
+
+  console.log(
+    `Seeded BRANCH: ${renieBranch.email} (branchId: ${renieBranch.branchId})`,
+  );
+
+  const javierPasswordHash = await hashPassword("javierrenren1");
+  const javierAgent = await prisma.user.upsert({
+    where: { email: "javierrenren1@gmail.com" },
+    update: {
+      name: "Javier Renren",
+      passwordHash: javierPasswordHash,
+      emailVerified: new Date(),
+      status: "ACTIVE",
+      role: "AGENT",
+      agentId: "AGT-001",
+    },
+    create: {
+      name: "Javier Renren",
+      email: "javierrenren1@gmail.com",
+      passwordHash: javierPasswordHash,
+      role: "AGENT",
+      status: "ACTIVE",
+      agentId: "AGT-001",
+      emailVerified: new Date(),
+    },
+  });
+
+  console.log(
+    `Seeded AGENT: ${javierAgent.email} (agentId: ${javierAgent.agentId})`,
+  );
+
   return admin;
 }
 

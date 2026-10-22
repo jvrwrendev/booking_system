@@ -1,14 +1,61 @@
+import { Platform } from "react-native";
+import Constants from "expo-constants";
+
+const API_PORT = 4000;
+
 /**
- * Base URL of the Agrivet API.
+ * Resolves the API base URL.
  *
- * - iOS simulator: http://localhost:4000/api/v1 (default below)
- * - Android emulator: http://10.0.2.2:4000/api/v1
- * - Physical device: http://<your-LAN-IP>:4000/api/v1
+ * In development the app is often opened from another machine or a physical
+ * device (e.g. http://192.168.1.43:8081). In that case `localhost` would point
+ * at the *client*, not the machine running the API. We therefore derive the
+ * host the app itself was loaded from and reuse it for the API port.
  *
- * Override by creating a `.env` file (see `.env.example`).
+ * Precedence:
+ * 1. `EXPO_PUBLIC_API_URL` when it is not a loopback address (explicit override).
+ * 2. Web: the browser's own hostname.
+ * 3. Native: the Metro bundler host (`Constants.expoConfig.hostUri`).
+ * 4. `EXPO_PUBLIC_API_URL` as-is, then the localhost default.
  */
-const API_BASE =
-  process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+function isLoopbackUrl(value: string): boolean {
+  return /\/\/(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/.test(value);
+}
+
+function resolveApiBase(): string {
+  const envBase = process.env.EXPO_PUBLIC_API_URL?.trim();
+  const fallback = `http://localhost:${API_PORT}/api/v1`;
+
+  if (envBase && !isLoopbackUrl(envBase)) {
+    return envBase.replace(/\/+$/, "");
+  }
+
+  if (Platform.OS === "web") {
+    const location = (
+      globalThis as {
+        location?: { hostname?: string; protocol?: string };
+      }
+    ).location;
+    if (location?.hostname) {
+      const protocol = location.protocol === "https:" ? "https:" : "http:";
+      return `${protocol}//${location.hostname}:${API_PORT}/api/v1`;
+    }
+  }
+
+  const hostUri =
+    Constants.expoConfig?.hostUri ??
+    // Older/Expo Go manifests expose the debugger host instead.
+    (Constants as { expoGoConfig?: { debuggerHost?: string } }).expoGoConfig
+      ?.debuggerHost;
+
+  const metroHost = hostUri?.split(":")[0];
+  if (metroHost && metroHost !== "localhost" && metroHost !== "127.0.0.1") {
+    return `http://${metroHost}:${API_PORT}/api/v1`;
+  }
+
+  return (envBase ?? fallback).replace(/\/+$/, "");
+}
+
+const API_BASE = resolveApiBase();
 
 /** `api/src/middleware/auth.middleware.ts` — routes that skip authentication. */
 const PUBLIC_PATHS = new Set([
@@ -93,6 +140,10 @@ export async function request<T>(
   try {
     response = await fetch(`${API_BASE}${path}`, {
       method,
+      // Required on web (Expo web / browser) so the HTTP-only session cookie is
+      // sent and stored for cross-origin API requests. Native React Native
+      // networking carries cookies automatically regardless of this option.
+      credentials: "include",
       headers:
         body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -101,7 +152,7 @@ export async function request<T>(
     throw new ApiError(
       0,
       "NETWORK_ERROR",
-      "Could not reach the server. Check that the API is running."
+      `Could not reach the server at ${API_BASE}. Check that the API is running and that EXPO_PUBLIC_API_URL is reachable from this device.`
     );
   }
 

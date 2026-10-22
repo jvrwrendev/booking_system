@@ -91,12 +91,6 @@ authRouter.post(
   verifyEmailController,
 );
 
-authRouter.get(
-  "/verify-email",
-  verifyEmailRateLimiter,
-  verifyEmailController,
-);
-
 authRouter.post(
   "/verify-email/resend",
   resendVerificationRateLimiter,

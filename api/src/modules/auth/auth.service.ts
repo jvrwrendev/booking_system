@@ -1,8 +1,8 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { hashPassword, verifyPassword } from "../../lib/argon2.js";
 import { AppError, Errors } from "../../lib/app-error.js";
 import { signAccessToken, sessionTtlMs } from "../../lib/jwt.js";
-import { sendVerificationEmail } from "../../lib/email.js";
+import { sendVerificationCodeEmail } from "../../lib/email.js";
 import { env } from "../../config/env.js";
 import { prisma } from "../../lib/prisma.js";
 import {
@@ -48,8 +48,30 @@ function verificationTtlMs(): number {
   return value * multiplier;
 }
 
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
+const VERIFICATION_MAX_ATTEMPTS = 5;
+const RESEND_COOLDOWN_SECONDS = 60;
+
+/**
+ * Generates a cryptographically random six-digit code, stores only its argon2
+ * hash, and resets the attempt counter. The plaintext is returned solely so it
+ * can be delivered by email.
+ */
+async function createVerificationChallenge(userId: string): Promise<string> {
+  const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const codeHash = await hashPassword(code);
+  const now = new Date();
+
+  await prisma.emailVerificationCode.create({
+    data: {
+      userId,
+      codeHash,
+      expiresAt: new Date(now.getTime() + verificationTtlMs()),
+      attempts: 0,
+      lastSentAt: now,
+    },
+  });
+
+  return code;
 }
 
 function toSessionView(
@@ -167,27 +189,18 @@ export async function register(
     select: PUBLIC_USER_SELECT,
   });
 
-  // Generate a secure, single-use, time-limited verification token.
-  const token = randomBytes(32).toString("hex");
-  const tokenHash = hashToken(token);
-  const expiresAt = new Date(Date.now() + verificationTtlMs());
+  // Issue a single-use, time-limited six-digit code. Only its argon2 hash is
+  // stored; the plaintext exists solely in the email.
+  const code = await createVerificationChallenge(account.id);
 
-  await prisma.emailVerificationToken.create({
-    data: {
-      userId: account.id,
-      tokenHash,
-      expiresAt,
-    },
-  });
-
-  // Send the verification email via Resend (backend only). Registration still
-  // succeeds even if email delivery fails; the user can request a resend.
-  const verifyUrl = `${env.PUBLIC_BASE_URL}/api/v1/auth/verify-email?token=${token}`;
-  void sendVerificationEmail({
+  // Send the verification email through Gmail SMTP (backend only).
+  // Registration still succeeds even if email delivery fails; the user can
+  // request a resend.
+  void sendVerificationCodeEmail({
     to: account.email,
     userName: account.name,
-    token,
-    verifyUrl,
+    code,
+    expiresInMinutes: Math.round(verificationTtlMs() / 60_000),
   }).catch((error) => {
     console.error("Failed to send verification email:", error);
   });
@@ -196,63 +209,114 @@ export async function register(
 }
 
 export async function verifyEmail(
-  token: string,
+  email: string,
+  code: string,
 ): Promise<{ user: AuthUser }> {
-  const tokenHash = hashToken(token);
-
-  const verificationToken = await prisma.emailVerificationToken.findUnique({
-    where: { tokenHash },
-    include: { user: { select: PUBLIC_USER_SELECT } },
+  const account = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, emailVerified: true },
   });
 
-  if (!verificationToken) {
-    throw new AppError(400, "Invalid verification token.", {
-      code: "INVALID_TOKEN",
+  if (!account) {
+    // Keep the failure unbiased: an unknown email reports the same error as a
+    // wrong code, so the endpoint cannot be used to enumerate accounts.
+    throw new AppError(400, "That verification code is incorrect.", {
+      code: "INVALID_CODE",
     });
   }
 
-  if (verificationToken.usedAt) {
-    throw new AppError(400, "This verification token has already been used.", {
-      code: "TOKEN_ALREADY_USED",
-    });
-  }
-
-  if (verificationToken.expiresAt <= new Date()) {
-    throw new AppError(400, "This verification token has expired.", {
-      code: "EXPIRED_TOKEN",
-    });
-  }
-
-  const user = toPublicUser(verificationToken.user);
-
-  if (user.emailVerified) {
+  if (account.emailVerified) {
     throw new AppError(400, "This email address is already verified.", {
       code: "ALREADY_VERIFIED",
     });
   }
 
+  const challenge = await prisma.emailVerificationCode.findFirst({
+    where: { userId: account.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!challenge || challenge.expiresAt <= new Date()) {
+    if (challenge) {
+      await prisma.emailVerificationCode.deleteMany({
+        where: { userId: account.id },
+      });
+    }
+    throw new AppError(
+      400,
+      "This verification code has expired. Request a new one.",
+      { code: "EXPIRED_CODE" },
+    );
+  }
+
+  if (challenge.attempts >= VERIFICATION_MAX_ATTEMPTS) {
+    await prisma.emailVerificationCode.deleteMany({
+      where: { userId: account.id },
+    });
+    throw new AppError(
+      400,
+      "Too many incorrect attempts. Request a new verification code.",
+      { code: "TOO_MANY_ATTEMPTS" },
+    );
+  }
+
+  const matches = await verifyPassword(challenge.codeHash, code);
+
+  if (!matches) {
+    const attempts = challenge.attempts + 1;
+
+    if (attempts >= VERIFICATION_MAX_ATTEMPTS) {
+      await prisma.emailVerificationCode.deleteMany({
+        where: { userId: account.id },
+      });
+      throw new AppError(
+        400,
+        "Too many incorrect attempts. Request a new verification code.",
+        { code: "TOO_MANY_ATTEMPTS" },
+      );
+    }
+
+    await prisma.emailVerificationCode.update({
+      where: { id: challenge.id },
+      data: { attempts },
+    });
+
+    const remaining = VERIFICATION_MAX_ATTEMPTS - attempts;
+    throw new AppError(
+      400,
+      `That verification code is incorrect. ${remaining} ${
+        remaining === 1 ? "attempt" : "attempts"
+      } remaining.`,
+      { code: "INVALID_CODE" },
+    );
+  }
+
   const now = new Date();
 
-  await prisma.$transaction([
-    prisma.emailVerificationToken.update({
-      where: { id: verificationToken.id },
-      data: { usedAt: now },
-    }),
-    prisma.emailVerificationToken.deleteMany({
-      where: { userId: user.id, id: { not: verificationToken.id } },
-    }),
+  const [updated] = await prisma.$transaction([
     prisma.user.update({
-      where: { id: user.id },
+      where: { id: account.id },
       data: { emailVerified: now },
+      select: PUBLIC_USER_SELECT,
+    }),
+    prisma.emailVerificationCode.deleteMany({
+      where: { userId: account.id },
     }),
   ]);
 
-  return { user: { ...user, emailVerified: now } };
+  return { user: toPublicUser(updated) };
 }
 
 export async function resendVerificationEmail(
   email: string,
-): Promise<void> {
+): Promise<{ sent: boolean; retryAfterSeconds: number; expiresInSeconds: number }> {
+  const ttlSeconds = Math.round(verificationTtlMs() / 1000);
+  const notSent = {
+    sent: false,
+    retryAfterSeconds: RESEND_COOLDOWN_SECONDS,
+    expiresInSeconds: ttlSeconds,
+  };
+
   const user = await prisma.user.findUnique({
     where: { email },
     select: { id: true, name: true, email: true, emailVerified: true },
@@ -260,36 +324,60 @@ export async function resendVerificationEmail(
 
   // Always return successfully to avoid leaking whether an email is registered.
   if (!user || user.emailVerified) {
-    return;
+    return notSent;
   }
 
-  // Rotate tokens: remove any existing unused tokens for this user.
-  await prisma.emailVerificationToken.deleteMany({
+  const existing = await prisma.emailVerificationCode.findFirst({
     where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, lastSentAt: true, expiresAt: true },
   });
 
-  const token = randomBytes(32).toString("hex");
-  const tokenHash = hashToken(token);
-  const expiresAt = new Date(Date.now() + verificationTtlMs());
+  if (existing) {
+    const elapsedMs = Date.now() - existing.lastSentAt.getTime();
+    const cooldownMs = RESEND_COOLDOWN_SECONDS * 1000;
+    if (elapsedMs < cooldownMs) {
+      return {
+        sent: false,
+        retryAfterSeconds: Math.max(
+          1,
+          Math.ceil((cooldownMs - elapsedMs) / 1000),
+        ),
+        expiresInSeconds: Math.max(
+          1,
+          Math.ceil((existing.expiresAt.getTime() - Date.now()) / 1000),
+        ),
+      };
+    }
+  }
 
-  await prisma.emailVerificationToken.create({
-    data: {
-      userId: user.id,
-      tokenHash,
-      expiresAt,
-    },
-  });
+  // Rotate: a resend always invalidates the previous code.
+  await prisma.emailVerificationCode.deleteMany({ where: { userId: user.id } });
+  const code = await createVerificationChallenge(user.id);
 
-  const verifyUrl = `${env.PUBLIC_BASE_URL}/api/v1/auth/verify-email?token=${token}`;
-  void sendVerificationEmail({
+  const delivery = await sendVerificationCodeEmail({
     to: user.email,
     userName: user.name,
-    token,
-    verifyUrl,
-  }).catch((error) => {
-    console.error("Failed to send verification email:", error);
+    code,
+    expiresInMinutes: Math.round(verificationTtlMs() / 60_000),
   });
+
+  if (!delivery.success) {
+    await prisma.emailVerificationCode.deleteMany({ where: { userId: user.id } });
+    throw new AppError(
+      503,
+      "We could not send the verification code right now. Please try again shortly.",
+      { code: "EMAIL_DELIVERY_FAILED" },
+    );
+  }
+
+  return {
+    sent: true,
+    retryAfterSeconds: RESEND_COOLDOWN_SECONDS,
+    expiresInSeconds: ttlSeconds,
+  };
 }
+
 
 
 export async function updateProfile(

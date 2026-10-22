@@ -38,11 +38,18 @@ interface AuthContextValue {
     credentials: RegisterCredentials
   ) => Promise<{ success: boolean; error?: string }>;
   verifyEmail: (
-    token: string
+    email: string,
+    code: string
   ) => Promise<{ success: boolean; error?: string }>;
   resendVerification: (
     email: string
-  ) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{
+    success: boolean;
+    sent?: boolean;
+    retryAfterSeconds?: number;
+    expiresInSeconds?: number;
+    error?: string;
+  }>;
   updateProfile: (
     patch: UpdateProfileInput
   ) => Promise<{ success: boolean; error?: string }>;
@@ -139,8 +146,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const verifyEmail = useCallback(
-    async (token: string) => {
-      const result = await verifyEmailRequest(token);
+    async (email: string, code: string) => {
+      const result = await verifyEmailRequest(email, code);
       if (result.success) {
         // Verification does not create a session: the user signs in afterwards,
         // which sets the HTTP-only session cookie.
@@ -154,7 +161,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const resendVerification = useCallback(
     async (email: string) => {
       const result = await resendVerificationEmailRequest(email);
-      return { success: result.success, error: result.error };
+      return {
+        success: result.success,
+        sent: result.sent,
+        retryAfterSeconds: result.retryAfterSeconds,
+        expiresInSeconds: result.expiresInSeconds,
+        error: result.error,
+      };
     },
     []
   );

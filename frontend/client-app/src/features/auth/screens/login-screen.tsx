@@ -14,14 +14,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AlertCircle,
   ArrowLeft,
-  Building2,
   Eye,
   EyeOff,
   Info,
   Lock,
   Mail,
-  UserCheck,
-  CheckCircle2,
 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -35,21 +32,6 @@ import type { RootStackParamList } from "@/app/navigation/types";
 
 const MUTED_ICON = "#64748B";
 const PRIMARY_COLOR = "#0F172A";
-
-const demoAccounts = [
-  {
-    label: "Agent",
-    email: "roberto.garcia@agrivet.ph",
-    password: "password",
-    icon: UserCheck,
-  },
-  {
-    label: "Branch",
-    email: "davao@agrivet.ph",
-    password: "password",
-    icon: Building2,
-  },
-];
 
 const CONTENT_MAX_WIDTH = 420;
 
@@ -77,10 +59,6 @@ export function LoginScreen() {
   const passwordError =
     submitted && !password ? "Password is required." : undefined;
 
-  const selectedDemo = demoAccounts.find(
-    (acc) => acc.email === email.trim()
-  )?.label;
-
   const isWideViewport = Platform.OS === "web" && height >= 640;
 
   const resetFeedback = () => {
@@ -98,14 +76,6 @@ export function LoginScreen() {
   const onPasswordChange = (value: string) => {
     setPassword(value);
     resetFeedback();
-  };
-
-  const applyDemoAccount = (account: (typeof demoAccounts)[number]) => {
-    setEmail(account.email);
-    setPassword(account.password);
-    setSubmitted(false);
-    resetFeedback();
-    Keyboard.dismiss();
   };
 
   const onSubmit = async () => {
@@ -398,70 +368,6 @@ export function LoginScreen() {
                   </Text>
                 </Text>
               </Pressable>
-            </View>
-
-            {/* Quick Demo Access */}
-            <View className="mt-8 pt-6 border-t border-border/40">
-              <View className="flex-row items-center justify-between">
-                <Text
-                  variant="label"
-                  tone="muted"
-                  className="uppercase tracking-wider text-[11px] font-semibold"
-                >
-                  Quick Access
-                </Text>
-                <Text variant="small" tone="muted" className="text-xs">
-                  Tap role to autofill
-                </Text>
-              </View>
-
-              <View className="mt-3 flex-row gap-2.5">
-                {demoAccounts.map((account) => {
-                  const selected = selectedDemo === account.label;
-                  const Icon = account.icon;
-
-                  return (
-                    <Pressable
-                      key={account.email}
-                      onPress={() => applyDemoAccount(account)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Fill demo ${account.label} credentials`}
-                      className={cn(
-                        "flex-1 rounded-xl border p-3",
-                        "active:opacity-80",
-                        selected
-                          ? "border-primary bg-primary/10"
-                          : "border-border/60 bg-background"
-                      )}
-                    >
-                      <View className="flex-row items-center justify-between">
-                        <View className="flex-row items-center gap-1.5">
-                          <Icon
-                            size={14}
-                            color={selected ? "#0F172A" : MUTED_ICON}
-                          />
-                          <Text
-                            weight="semibold"
-                            variant="small"
-                            tone={selected ? "primary" : "default"}
-                          >
-                            {account.label}
-                          </Text>
-                        </View>
-                        {selected && <CheckCircle2 size={12} color="#0F172A" />}
-                      </View>
-                      <Text
-                        variant="small"
-                        tone="muted"
-                        numberOfLines={1}
-                        className="mt-1 text-[11px]"
-                      >
-                        {account.email}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
             </View>
           </View>
         </ScrollView>

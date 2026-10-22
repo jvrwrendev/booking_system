@@ -1,10 +1,16 @@
 import { z } from "zod";
 
 export const verifyEmailDto = z.object({
-  token: z
+  email: z
     .string()
-    .min(1, "Verification token is required")
-    .max(128),
+    .trim()
+    .email("A valid email is required")
+    .max(255)
+    .toLowerCase(),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "The verification code must be exactly six digits"),
 });
 
 export type VerifyEmailDto = z.infer<typeof verifyEmailDto>;

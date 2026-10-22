@@ -104,23 +104,23 @@ Google sign-in has been removed; there is no social login.
 
 1. **Register** (`Register` screen) → `POST /api/v1/auth/register`.
    The backend creates the account with `emailVerified = null` and emails a
-   time-limited, single-use verification token.
+   six-digit, time-limited, single-use verification code.
 2. **Verify email** (`VerifyEmail` screen) → `POST /api/v1/auth/verify-email`
-   (or the link in the email → `GET /api/v1/auth/verify-email?token=…`).
-   Tokens expire (`EMAIL_VERIFICATION_TTL`), are single-use, and are stored only
-   as a SHA-256 hash.
+   with `{ email, code }`. Codes expire (`EMAIL_VERIFICATION_TTL`, default 10
+   minutes), allow five attempts, are single-use, and are stored only as an
+   argon2 hash.
 3. **Success** (`VerificationSuccess` screen) → the user returns to Login.
 4. **Login** (`Login` screen) → `POST /api/v1/auth/login`.
    The session is issued as an **HTTP-only cookie**; unverified accounts receive
-   `403 EMAIL_NOT_VERIFIED` and can resend the verification email from the login
+   `403 EMAIL_NOT_VERIFIED` and can resend the verification code from the login
    screen.
 5. **Protected screens** are only reachable once the user is authenticated *and*
    verified. The backend also rejects any authenticated request from an
    unverified account, so the check cannot be bypassed by calling the API
    directly.
 
-`VerificationFailure` handles invalid, expired, already-used, and
-already-verified tokens, and offers "Request a new code" / "Try again".
+`VerificationFailure` handles invalid, expired, locked-out, and already-verified
+codes, and offers "Request a new code" / "Try again".
 
 ### Frontend environment
 
@@ -133,31 +133,34 @@ EXPO_PUBLIC_API_URL=http://localhost:4000/api/v1
 # Physical device:  use http://<your-LAN-IP>:4000/api/v1
 ```
 
-No secrets belong in the app — the Resend API key never leaves the backend.
+No secrets belong in the app — the Gmail SMTP credentials never leave the backend.
 
 ### Backend environment (`api/.env`)
 
 ```bash
-RESEND_API_KEY=re_xxxxxxxxxxxxxxxx      # from https://resend.com/api-keys
-RESEND_FROM_EMAIL=onboarding@resend.dev # verified sender address
-RESEND_FROM_NAME="Agrivet Supply"
-EMAIL_VERIFICATION_TTL=60m              # 30m, 1h, 1d, ...
-PUBLIC_BASE_URL=http://localhost:4000   # public API URL used in email links
+NODEMAIL_USER="your-gmail@gmail.com"
+NODEMAIL_PASS="your-16-character-gmail-app-password"
+NODEMAIL_FROM_NAME="Agrivet Supply"
+EMAIL_VERIFICATION_TTL=10m              # 5m, 10m, 30m, 1h, ...
+CORS_ORIGIN="http://localhost:8081,http://127.0.0.1:8081,http://localhost:5173"
 ```
 
-### Resend setup
+> `CORS_ORIGIN` must include the origin the app is served from (Expo web defaults
+> to `http://localhost:8081`). In development the API also allows the default
+> Expo origins automatically; production only uses `CORS_ORIGIN`.
 
-1. Create a Resend account and an **API key** (<https://resend.com/api-keys>).
-2. **Verify a sending domain** (<https://resend.com/domains>) and set
-   `RESEND_FROM_EMAIL` to an address on that domain (e.g. `no-reply@yourdomain.com`).
-3. Without a verified domain you can test with `onboarding@resend.dev`, but Resend
-   only delivers to the **account owner's** email address in that mode.
+### Gmail SMTP setup
+
+1. Enable **2-Step Verification** on the Google account.
+2. Create an **App Password** (<https://myaccount.google.com/apppasswords>) and
+   set `NODEMAIL_PASS` to it. Do not use the account's normal password.
+3. Set `NODEMAIL_USER` to the Gmail address. Verification emails are sent from
+   that address, with `NODEMAIL_FROM_NAME` as the display name.
 4. Restart the API after changing environment variables.
 
-> **Development fallback:** when delivery fails and `NODE_ENV !== production`, the
-> API logs the verification link to the console
-> (`[dev] Verification link for <email>: …`), so the flow can be exercised
-> locally without a verified domain.
+> Delivery failures are logged without the verification token or link, so log
+> files cannot be used to verify an account. The user can request a resend from
+> the app.
 
 ### Auth endpoints
 
@@ -167,9 +170,8 @@ PUBLIC_BASE_URL=http://localhost:4000   # public API URL used in email links
 | POST   | `/api/v1/auth/login`              | Sign in (verified accounts only)     |
 | POST   | `/api/v1/auth/logout`             | Revoke session + clear cookie        |
 | GET    | `/api/v1/auth/me`                 | Current user (protected)             |
-| POST   | `/api/v1/auth/verify-email`       | Verify using a token in the body     |
-| GET    | `/api/v1/auth/verify-email?token` | Verify from an emailed link          |
-| POST   | `/api/v1/auth/verify-email/resend`| Resend the verification email        |
+| POST   | `/api/v1/auth/verify-email`       | Verify using an email + six-digit code |
+| POST   | `/api/v1/auth/verify-email/resend`| Resend the verification code         |
 
 Rate limits: login 20 / 15 min, register 10 / hour, verification 30 / 15 min,
 resend 5 / hour (per IP + email).

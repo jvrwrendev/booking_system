@@ -22,9 +22,55 @@ export function createApp(): Express {
 
   app.disable("x-powered-by");
 
+  /**
+   * Development helpers: Expo web may be opened from another machine on the
+   * LAN (e.g. http://192.168.1.43:8081). Rather than hard-coding every host,
+   * allow loopback and private IPv4 ranges in development only.
+   */
+  const isLoopbackOrPrivateOrigin = (origin: string): boolean => {
+    try {
+      const { hostname } = new URL(origin);
+      if (
+        hostname === "localhost" ||
+        hostname === "127.0.0.1" ||
+        hostname === "::1"
+      ) {
+        return true;
+      }
+      const match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+      if (!match) return false;
+      const [a, b] = [Number(match[1]), Number(match[2])];
+      return (
+        a === 127 ||
+        a === 10 ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168)
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  const allowedOrigins = env.corsOrigins;
+
   app.use(
     cors({
-      origin: env.corsOrigins,
+      origin: (origin, callback) => {
+        // Same-origin / non-browser requests have no Origin header.
+        if (!origin) {
+          callback(null, true);
+          return;
+        }
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        if (!env.isProduction && isLoopbackOrPrivateOrigin(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(null, false);
+      },
       credentials: true,
     }),
   );

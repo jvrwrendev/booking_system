@@ -97,12 +97,13 @@ export async function registerRequest(
 }
 
 export async function verifyEmailRequest(
-  token: string
+  email: string,
+  code: string
 ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
   try {
     const data = await request<{ user: ApiUser }>("/auth/verify-email", {
       method: "POST",
-      body: { token },
+      body: { email: email.trim().toLowerCase(), code: code.trim() },
     });
     return { success: true, user: toAuthUser(data.user) };
   } catch (error) {
@@ -112,13 +113,28 @@ export async function verifyEmailRequest(
 
 export async function resendVerificationEmailRequest(
   email: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{
+  success: boolean;
+  sent?: boolean;
+  retryAfterSeconds?: number;
+  expiresInSeconds?: number;
+  error?: string;
+}> {
   try {
-    await request("/auth/verify-email/resend", {
+    const data = await request<{
+      sent: boolean;
+      retryAfterSeconds: number;
+      expiresInSeconds: number;
+    }>("/auth/verify-email/resend", {
       method: "POST",
       body: { email: email.trim().toLowerCase() },
     });
-    return { success: true };
+    return {
+      success: true,
+      sent: data.sent,
+      retryAfterSeconds: data.retryAfterSeconds,
+      expiresInSeconds: data.expiresInSeconds,
+    };
   } catch (error) {
     return { success: false, error: toErrorMessage(error) };
   }

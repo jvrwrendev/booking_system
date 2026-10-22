@@ -65,11 +65,9 @@ export const registerController = asyncHandler(async (req: Request, res) => {
 });
 
 export const verifyEmailController = asyncHandler(async (req: Request, res) => {
-  const dto = verifyEmailDto.parse({
-    token: req.body?.token ?? req.query.token,
-  });
+  const dto = verifyEmailDto.parse(req.body);
 
-  const { user } = await verifyEmail(dto.token);
+  const { user } = await verifyEmail(dto.email, dto.code);
 
   return sendSuccess(res, {
     user,
@@ -81,12 +79,16 @@ export const resendVerificationEmailController = asyncHandler(
   async (req: Request, res) => {
     const dto = resendVerificationDto.parse(req.body);
 
-    await resendVerificationEmail(dto.email);
+    const result = await resendVerificationEmail(dto.email);
 
     // Always return success to avoid leaking whether the email is registered.
     return sendSuccess(res, {
-      message:
-        "If an unverified account exists for this email, a verification link has been sent.",
+      sent: result.sent,
+      retryAfterSeconds: result.retryAfterSeconds,
+      expiresInSeconds: result.expiresInSeconds,
+      message: result.sent
+        ? "A new verification code has been sent."
+        : "If an unverified account exists for this email, a verification code was sent recently.",
     });
   },
 );

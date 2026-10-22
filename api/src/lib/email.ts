@@ -1,91 +1,102 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
+import type { Transporter } from "nodemailer";
 import { env } from "../config/env.js";
 
-const resend = new Resend(env.RESEND_API_KEY);
+/**
+ * SMTP transport for transactional email.
+ *
+ * Defaults to Gmail on port 587 with STARTTLS. `NODEMAIL_PASS` must be a Google
+ * App Password (16 characters), not the account's normal password. Credentials
+ * are read from the backend `.env` only and never leave this process.
+ */
+const transporter: Transporter = nodemailer.createTransport({
+  host: env.NODEMAIL_HOST,
+  port: env.NODEMAIL_PORT,
+  secure: env.NODEMAIL_SECURE,
+  requireTLS: env.NODEMAIL_REQUIRE_TLS,
+  auth: {
+    user: env.NODEMAIL_USER,
+    pass: env.NODEMAIL_PASS,
+  },
+  connectionTimeout: 15_000,
+  greetingTimeout: 15_000,
+  socketTimeout: 20_000,
+});
 
-export interface SendVerificationEmailInput {
+const FROM = {
+  name: env.NODEMAIL_FROM_NAME,
+  address: env.NODEMAIL_USER,
+};
+
+export interface SendVerificationCodeEmailInput {
   to: string;
   userName: string;
-  token: string;
-  verifyUrl: string;
+  code: string;
+  expiresInMinutes: number;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /**
- * Sends an email verification message via Resend.
+ * Sends a six-digit email verification code.
  *
- * All Resend interaction happens on the backend only. The frontend never
- * touches the Resend API or the API key.
+ * The OTP is only ever sent to the recipient: it is never logged, so a leaked
+ * log file cannot be used to verify an account.
  */
-export async function sendVerificationEmail(
-  input: SendVerificationEmailInput,
+export async function sendVerificationCodeEmail(
+  input: SendVerificationCodeEmailInput,
 ): Promise<{ success: boolean; error?: string }> {
-  const { to, userName, token, verifyUrl } = input;
+  const { to, userName, code, expiresInMinutes } = input;
+  const safeName = escapeHtml(userName);
+  const minutes = Math.max(1, Math.round(expiresInMinutes));
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: `${env.RESEND_FROM_NAME} <${env.RESEND_FROM_EMAIL}>`,
-      to: [to],
-      subject: "Verify your Agrivet account",
+    await transporter.sendMail({
+      from: FROM,
+      to,
+      subject: "Your Agrivet verification code",
       html: `
         <!DOCTYPE html>
         <html>
           <body style="font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #1f2937; padding: 24px;">
             <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px;">
               <h2 style="margin-top: 0; color: #111827;">Verify your email address</h2>
-              <p>Hi ${userName},</p>
-              <p>Thanks for creating an Agrivet account. Please verify your email address by clicking the button below:</p>
-              <p style="margin: 24px 0;">
-                <a href="${verifyUrl}" style="background: #16a34a; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; display: inline-block;">Verify email address</a>
-              </p>
-              <p>Or copy and paste this link into your browser:</p>
-              <p style="word-break: break-all; color: #6b7280; font-size: 14px;">${verifyUrl}</p>
+              <p>Hi ${safeName},</p>
+              <p>Thanks for creating an Agrivet account. Enter the code below in the app to verify your email address:</p>
+              <div style="margin: 24px 0; padding: 20px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; text-align: center;">
+                <span style="font-size: 34px; font-weight: 700; letter-spacing: 12px; color: #14532d;">${code}</span>
+              </div>
+              <p>This code expires in <strong>${minutes} ${minutes === 1 ? "minute" : "minutes"}</strong> and can be used only once.</p>
               <p>If you did not create this account, you can safely ignore this email.</p>
               <p style="margin-top: 32px; color: #9ca3af; font-size: 12px;">— The Agrivet Team</p>
             </div>
           </body>
         </html>
       `,
-      text: `
-        Hi ${userName},
+      text: `Hi ${userName},
 
-        Thanks for creating an Agrivet account. Please verify your email address by visiting:
+Thanks for creating an Agrivet account. Enter this code in the app to verify your email address:
 
-        ${verifyUrl}
+${code}
 
-        Or copy and paste the code below into the app:
+This code expires in ${minutes} ${minutes === 1 ? "minute" : "minutes"} and can be used only once.
 
-        ${token}
+If you did not create this account, you can safely ignore this email.
 
-        If you did not create this account, you can safely ignore this email.
-
-        — The Agrivet Team
-      `,
+— The Agrivet Team`,
     });
-
-    if (error) {
-      const message =
-        typeof error === "object" && error !== null && "message" in error
-          ? String((error as { message: unknown }).message)
-          : String(error);
-      console.error("Resend error:", message);
-      // Without a verified Resend domain, delivery can fail (e.g. Resend
-      // rejects non-owner recipients). In development, log the link so the
-      // verification flow can still be exercised locally.
-      if (!env.isProduction) {
-        console.info(`[dev] Verification link for ${to}: ${verifyUrl}`);
-      }
-      return { success: false, error: message };
-    }
 
     return { success: true };
   } catch (error) {
-    console.error("Resend exception:", error);
-    if (!env.isProduction) {
-      console.info(`[dev] Verification link for ${to}: ${verifyUrl}`);
-    }
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Verification email delivery failed:", message);
+    return { success: false, error: message };
   }
 }

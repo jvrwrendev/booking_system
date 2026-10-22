@@ -13,17 +13,17 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  Clock3,
   Mail,
   MailCheck,
-  ShieldCheck,
 } from "lucide-react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { Text } from "@/components/ui/text";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { OtpInput } from "@/components/ui/otp-input";
 import { BUSINESS_NAME } from "@/constants";
 import type { RootStackParamList } from "@/app/navigation/types";
 
@@ -31,8 +31,17 @@ const MUTED_ICON = "#64748B";
 const PRIMARY_ICON = "#0F172A";
 const CONTENT_MAX_WIDTH = 420;
 const RESEND_COOLDOWN_SECONDS = 60;
+const CODE_TTL_SECONDS = 10 * 60;
+const CODE_LENGTH = 6;
 
 type VerifyEmailRoute = RouteProp<RootStackParamList, "VerifyEmail">;
+
+function formatCountdown(totalSeconds: number): string {
+  const safe = Math.max(0, totalSeconds);
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
 
 export function VerifyEmailScreen() {
   const { verifyEmail, resendVerification, user } = useAuth();
@@ -43,15 +52,18 @@ export function VerifyEmailScreen() {
 
   const email = route.params?.email ?? user?.email ?? "";
 
-  const [token, setToken] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  const [expiresIn, setExpiresIn] = useState(CODE_TTL_SECONDS);
+  const [focusKey, setFocusKey] = useState(0);
 
   const isWideViewport = Platform.OS === "web" && height >= 640;
+  const codeComplete = code.length === CODE_LENGTH;
+  const codeExpired = expiresIn <= 0;
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -61,22 +73,34 @@ export function VerifyEmailScreen() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  const tokenError =
-    submitted && !token.trim() ? "Verification code is required." : undefined;
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setExpiresIn((value) => (value <= 1 ? 0 : value - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  const onVerify = async () => {
+  const resetCode = () => {
+    setCode("");
+    setFocusKey((value) => value + 1);
+  };
+
+  const onVerify = async (submittedCode?: string) => {
     if (verifying) return;
-    setSubmitted(true);
-    setError(null);
-    setResendMessage(null);
+    const value = (submittedCode ?? code).trim();
 
-    if (!token.trim()) {
-      Keyboard.dismiss();
+    if (value.length !== CODE_LENGTH) {
+      setError("Enter the full six-digit code from your email.");
+      setResendMessage(null);
       return;
     }
 
+    Keyboard.dismiss();
+    setError(null);
+    setResendMessage(null);
     setVerifying(true);
-    const result = await verifyEmail(token.trim());
+
+    const result = await verifyEmail(email, value);
     setVerifying(false);
 
     if (result.success) {
@@ -87,10 +111,8 @@ export function VerifyEmailScreen() {
       return;
     }
 
-    navigation.navigate("VerificationFailure", {
-      email,
-      message: result.error ?? "We could not verify your email address.",
-    });
+    setError(result.error ?? "We could not verify your email address.");
+    resetCode();
   };
 
   const onResend = async () => {
@@ -104,11 +126,15 @@ export function VerifyEmailScreen() {
 
     if (result.success) {
       setResendMessage(
-        "A new verification code has been sent. Check your inbox."
+        result.sent
+          ? "A new verification code has been sent. Check your inbox."
+          : "A code was sent recently. Please use it or wait for the cooldown."
       );
-      setCooldown(RESEND_COOLDOWN_SECONDS);
+      setCooldown(result.retryAfterSeconds ?? RESEND_COOLDOWN_SECONDS);
+      setExpiresIn(result.expiresInSeconds ?? CODE_TTL_SECONDS);
+      resetCode();
     } else {
-      setError(result.error ?? "Could not resend the verification email.");
+      setError(result.error ?? "Could not resend the verification code.");
     }
   };
 
@@ -162,7 +188,7 @@ export function VerifyEmailScreen() {
                 tone="muted"
                 className="mt-2 text-center text-sm leading-relaxed"
               >
-                We sent a verification code to
+                We sent a six-digit verification code to
               </Text>
               <Text
                 weight="semibold"
@@ -174,34 +200,51 @@ export function VerifyEmailScreen() {
                 tone="muted"
                 className="mt-3 text-center text-sm leading-relaxed"
               >
-                Enter the code from the email to verify your{" "}
-                {BUSINESS_NAME} account.
+                Enter the code below to verify your {BUSINESS_NAME} account.
               </Text>
             </View>
 
-            <View className="mt-6 gap-5">
-              <Input
-                size="control"
-                label="Verification code"
-                accessibilityLabel="Verification code"
-                value={token}
-                onChangeText={(value) => {
-                  setToken(value);
+            <View
+              className={`mt-5 flex-row items-center justify-center gap-1.5 self-center rounded-full border px-3 py-1 ${
+                codeExpired
+                  ? "border-danger/20 bg-danger/5"
+                  : "border-border/70 bg-secondary/40"
+              }`}
+            >
+              <Clock3
+                size={13}
+                color={codeExpired ? "#DC2626" : MUTED_ICON}
+              />
+              <Text
+                variant="small"
+                tone={codeExpired ? "danger" : "muted"}
+                className="text-xs"
+              >
+                {codeExpired
+                  ? "Code expired — request a new one"
+                  : `Code expires in ${formatCountdown(expiresIn)}`}
+              </Text>
+            </View>
+
+            <View className="mt-6">
+              <OtpInput
+                value={code}
+                onChange={(value) => {
+                  setCode(value);
                   setError(null);
                   setResendMessage(null);
                 }}
-                error={tokenError}
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholder="Paste the code from your email"
-                leftIcon={<ShieldCheck size={18} color={MUTED_ICON} />}
-                returnKeyType="go"
-                submitBehavior="submit"
-                onSubmitEditing={() => {
-                  void onVerify();
+                length={CODE_LENGTH}
+                editable={!verifying}
+                hasError={Boolean(error)}
+                focusKey={focusKey}
+                onComplete={(value) => {
+                  void onVerify(value);
                 }}
               />
+            </View>
 
+            <View className="mt-5 gap-5">
               {error ? (
                 <View className="flex-row items-start gap-2.5 rounded-xl border border-danger/20 bg-danger/5 p-3.5">
                   <AlertCircle
@@ -241,6 +284,7 @@ export function VerifyEmailScreen() {
                   void onVerify();
                 }}
                 loading={verifying}
+                disabled={!codeComplete || verifying || codeExpired}
                 fullWidth
               />
 
@@ -249,8 +293,8 @@ export function VerifyEmailScreen() {
                 variant="outline"
                 label={
                   cooldown > 0
-                    ? `Resend in ${cooldown}s`
-                    : "Resend verification email"
+                    ? `Resend code in ${cooldown}s`
+                    : "Resend verification code"
                 }
                 onPress={() => {
                   void onResend();
@@ -285,7 +329,7 @@ export function VerifyEmailScreen() {
                 className="flex-1 text-xs leading-5"
               >
                 Can&apos;t find the email? Check your spam folder, or resend the
-                code after the cooldown.
+                code after the cooldown. The code can be used only once.
               </Text>
             </View>
           </View>
