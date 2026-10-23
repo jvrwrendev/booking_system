@@ -15,20 +15,22 @@ import { AgentDashboardScreen } from "@/features/dashboard/agent-dashboard-scree
 import { CatalogScreen } from "@/features/catalog/screens/catalog-screen";
 import { CatalogProductDetailScreen } from "@/features/catalog/screens/catalog-product-detail-screen";
 import { agentNavItems } from "./nav-items";
-import { TabIcon, tabScreenOptions } from "./tab-bar";
+import { TabIcon, useTabScreenOptions } from "./tab-bar";
 import type { AgentTabParamList } from "./types";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator<AgentTabParamList>();
 
 function AgentTabs() {
+  const tabOptions = useTabScreenOptions();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => {
         const item = agentNavItems.find((i) => i.name === route.name);
         const Icon = item?.Icon;
         return {
-          ...tabScreenOptions,
+          ...tabOptions,
           tabBarLabel: item?.label ?? route.name,
           tabBarIcon: Icon
             ? ({

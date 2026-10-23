@@ -1,5 +1,5 @@
 import React from "react";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { cn } from "@/lib/utils";
 
 type IconComponent = React.ComponentType<{
@@ -52,4 +52,24 @@ export const tabScreenOptions = {
     fontWeight: "600" as const,
     marginTop: 2,
   },
+  // Five tabs are tight on small phones; keep each label from being clipped.
+  tabBarItemStyle: {
+    paddingHorizontal: 2,
+  },
 };
+
+/**
+ * The five-tab layout only fits the full-sized labels on wider phones. Small
+ * screens drop a couple of pixels so "Dashboard" and "Customers" stay legible.
+ */
+export function useTabScreenOptions() {
+  const { width } = useWindowDimensions();
+
+  return {
+    ...tabScreenOptions,
+    tabBarLabelStyle: {
+      ...tabScreenOptions.tabBarLabelStyle,
+      fontSize: width < 375 ? 9 : 11,
+    },
+  };
+}

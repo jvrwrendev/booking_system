@@ -15,20 +15,22 @@ import { CatalogScreen } from "@/features/catalog/screens/catalog-screen";
 import { CatalogProductDetailScreen } from "@/features/catalog/screens/catalog-product-detail-screen";
 import { OrderCartProvider } from "@/features/branch/orders/hooks/use-order-cart";
 import { branchNavItems } from "./nav-items";
-import { TabIcon, tabScreenOptions } from "./tab-bar";
+import { TabIcon, useTabScreenOptions } from "./tab-bar";
 import type { BranchStackParamList, BranchTabParamList } from "./types";
 
 const Stack = createNativeStackNavigator<BranchStackParamList>();
 const Tab = createBottomTabNavigator<BranchTabParamList>();
 
 function BranchTabs() {
+  const tabOptions = useTabScreenOptions();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => {
         const item = branchNavItems.find((i) => i.name === route.name);
         const Icon = item?.Icon;
         return {
-          ...tabScreenOptions,
+          ...tabOptions,
           tabBarLabel: item?.label ?? route.name,
           tabBarIcon: Icon
             ? ({

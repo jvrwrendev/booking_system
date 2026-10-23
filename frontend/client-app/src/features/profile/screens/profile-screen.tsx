@@ -18,13 +18,13 @@ import {
   SquarePen,
   User,
 } from "lucide-react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
+import { useFavorites } from "@/hooks/use-favorites";
 import { listBookingsForAgent } from "@/services/booking.service";
 import { listCustomersForAgent } from "@/services/customer.service";
 import { listOrdersForBranch } from "@/services/branch-order.service";
-import { listProducts } from "@/services/product.service";
 import { getBranchById } from "@/services/directory.service";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type { ProfileStackParamList } from "@/app/navigation/types";
@@ -44,6 +44,7 @@ interface StatEntry {
 
 export function ProfileScreen() {
   const { user, logout } = useAuth();
+  const { favoriteIds } = useFavorites();
   const navigation = useNavigation<ProfileNavigation>();
 
   const [loading, setLoading] = useState(true);
@@ -85,17 +86,16 @@ export function ProfileScreen() {
           listCustomersForAgent(user.agentId ?? ""),
         ]);
         setStats([
-          { label: "Favorite", value: bookings.length },
-          { label: "Orders", value: customers.length },
+          { label: "Bookings", value: bookings.length },
+          { label: "Customers", value: customers.length },
         ]);
       } else {
-        const [branch, orders, products] = await Promise.all([
+        const [branch, orders] = await Promise.all([
           getBranchById(user.branchId ?? ""),
           listOrdersForBranch(user.branchId ?? ""),
-          listProducts(),
         ]);
         setStats([
-          { label: "Favorite", value: products.length },
+          { label: "Favorites", value: favoriteIds.length },
           { label: "Orders", value: orders.length },
         ]);
         if (branch?.name) {
@@ -109,13 +109,13 @@ export function ProfileScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user]);
+  }, [favoriteIds.length, user]);
 
-  useEffect(() => {
-    void (async () => {
-      await loadData();
-    })();
-  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadData();
+    }, [loadData]),
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

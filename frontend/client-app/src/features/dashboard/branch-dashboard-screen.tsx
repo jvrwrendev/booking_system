@@ -23,7 +23,7 @@ import {
   type NotificationItem,
 } from "@/components/shared/notification-bell";
 import { listOrdersForBranch } from "@/services/branch-order.service";
-import { listProducts } from "@/services/product.service";
+import { listProductsPage } from "@/services/product.service";
 import { formatDateTime } from "@/lib/utils";
 import type { BranchOrder } from "@/types/branch-order";
 import type {
@@ -52,10 +52,10 @@ export function BranchDashboardScreen() {
     try {
       const [o, p] = await Promise.all([
         listOrdersForBranch(branchId),
-        listProducts(),
+        listProductsPage({ page: 1, pageSize: 1, status: "active" }),
       ]);
       setOrders(o);
-      setProductCount(p.length);
+      setProductCount(p.total);
     } catch {
       setOrders([]);
       setProductCount(0);
