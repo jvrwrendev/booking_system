@@ -11,6 +11,8 @@ import { ProfileEditScreen } from "@/features/profile/screens/profile-edit-scree
 import { ProfileChangePasswordScreen } from "@/features/profile/screens/profile-change-password-screen";
 import { ProfileTermsScreen } from "@/features/profile/screens/profile-terms-screen";
 import { BranchDashboardScreen } from "@/features/dashboard/branch-dashboard-screen";
+import { CatalogScreen } from "@/features/catalog/screens/catalog-screen";
+import { CatalogProductDetailScreen } from "@/features/catalog/screens/catalog-product-detail-screen";
 import { OrderCartProvider } from "@/features/branch/orders/hooks/use-order-cart";
 import { branchNavItems } from "./nav-items";
 import { TabIcon, tabScreenOptions } from "./tab-bar";
@@ -41,6 +43,7 @@ function BranchTabs() {
       }}
     >
       <Tab.Screen name="Dashboard" component={BranchDashboardScreen} />
+      <Tab.Screen name="Catalog" component={CatalogScreen} />
       <Tab.Screen name="Favorites" component={FavoritesScreen} />
       <Tab.Screen name="Orders" component={OrderListScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
@@ -57,6 +60,10 @@ export function BranchNavigator() {
           name="ProductDetail"
           component={ProductDetailScreen}
           options={{ gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="CatalogProductDetail"
+          component={CatalogProductDetailScreen}
         />
         <Stack.Screen
           name="OrderCreate"

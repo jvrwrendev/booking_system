@@ -149,3 +149,12 @@ export function useOrderCart(): OrderCartContextValue {
   if (!ctx) throw new Error("useOrderCart must be used within OrderCartProvider");
   return ctx;
 }
+
+/**
+ * Returns the branch order cart when one is available. Shared catalog screens
+ * are used by agents too, where no order cart exists, so they need a nullable
+ * variant instead of the throwing hook.
+ */
+export function useOrderCartOptional(): OrderCartContextValue | null {
+  return useContext(OrderCartContext);
+}

@@ -11,6 +11,7 @@ export type AgentStackParamList = {
       }
     | undefined;
   BookingDetail: { bookingId: string };
+  CatalogProductDetail: { productId: string };
   ProfileEdit: undefined;
   ProfileChangePassword: undefined;
   ProfileTerms: undefined;
@@ -20,12 +21,14 @@ export type AgentTabParamList = {
   Dashboard: undefined;
   Customers: undefined;
   Bookings: undefined;
+  Catalog: undefined;
   Profile: undefined;
 };
 
 export type BranchStackParamList = {
   BranchTabs: undefined;
   ProductDetail: { productId: string };
+  CatalogProductDetail: { productId: string };
   OrderCreate:
     | { initialStep?: "products" | "cart" | "review" }
     | undefined;
@@ -43,6 +46,7 @@ export type ProfileStackParamList = {
 
 export type BranchTabParamList = {
   Dashboard: undefined;
+  Catalog: undefined;
   Favorites: undefined;
   Orders: undefined;
   Profile: undefined;

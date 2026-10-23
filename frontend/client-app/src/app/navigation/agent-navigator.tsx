@@ -12,6 +12,8 @@ import { ProfileEditScreen } from "@/features/profile/screens/profile-edit-scree
 import { ProfileChangePasswordScreen } from "@/features/profile/screens/profile-change-password-screen";
 import { ProfileTermsScreen } from "@/features/profile/screens/profile-terms-screen";
 import { AgentDashboardScreen } from "@/features/dashboard/agent-dashboard-screen";
+import { CatalogScreen } from "@/features/catalog/screens/catalog-screen";
+import { CatalogProductDetailScreen } from "@/features/catalog/screens/catalog-product-detail-screen";
 import { agentNavItems } from "./nav-items";
 import { TabIcon, tabScreenOptions } from "./tab-bar";
 import type { AgentTabParamList } from "./types";
@@ -43,6 +45,7 @@ function AgentTabs() {
       <Tab.Screen name="Dashboard" component={AgentDashboardScreen} />
       <Tab.Screen name="Customers" component={CustomerListScreen} />
       <Tab.Screen name="Bookings" component={BookingListScreen} />
+      <Tab.Screen name="Catalog" component={CatalogScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -60,6 +63,10 @@ export function AgentNavigator() {
         options={{ gestureEnabled: false }}
       />
       <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
+      <Stack.Screen
+        name="CatalogProductDetail"
+        component={CatalogProductDetailScreen}
+      />
       <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
       <Stack.Screen
         name="ProfileChangePassword"

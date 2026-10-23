@@ -21,28 +21,34 @@ import {
 
 export const categoriesRouter = Router();
 
-categoriesRouter.use(requireRole("ADMIN"));
+// Catalog browsing is shared with agents and branches; writes stay admin-only.
+const canReadCatalog = requireRole("ADMIN", "AGENT", "BRANCH");
+const canManageCatalog = requireRole("ADMIN");
 
 categoriesRouter.get(
   "/",
+  canReadCatalog,
   validateQuery(listCategoriesQueryDto),
   listCategoriesController,
 );
 
 categoriesRouter.get(
   "/:id",
+  canReadCatalog,
   validateParams(categoryParamsDto),
   getCategoryController,
 );
 
 categoriesRouter.post(
   "/",
+  canManageCatalog,
   validateBody(createCategoryDto),
   createCategoryController,
 );
 
 categoriesRouter.patch(
   "/:id",
+  canManageCatalog,
   validateParams(categoryParamsDto),
   validateBody(updateCategoryDto),
   updateCategoryController,
@@ -50,6 +56,7 @@ categoriesRouter.patch(
 
 categoriesRouter.delete(
   "/:id",
+  canManageCatalog,
   validateParams(categoryParamsDto),
   deleteCategoryController,
 );

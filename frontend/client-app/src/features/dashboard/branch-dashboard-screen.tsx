@@ -49,14 +49,20 @@ export function BranchDashboardScreen() {
       setLoading(false);
       return;
     }
-    const [o, p] = await Promise.all([
-      listOrdersForBranch(branchId),
-      listProducts(),
-    ]);
-    setOrders(o);
-    setProductCount(p.length);
-    setLoading(false);
-    setRefreshing(false);
+    try {
+      const [o, p] = await Promise.all([
+        listOrdersForBranch(branchId),
+        listProducts(),
+      ]);
+      setOrders(o);
+      setProductCount(p.length);
+    } catch {
+      setOrders([]);
+      setProductCount(0);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [branchId]);
 
   useEffect(() => {

@@ -170,7 +170,10 @@ function decodeBody(raw) {
 
 function extractCode(raw) {
   const body = decodeBody(raw);
-  const match = body.match(/(?:^|\D)(\d{6})(?:\D|$)/);
+  // The OTP is the only six-digit line of its own. Matching any six-digit run
+  // would also match random digits inside the generated MIME boundary, e.g.
+  // "----_NmP-7a101532f20a8d5e-Part_1".
+  const match = body.match(/(?:^|\r?\n)[ \t]*(\d{6})[ \t]*(?:\r?\n|$)/);
   if (!match) throw new Error("No six-digit code found in delivered email");
   return match[1];
 }

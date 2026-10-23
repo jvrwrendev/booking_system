@@ -109,6 +109,10 @@ export function BookingCreateScreen() {
           if (found) cart.setCustomer(found);
           if (step === "customer") setStep("products");
         }
+      } catch {
+        if (mounted) {
+          setError("Failed to load your customers and products. Please try again.");
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -298,10 +302,15 @@ export function BookingCreateScreen() {
                 columnWrapperStyle={{ gap: 12 }}
                 contentContainerStyle={{ gap: 12 }}
                 ListEmptyComponent={
-                  <Text tone="muted" className="mt-8 text-center">
-                    {category !== "all"
-                      ? `No products in ${category}.`
-                      : "No products found."}
+                  <Text
+                    tone={error ? "danger" : "muted"}
+                    className="mt-8 text-center"
+                  >
+                    {error
+                      ? error
+                      : category !== "all"
+                        ? `No products in ${category}.`
+                        : "No products found."}
                   </Text>
                 }
                 renderItem={({ item }) => (

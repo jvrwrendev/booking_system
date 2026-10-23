@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -14,22 +15,26 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  Lock,
   Mail,
-  MailCheck,
+  ShieldCheck,
 } from "lucide-react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { OtpInput } from "@/components/ui/otp-input";
-import { BUSINESS_NAME } from "@/constants";
+import { APP_FULL_NAME, BUSINESS_NAME } from "@/constants";
 import type { RootStackParamList } from "@/app/navigation/types";
 
 const MUTED_ICON = "#64748B";
 const PRIMARY_ICON = "#0F172A";
-const CONTENT_MAX_WIDTH = 420;
+const PRIMARY = "#16A34A";
+const DANGER = "#DC2626";
+const CONTENT_MAX_WIDTH = 440;
 const RESEND_COOLDOWN_SECONDS = 60;
 const CODE_TTL_SECONDS = 10 * 60;
 const CODE_LENGTH = 6;
@@ -61,9 +66,16 @@ export function VerifyEmailScreen() {
   const [expiresIn, setExpiresIn] = useState(CODE_TTL_SECONDS);
   const [focusKey, setFocusKey] = useState(0);
 
-  const isWideViewport = Platform.OS === "web" && height >= 640;
-  const codeComplete = code.length === CODE_LENGTH;
+  const isWideViewport = Platform.OS === "web" && height >= 700;
   const codeExpired = expiresIn <= 0;
+  const expiringSoon = expiresIn > 0 && expiresIn <= 60;
+  const shownCode = codeExpired ? "" : code;
+  const codeComplete = shownCode.length === CODE_LENGTH;
+  const buttonDisabled = !codeComplete || codeExpired;
+  const progress = Math.max(
+    0,
+    Math.min(100, (expiresIn / CODE_TTL_SECONDS) * 100),
+  );
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -87,7 +99,7 @@ export function VerifyEmailScreen() {
 
   const onVerify = async (submittedCode?: string) => {
     if (verifying) return;
-    const value = (submittedCode ?? code).trim();
+    const value = (submittedCode ?? shownCode).trim();
 
     if (value.length !== CODE_LENGTH) {
       setError("Enter the full six-digit code from your email.");
@@ -128,7 +140,7 @@ export function VerifyEmailScreen() {
       setResendMessage(
         result.sent
           ? "A new verification code has been sent. Check your inbox."
-          : "A code was sent recently. Please use it or wait for the cooldown."
+          : "A code was sent recently. Please use it or wait for the cooldown.",
       );
       setCooldown(result.retryAfterSeconds ?? RESEND_COOLDOWN_SECONDS);
       setExpiresIn(result.expiresInSeconds ?? CODE_TTL_SECONDS);
@@ -150,7 +162,7 @@ export function VerifyEmailScreen() {
             flexGrow: 1,
             justifyContent: isWideViewport ? "center" : "flex-start",
             paddingHorizontal: 24,
-            paddingVertical: 32,
+            paddingVertical: 28,
           }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -159,98 +171,133 @@ export function VerifyEmailScreen() {
             className="w-full self-center"
             style={{ maxWidth: CONTENT_MAX_WIDTH }}
           >
-            <View className="mb-4 flex-row items-center justify-between">
+            {/* Top bar */}
+            <View className="flex-row items-center justify-between">
               <Pressable
                 onPress={() => navigation.navigate("Login")}
                 hitSlop={12}
                 accessibilityRole="button"
                 accessibilityLabel="Back to sign in"
-                className="h-10 w-10 items-center justify-center rounded-full border border-border/80 bg-background active:bg-accent/10"
+                className="h-10 w-10 items-center justify-center rounded-full border border-border bg-background active:bg-secondary"
               >
                 <ArrowLeft size={18} color={PRIMARY_ICON} />
               </Pressable>
-            </View>
 
-            <View className="items-center py-2">
-              <View className="h-16 w-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
-                <MailCheck size={30} color="#16A34A" />
+              <View className="flex-row items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5">
+                <ShieldCheck size={13} color={PRIMARY} />
+                <Text
+                  variant="small"
+                  weight="semibold"
+                  className="text-[11px] text-primary"
+                >
+                  Secure verification
+                </Text>
               </View>
             </View>
 
-            <View className="mt-6">
+            {/* Brand */}
+            <View className="mt-5 flex-row items-center gap-3">
+              <Image
+                source={require("../../../../assets/agrivet-logo.png")}
+                style={{ width: 44, height: 44 }}
+                resizeMode="contain"
+                accessibilityLabel={`${BUSINESS_NAME} logo`}
+              />
+              <View className="flex-1">
+                <Text weight="semibold" className="text-base tracking-tight">
+                  {BUSINESS_NAME}
+                </Text>
+                <Text variant="small" tone="muted" className="mt-0.5 text-xs">
+                  {APP_FULL_NAME}
+                </Text>
+              </View>
+            </View>
+
+            {/* Title */}
+            <View className="mt-7">
               <Text
                 variant="h1"
-                className="text-center text-2xl font-bold tracking-tight text-foreground"
+                className="text-2xl font-bold tracking-tight text-foreground"
               >
-                Check your inbox
+                Check your email
               </Text>
-              <Text
-                tone="muted"
-                className="mt-2 text-center text-sm leading-relaxed"
+              <Text tone="muted" className="mt-2 text-sm leading-relaxed">
+                We sent a six-digit verification code to:
+              </Text>
+              <View
+                className="mt-3 flex-row items-center gap-2 rounded-full border border-border bg-secondary/60 px-3 py-1.5"
+                style={{ alignSelf: "flex-start", maxWidth: "100%" }}
               >
-                We sent a six-digit verification code to
-              </Text>
-              <Text
-                weight="semibold"
-                className="mt-1 text-center text-sm text-foreground"
-              >
-                {email || "your email address"}
-              </Text>
-              <Text
-                tone="muted"
-                className="mt-3 text-center text-sm leading-relaxed"
-              >
-                Enter the code below to verify your {BUSINESS_NAME} account.
-              </Text>
+                <Mail size={14} color={MUTED_ICON} />
+                <Text
+                  variant="small"
+                  weight="semibold"
+                  numberOfLines={1}
+                  className="shrink text-xs"
+                >
+                  {email || "your email address"}
+                </Text>
+              </View>
             </View>
 
-            <View
-              className={`mt-5 flex-row items-center justify-center gap-1.5 self-center rounded-full border px-3 py-1 ${
-                codeExpired
-                  ? "border-danger/20 bg-danger/5"
-                  : "border-border/70 bg-secondary/40"
-              }`}
-            >
-              <Clock3
-                size={13}
-                color={codeExpired ? "#DC2626" : MUTED_ICON}
-              />
-              <Text
-                variant="small"
-                tone={codeExpired ? "danger" : "muted"}
-                className="text-xs"
-              >
-                {codeExpired
-                  ? "Code expired — request a new one"
-                  : `Code expires in ${formatCountdown(expiresIn)}`}
-              </Text>
-            </View>
+            {/* Verification panel */}
+            <View className="mt-6 rounded-2xl border border-border bg-background p-5 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center gap-1.5">
+                  <Clock3
+                    size={14}
+                    color={codeExpired || expiringSoon ? DANGER : MUTED_ICON}
+                  />
+                  <Text variant="small" tone="muted" className="text-xs">
+                    {codeExpired ? "Code expired" : "Code expires in"}
+                  </Text>
+                </View>
+                <Text
+                  variant="small"
+                  weight="semibold"
+                  tone={codeExpired || expiringSoon ? "danger" : "default"}
+                  className="text-xs tabular-nums"
+                >
+                  {codeExpired ? "0:00" : formatCountdown(expiresIn)}
+                </Text>
+              </View>
 
-            <View className="mt-6">
-              <OtpInput
-                value={code}
-                onChange={(value) => {
-                  setCode(value);
-                  setError(null);
-                  setResendMessage(null);
-                }}
-                length={CODE_LENGTH}
-                editable={!verifying}
-                hasError={Boolean(error)}
-                focusKey={focusKey}
-                onComplete={(value) => {
-                  void onVerify(value);
-                }}
-              />
-            </View>
+              <View className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
+                <View
+                  className={
+                    codeExpired || expiringSoon ? "bg-danger" : "bg-primary"
+                  }
+                  style={{ width: `${progress}%`, height: "100%" }}
+                />
+              </View>
 
-            <View className="mt-5 gap-5">
+              <View className="mt-6">
+                <OtpInput
+                  value={shownCode}
+                  onChange={(value) => {
+                    setCode(value);
+                    setError(null);
+                    setResendMessage(null);
+                  }}
+                  length={CODE_LENGTH}
+                  editable={!verifying && !codeExpired}
+                  hasError={Boolean(error)}
+                  focusKey={focusKey}
+                  onComplete={(value) => {
+                    void onVerify(value);
+                  }}
+                />
+              </View>
+
               {error ? (
-                <View className="flex-row items-start gap-2.5 rounded-xl border border-danger/20 bg-danger/5 p-3.5">
+                <View
+                  accessibilityRole="alert"
+                  className="mt-4 flex-row items-start gap-2.5 rounded-xl border border-danger/20 bg-danger/5 p-3"
+                >
                   <AlertCircle
-                    size={16}
-                    color="#DC2626"
-                    style={{ marginTop: 2 }}
+                    size={15}
+                    color={DANGER}
+                    style={{ marginTop: 1 }}
                   />
                   <Text
                     variant="small"
@@ -261,11 +308,11 @@ export function VerifyEmailScreen() {
                   </Text>
                 </View>
               ) : resendMessage ? (
-                <View className="flex-row items-start gap-2.5 rounded-xl border border-success/20 bg-success/5 p-3.5">
+                <View className="mt-4 flex-row items-start gap-2.5 rounded-xl border border-success/20 bg-success/5 p-3">
                   <CheckCircle2
-                    size={16}
-                    color="#16A34A"
-                    style={{ marginTop: 2 }}
+                    size={15}
+                    color={PRIMARY}
+                    style={{ marginTop: 1 }}
                   />
                   <Text
                     variant="small"
@@ -279,33 +326,70 @@ export function VerifyEmailScreen() {
 
               <Button
                 size="control"
-                label="Verify email"
+                className={cn("mt-5", buttonDisabled && "bg-secondary")}
+                textClassName={
+                  buttonDisabled ? "text-muted-foreground" : undefined
+                }
+                label={codeExpired ? "Code expired" : "Verify email"}
                 onPress={() => {
                   void onVerify();
                 }}
                 loading={verifying}
-                disabled={!codeComplete || verifying || codeExpired}
-                fullWidth
-              />
-
-              <Button
-                size="control"
-                variant="outline"
-                label={
-                  cooldown > 0
-                    ? `Resend code in ${cooldown}s`
-                    : "Resend verification code"
-                }
-                onPress={() => {
-                  void onResend();
-                }}
-                loading={resending}
-                disabled={cooldown > 0 || verifying}
+                disabled={buttonDisabled || verifying}
                 fullWidth
               />
             </View>
 
-            <View className="mt-6 items-center">
+            {/* Resend */}
+            <View className="mt-5 flex-row flex-wrap items-center justify-center gap-x-1.5 gap-y-1">
+              <Text variant="small" tone="muted" className="text-sm">
+                Didn&apos;t receive the code?
+              </Text>
+              <Pressable
+                onPress={() => {
+                  void onResend();
+                }}
+                disabled={cooldown > 0 || resending}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Resend verification code"
+                accessibilityState={{
+                  disabled: cooldown > 0 || resending,
+                  busy: resending,
+                }}
+              >
+                <Text
+                  variant="small"
+                  weight="semibold"
+                  tone={cooldown > 0 ? "muted" : "primary"}
+                  className="text-sm"
+                >
+                  {resending
+                    ? "Sending…"
+                    : cooldown > 0
+                      ? `Resend in ${formatCountdown(cooldown)}`
+                      : codeExpired
+                        ? "Send a new code"
+                        : "Resend code"}
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Security note */}
+            <View className="mt-6 flex-row items-start gap-2.5 rounded-xl border border-border/70 bg-secondary/40 p-3.5">
+              <Lock size={14} color={MUTED_ICON} style={{ marginTop: 1.5 }} />
+              <Text
+                variant="small"
+                tone="muted"
+                className="flex-1 text-xs leading-5"
+              >
+                For your security, the code expires after 10 minutes, allows
+                five attempts, and can be used only once. Never share it with
+                anyone.
+              </Text>
+            </View>
+
+            <View className="mt-5 items-center">
               <Pressable
                 onPress={() => navigation.navigate("Login")}
                 hitSlop={8}
@@ -319,18 +403,6 @@ export function VerifyEmailScreen() {
                   </Text>
                 </Text>
               </Pressable>
-            </View>
-
-            <View className="mt-8 flex-row items-start gap-2 rounded-xl border border-border/60 bg-secondary/40 p-3.5">
-              <Mail size={15} color={MUTED_ICON} style={{ marginTop: 2 }} />
-              <Text
-                variant="small"
-                tone="muted"
-                className="flex-1 text-xs leading-5"
-              >
-                Can&apos;t find the email? Check your spam folder, or resend the
-                code after the cooldown. The code can be used only once.
-              </Text>
             </View>
           </View>
         </ScrollView>

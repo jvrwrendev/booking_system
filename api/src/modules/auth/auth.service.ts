@@ -157,10 +157,7 @@ export async function login(
   };
 }
 
-export async function register(
-  input: RegisterDto,
-  _meta: LoginMeta,
-): Promise<RegisterResult> {
+export async function register(input: RegisterDto): Promise<RegisterResult> {
   const existing = await prisma.user.findUnique({
     where: { email: input.email },
   });

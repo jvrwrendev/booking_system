@@ -20,6 +20,14 @@ export interface Product {
   updatedAt: string;
 }
 
+export interface ProductListResult {
+  products: Product[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export type ProductStockStatus =
   | "in_stock"
   | "low_stock"

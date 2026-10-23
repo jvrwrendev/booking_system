@@ -21,24 +21,34 @@ import {
 
 export const productsRouter = Router();
 
-productsRouter.use(requireRole("ADMIN"));
+// Catalog browsing is shared with agents and branches; writes stay admin-only.
+const canReadCatalog = requireRole("ADMIN", "AGENT", "BRANCH");
+const canManageCatalog = requireRole("ADMIN");
 
 productsRouter.get(
   "/",
+  canReadCatalog,
   validateQuery(listProductsQueryDto),
   listProductsController,
 );
 
 productsRouter.get(
   "/:id",
+  canReadCatalog,
   validateParams(productParamsDto),
   getProductController,
 );
 
-productsRouter.post("/", validateBody(createProductDto), createProductController);
+productsRouter.post(
+  "/",
+  canManageCatalog,
+  validateBody(createProductDto),
+  createProductController,
+);
 
 productsRouter.patch(
   "/:id",
+  canManageCatalog,
   validateParams(productParamsDto),
   validateBody(updateProductDto),
   updateProductController,
@@ -46,6 +56,7 @@ productsRouter.patch(
 
 productsRouter.delete(
   "/:id",
+  canManageCatalog,
   validateParams(productParamsDto),
   deleteProductController,
 );

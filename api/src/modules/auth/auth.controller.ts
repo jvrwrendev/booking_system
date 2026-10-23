@@ -54,13 +54,10 @@ export const loginController = asyncHandler(async (req: Request, res) => {
 export const registerController = asyncHandler(async (req: Request, res) => {
   const dto = registerDto.parse(req.body);
 
-  const { user } = await register(dto, {
-    ip: req.ip,
-    userAgent: req.headers["user-agent"],
-  });
+  const { user } = await register(dto);
 
-  // Registration no longer issues a session: the user must verify their email
-  // before they can log in.
+  // Registration does not sign the user in: they must verify their email
+  // first, then authenticate through the login endpoint.
   return sendSuccess(res, { user }, 201);
 });
 
@@ -69,10 +66,7 @@ export const verifyEmailController = asyncHandler(async (req: Request, res) => {
 
   const { user } = await verifyEmail(dto.email, dto.code);
 
-  return sendSuccess(res, {
-    user,
-    message: "Email verified successfully. You can now sign in.",
-  });
+  return sendSuccess(res, { user });
 });
 
 export const resendVerificationEmailController = asyncHandler(
@@ -81,15 +75,7 @@ export const resendVerificationEmailController = asyncHandler(
 
     const result = await resendVerificationEmail(dto.email);
 
-    // Always return success to avoid leaking whether the email is registered.
-    return sendSuccess(res, {
-      sent: result.sent,
-      retryAfterSeconds: result.retryAfterSeconds,
-      expiresInSeconds: result.expiresInSeconds,
-      message: result.sent
-        ? "A new verification code has been sent."
-        : "If an unverified account exists for this email, a verification code was sent recently.",
-    });
+    return sendSuccess(res, result);
   },
 );
 

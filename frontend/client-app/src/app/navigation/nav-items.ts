@@ -5,6 +5,7 @@ import {
   Heart,
   ShoppingBag,
   Settings,
+  Package,
 } from "lucide-react-native";
 import type { AgentTabParamList } from "./types";
 import type { BranchTabParamList } from "./types";
@@ -26,12 +27,14 @@ export const agentNavItems: AgentNavItem[] = [
   { name: "Dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { name: "Customers", label: "Customers", Icon: Users },
   { name: "Bookings", label: "Bookings", Icon: ClipboardList },
+  { name: "Catalog", label: "Catalog", Icon: Package },
   { name: "Profile", label: "Settings", Icon: Settings },
 ];
 
 export const branchNavItems: BranchNavItem[] = [
   { name: "Dashboard", label: "Dashboard", Icon: LayoutDashboard },
-  { name: "Favorites", label: "My Favorites", Icon: Heart },
+  { name: "Catalog", label: "Catalog", Icon: Package },
+  { name: "Favorites", label: "Favorites", Icon: Heart },
   { name: "Orders", label: "Orders", Icon: ShoppingBag },
   { name: "Profile", label: "Settings", Icon: Settings },
 ];
