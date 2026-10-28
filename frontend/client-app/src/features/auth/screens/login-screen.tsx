@@ -8,7 +8,7 @@ import {
   ScrollView,
   useWindowDimensions,
   View,
-  type TextInput,
+  type TextInputInstance,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -53,7 +53,7 @@ export function LoginScreen() {
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
 
-  const passwordRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
 
   const emailError = submitted ? validateEmail(email) : undefined;
   const passwordError =

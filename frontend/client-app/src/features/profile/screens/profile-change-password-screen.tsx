@@ -5,7 +5,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  TextInput,
+  type TextInputInstance,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -38,8 +38,8 @@ export function ProfileChangePasswordScreen() {
     useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const { changePassword } = useAuth();
 
-  const newPasswordRef = useRef<TextInput>(null);
-  const confirmPasswordRef = useRef<TextInput>(null);
+  const newPasswordRef = useRef<TextInputInstance>(null);
+  const confirmPasswordRef = useRef<TextInputInstance>(null);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");

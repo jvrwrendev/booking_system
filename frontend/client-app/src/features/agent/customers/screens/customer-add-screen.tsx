@@ -6,7 +6,7 @@ import {
   Pressable,
   ScrollView,
   View,
-  type TextInput,
+  type TextInputInstance,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -51,9 +51,9 @@ export function CustomerAddScreen() {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  const lastNameRef = useRef<TextInput>(null);
-  const emailRef = useRef<TextInput>(null);
-  const contactRef = useRef<TextInput>(null);
+  const lastNameRef = useRef<TextInputInstance>(null);
+  const emailRef = useRef<TextInputInstance>(null);
+  const contactRef = useRef<TextInputInstance>(null);
 
   const firstNameError =
     submitted && !firstName.trim() ? "First name is required." : undefined;

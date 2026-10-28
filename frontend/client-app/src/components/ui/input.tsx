@@ -2,6 +2,7 @@ import React from "react";
 import {
   TextInput,
   View,
+  type TextInputInstance,
   type TextInputProps,
   type TextStyle,
 } from "react-native";
@@ -18,7 +19,7 @@ interface InputProps extends TextInputProps {
   rightIcon?: React.ReactNode;
   containerClassName?: string;
   inputClassName?: string;
-  inputRef?: React.Ref<TextInput>;
+  inputRef?: React.Ref<TextInputInstance>;
 }
 
 const sizeClass: Record<NonNullable<InputProps["size"]>, string> = {

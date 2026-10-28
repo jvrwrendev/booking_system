@@ -506,7 +506,7 @@ export function CatalogScreen() {
                 </Text>
               ) : null}
             </View>
-          ) : null
+          ) : undefined
         }
         onEndReached={onEndReached}
         onEndReachedThreshold={0.4}

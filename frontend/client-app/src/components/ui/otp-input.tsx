@@ -11,8 +11,8 @@ import {
   TextInput,
   View,
   useWindowDimensions,
-  type NativeSyntheticEvent,
-  type TextInputKeyPressEventData,
+  type TextInputInstance,
+  type TextInputKeyPressEvent,
   type TextStyle,
 } from "react-native";
 import { cn } from "@/lib/utils";
@@ -79,7 +79,7 @@ export function OtpInput({
   const fontSize = Math.round(boxWidth * 0.48);
 
   const inputRefs = useMemo(
-    () => Array.from({ length }, () => createRef<TextInput>()),
+    () => Array.from({ length }, () => createRef<TextInputInstance>()),
     [length],
   );
 
@@ -163,7 +163,7 @@ export function OtpInput({
 
   const handleKeyPress = (
     index: number,
-    event: NativeSyntheticEvent<TextInputKeyPressEventData>,
+    event: TextInputKeyPressEvent,
   ) => {
     if (event.nativeEvent.key !== "Backspace" || value[index]) return;
     if (index > 0) {
