@@ -7,12 +7,16 @@ interface ProductImageProps {
   source?: string;
   className?: string;
   iconSize?: number;
+  accessibilityLabel?: string;
+  fallbackIcon?: React.ReactNode;
 }
 
 export function ProductImage({
   source,
   className,
   iconSize = 22,
+  accessibilityLabel = "Product image",
+  fallbackIcon,
 }: ProductImageProps) {
   const [failed, setFailed] = useState(false);
   const showImage = Boolean(source) && !failed;
@@ -23,7 +27,7 @@ export function ProductImage({
         source={{ uri: source }}
         resizeMode="cover"
         onError={() => setFailed(true)}
-        accessibilityLabel="Product image"
+        accessibilityLabel={accessibilityLabel}
         className={cn("bg-secondary", className)}
       />
     );
@@ -31,10 +35,10 @@ export function ProductImage({
 
   return (
     <View
-      accessibilityLabel="Product image unavailable"
+      accessibilityLabel={`${accessibilityLabel} unavailable`}
       className={cn("items-center justify-center bg-secondary", className)}
     >
-      <Package size={iconSize} color="#64748B" />
+      {fallbackIcon ?? <Package size={iconSize} color="#64748B" />}
     </View>
   );
 }
