@@ -1,5 +1,6 @@
 import React from "react";
-import { Image, View, useWindowDimensions } from "react-native";
+import { View, useWindowDimensions } from "react-native";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -25,12 +26,7 @@ export function WelcomeScreen() {
         <View className="flex-1 items-center justify-center py-8">
           {/* Brand Logo */}
           <View className="items-center justify-center">
-            <Image
-              source={require("../../../../assets/agrivet-logo.png")}
-              style={{ width: 120, height: 120 }}
-              resizeMode="contain"
-              accessibilityLabel={`${BUSINESS_NAME} logo`}
-            />
+            <BrandLogo size={120} />
           </View>
 
           {/* Brand Titles */}

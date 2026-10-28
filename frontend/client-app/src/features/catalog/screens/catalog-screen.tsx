@@ -41,6 +41,7 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/shared/brand-logo";
 
 const PAGE_SIZE = 20;
 
@@ -369,13 +370,16 @@ export function CatalogScreen() {
   const header = (
     <View className="pb-4">
       <View className="flex-row items-start justify-between">
-        <View className="flex-1 pr-3">
-          <Text variant="small" tone="muted">
-            Browse
-          </Text>
-          <Text variant="h1" weight="bold">
-            Catalog
-          </Text>
+        <View className="flex-1 flex-row items-center gap-3 pr-3">
+          <BrandLogo />
+          <View>
+            <Text variant="small" tone="muted">
+              Browse
+            </Text>
+            <Text variant="h1" weight="bold">
+              Catalog
+            </Text>
+          </View>
         </View>
         <View className="mt-1 rounded-full bg-primary/10 px-2.5 py-1">
           <Text variant="small" weight="semibold" tone="primary">

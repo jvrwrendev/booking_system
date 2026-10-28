@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import {
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -9,6 +8,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AlertCircle,
@@ -197,12 +197,7 @@ export function VerifyEmailScreen() {
 
             {/* Brand */}
             <View className="mt-5 flex-row items-center gap-3">
-              <Image
-                source={require("../../../../assets/agrivet-logo.png")}
-                style={{ width: 44, height: 44 }}
-                resizeMode="contain"
-                accessibilityLabel={`${BUSINESS_NAME} logo`}
-              />
+              <BrandLogo size={44} />
               <View className="flex-1">
                 <Text weight="semibold" className="text-base tracking-tight">
                   {BUSINESS_NAME}

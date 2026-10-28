@@ -1,6 +1,5 @@
 import React, { useRef, useState } from "react";
 import {
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -10,6 +9,7 @@ import {
   View,
   type TextInputInstance,
 } from "react-native";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AlertCircle,
@@ -149,12 +149,7 @@ export function LoginScreen() {
 
             {/* Brand Header */}
             <View className="items-center py-2">
-              <Image
-                source={require("../../../../assets/agrivet-logo.png")}
-                style={{ width: 80, height: 80 }}
-                resizeMode="contain"
-                accessibilityLabel={`${BUSINESS_NAME} logo`}
-              />
+              <BrandLogo size={80} />
               <Text
                 weight="semibold"
                 className="mt-3 text-xl tracking-tight text-foreground"

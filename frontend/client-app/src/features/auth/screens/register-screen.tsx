@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AlertCircle,
@@ -16,7 +17,6 @@ import {
   Camera,
   Eye,
   EyeOff,
-  Leaf,
   Lock,
   Mail,
   MapPin,
@@ -191,9 +191,7 @@ export function RegisterScreen() {
 
             {/* Header Section */}
             <View className="mb-8 items-center">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-border">
-                <Leaf size={22} color={PRIMARY_ICON} />
-              </View>
+              <BrandLogo size={48} />
               <Text weight="semibold" className="mt-3 text-base tracking-tight">
                 {BUSINESS_NAME}
               </Text>

@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Text } from "@/components/ui/text";
+import { BrandLogo } from "@/components/shared/brand-logo";
 
 interface ScreenHeaderProps {
   title: string;
@@ -30,6 +31,7 @@ export function ScreenHeader({
       >
         <ArrowLeft size={18} color="#0F172A" />
       </Pressable>
+      <BrandLogo size={28} />
       <View className="flex-1">
         <Text variant="h3" weight="semibold" numberOfLines={1}>
           {title}

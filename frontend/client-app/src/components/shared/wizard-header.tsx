@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, View } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 import { Text } from "@/components/ui/text";
+import { BrandLogo } from "@/components/shared/brand-logo";
 
 export interface WizardStep<T extends string> {
   key: T;
@@ -38,7 +39,7 @@ export function WizardHeader<T extends string>({
         <Text variant="h3" weight="semibold">
           {title}
         </Text>
-        <View className="h-10 w-10" />
+        <BrandLogo size={28} />
       </View>
 
       <View className="mt-4 flex-row items-center gap-2">

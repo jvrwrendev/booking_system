@@ -15,6 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import type { AgentStackParamList } from "@/app/navigation/types";
+import { BrandLogo } from "@/components/shared/brand-logo";
 
 export function BookingListScreen() {
   const navigation =
@@ -78,13 +79,16 @@ export function BookingListScreen() {
         ListHeaderComponent={
           <View className="mb-4">
             <View className="flex-row items-center justify-between">
-              <View>
-                <Text variant="small" tone="muted">
-                  Manage
-                </Text>
-                <Text variant="h1" weight="bold">
-                  Bookings
-                </Text>
+              <View className="flex-row items-center gap-3">
+                <BrandLogo />
+                <View>
+                  <Text variant="small" tone="muted">
+                    Manage
+                  </Text>
+                  <Text variant="h1" weight="bold">
+                    Bookings
+                  </Text>
+                </View>
               </View>
               <Pressable
                 onPress={() => navigation.navigate("BookingCreate")}
