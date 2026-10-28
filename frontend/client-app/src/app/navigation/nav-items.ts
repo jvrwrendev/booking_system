@@ -2,7 +2,7 @@ import {
   LayoutDashboard,
   Users,
   ClipboardList,
-  Heart,
+  ShoppingCart,
   ShoppingBag,
   Settings,
   Package,
@@ -34,7 +34,7 @@ export const agentNavItems: AgentNavItem[] = [
 export const branchNavItems: BranchNavItem[] = [
   { name: "Dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { name: "Catalog", label: "Catalog", Icon: Package },
-  { name: "Favorites", label: "Favorites", Icon: Heart },
+  { name: "Favorites", label: "My Cart", Icon: ShoppingCart },
   { name: "Orders", label: "Orders", Icon: ShoppingBag },
   { name: "Profile", label: "Settings", Icon: Settings },
 ];

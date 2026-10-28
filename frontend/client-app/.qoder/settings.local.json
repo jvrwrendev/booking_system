@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for f in src/features/dashboard/agent-dashboard-screen.tsx:198 src/features/dashboard/branch-dashboard-screen.tsx:328 src/features/branch/orders/screens/order-list-screen.tsx:78 src/features/branch/favorites/screens/favorites-screen.tsx:105 src/features/agent/bookings/screens/booking-list-screen.tsx:78 src/features/agent/customers/screens/customer-list-screen.tsx:79 src/features/catalog/screens/catalog-screen.tsx:369; do p=${f%%:*}; l=${f##*:}; echo \"== $p\"; sed -n \"${l},$\\(\\(l+16\\)\\)p\" \"$p\"; done)",
+      "Bash(ls \"$\\(cd src/components/shared && realpath ../../../assets/agrivet-logo.png\\)\")",
+      "Bash(grep -n '^import' src/features/dashboard/agent-dashboard-screen.tsx | tail -3; echo ---; grep -n '^import' src/features/dashboard/branch-dashboard-screen.tsx | tail -3; echo ---; grep -n '^import' src/features/branch/orders/screens/order-list-screen.tsx | tail -3; echo ---; grep -n '^import' src/features/branch/favorites/screens/favorites-screen.tsx | tail -3; echo ---; grep -n '^import' src/features/agent/bookings/screens/booking-list-screen.tsx | tail -3; echo ---; grep -n '^import' src/features/agent/customers/screens/customer-list-screen.tsx | tail -3; echo ---; grep -n '^import' src/features/catalog/screens/catalog-screen.tsx | tail -3)",
+      "Bash(npx tsc --noEmit 2>&1 | head -20)"
+    ]
+  }
+}

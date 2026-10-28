@@ -23,7 +23,6 @@ import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { StatCard } from "@/components/shared/stat-card";
-import { BrandLogo } from "@/components/shared/brand-logo";
 import { SectionHeader } from "@/components/ui/section-header";
 import { formatDateTime } from "@/lib/utils";
 
@@ -199,16 +198,13 @@ export function AgentDashboardScreen() {
         ListHeaderComponent={
           <View className="mb-4">
             <View className="flex-row items-start justify-between">
-              <View className="flex-1 flex-row items-center gap-3 pr-3">
-                <BrandLogo />
-                <View>
-                  <Text variant="small" tone="muted">
-                    Welcome back
-                  </Text>
-                  <Text variant="h1" weight="bold">
-                    {user?.fullName ?? "Agent"}
-                  </Text>
-                </View>
+              <View className="flex-1 pr-3">
+                <Text variant="small" tone="muted">
+                  Welcome back
+                </Text>
+                <Text variant="h1" weight="bold">
+                  {user?.fullName ?? "Agent"}
+                </Text>
               </View>
               <NotificationBell
                 items={notifications}

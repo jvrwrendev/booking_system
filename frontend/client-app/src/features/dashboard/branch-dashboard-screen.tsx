@@ -37,7 +37,6 @@ import { listProductsPage } from "@/services/product.service";
 import { formatDateTime } from "@/lib/utils";
 import type { BranchOrder } from "@/types/branch-order";
 import type { Category } from "@/types/category";
-import { BrandLogo } from "@/components/shared/brand-logo";
 import type { Product } from "@/types/product";
 import type {
   BranchStackParamList,
@@ -329,16 +328,13 @@ export function BranchDashboardScreen() {
           style={{ maxWidth: CONTENT_MAX_WIDTH }}
         >
           <View className="mb-5 flex-row items-start justify-between">
-            <View className="flex-1 flex-row items-center gap-3 pr-3">
-              <BrandLogo />
-              <View>
-                <Text variant="small" tone="muted">
-                  Welcome back
-                </Text>
-                <Text variant="h1" weight="bold">
-                  {user?.fullName ?? "Branch"}
-                </Text>
-              </View>
+            <View className="flex-1 pr-3">
+              <Text variant="small" tone="muted">
+                Welcome back
+              </Text>
+              <Text variant="h1" weight="bold">
+                {user?.fullName ?? "Branch"}
+              </Text>
             </View>
             <NotificationBell
               items={notifications}

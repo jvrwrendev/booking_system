@@ -1,8 +1,8 @@
-import React from "react";
-import { ActivityIndicator, View } from "react-native";
+import React, { useEffect, useState } from "react";
 import { NavigationContainer, type Theme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
+import { SplashScreen } from "@/components/shared/splash-screen";
 import { LoginScreen } from "@/features/auth/screens/login-screen";
 import { RegisterScreen } from "@/features/auth/screens/register-screen";
 import { WelcomeScreen } from "@/features/auth/screens/welcome-screen";
@@ -33,15 +33,19 @@ const navTheme: Theme = {
   },
 };
 
+const SPLASH_MIN_MS = 1600;
+
 export function RootNavigator() {
   const { user, isLoading, isAuthenticated, loggedOut } = useAuth();
+  const [splashDone, setSplashDone] = useState(false);
 
-  if (isLoading) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator color="#16A34A" />
-      </View>
-    );
+  useEffect(() => {
+    const t = setTimeout(() => setSplashDone(true), SPLASH_MIN_MS);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (!splashDone || isLoading) {
+    return <SplashScreen />;
   }
 
   const isVerified = Boolean(user?.emailVerified);

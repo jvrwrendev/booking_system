@@ -33,7 +33,6 @@ import { Avatar } from "@/components/ui/avatar";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { BrandLogo } from "@/components/shared/brand-logo";
 import { APP_NAME, APP_VERSION, STORAGE_KEYS } from "@/constants";
 
 type ProfileNavigation = NativeStackNavigationProp<ProfileStackParamList>;
@@ -141,14 +140,11 @@ export function ProfileScreen() {
       >
         {/* Top Bar / Header */}
         <View className="mb-4 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-3">
-            <BrandLogo size={40} />
-            <View>
-              <Text className="text-xl font-bold text-gray-900">Settings</Text>
-              <Text className="mt-0.5 text-xs text-gray-400">
-                Manage your account
-              </Text>
-            </View>
+          <View>
+            <Text className="text-xl font-bold text-gray-900">Settings</Text>
+            <Text className="mt-0.5 text-xs text-gray-400">
+              Manage your account
+            </Text>
           </View>
           <View className="rounded-full border border-gray-200 bg-white px-3 py-1">
             <Text className="text-xs font-medium text-gray-600">

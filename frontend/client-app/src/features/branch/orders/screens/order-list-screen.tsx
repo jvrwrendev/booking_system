@@ -14,7 +14,6 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import type { BranchStackParamList } from "@/app/navigation/types";
-import { BrandLogo } from "@/components/shared/brand-logo";
 
 export function OrderListScreen() {
   const navigation =
@@ -79,16 +78,13 @@ export function OrderListScreen() {
         ListHeaderComponent={
           <View className="mb-4">
             <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-3">
-                <BrandLogo />
-                <View>
-                  <Text variant="small" tone="muted">
-                    Manage
-                  </Text>
-                  <Text variant="h1" weight="bold">
-                    Orders
-                  </Text>
-                </View>
+              <View>
+                <Text variant="small" tone="muted">
+                  Manage
+                </Text>
+                <Text variant="h1" weight="bold">
+                  Orders
+                </Text>
               </View>
               <Pressable
                 onPress={() => navigation.navigate("OrderCreate")}

@@ -15,7 +15,6 @@ import { Text } from "@/components/ui/text";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { AgentStackParamList } from "@/app/navigation/types";
-import { BrandLogo } from "@/components/shared/brand-logo";
 
 export function CustomerListScreen() {
   const navigation =
@@ -80,16 +79,13 @@ export function CustomerListScreen() {
         ListHeaderComponent={
           <View className="mb-4">
             <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-3">
-                <BrandLogo />
-                <View>
-                  <Text variant="small" tone="muted">
-                    Manage
-                  </Text>
-                  <Text variant="h1" weight="bold">
-                    Customers
-                  </Text>
-                </View>
+              <View>
+                <Text variant="small" tone="muted">
+                  Manage
+                </Text>
+                <Text variant="h1" weight="bold">
+                  Customers
+                </Text>
               </View>
               <Pressable
                 onPress={() => navigation.navigate("CustomerAdd")}

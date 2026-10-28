@@ -1,284 +1,157 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { FlatList, Pressable, RefreshControl, View } from "react-native";
+import React, { useCallback } from "react";
+import { FlatList, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Check, Heart, Plus, Search, ShoppingCart } from "lucide-react-native";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react-native";
+import {
+  CompositeNavigationProp,
+  useNavigation,
+} from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { listProducts } from "@/services/product.service";
-import { useFavorites } from "@/hooks/use-favorites";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { useOrderCart } from "@/features/branch/orders/hooks/use-order-cart";
-import type { Product } from "@/types/product";
 import { Text } from "@/components/ui/text";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ProductImage } from "@/components/shared/product-image";
-import { FavoriteButton } from "@/components/shared/favorite-button";
-import { CategoryFilterButton } from "@/components/shared/category-filter";
-import { LoadingState } from "@/components/shared/loading-state";
-import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
-import type { BranchStackParamList } from "@/app/navigation/types";
-import { BrandLogo } from "@/components/shared/brand-logo";
+import type {
+  BranchStackParamList,
+  BranchTabParamList,
+} from "@/app/navigation/types";
+
+type FavoritesNavigation = CompositeNavigationProp<
+  NativeStackNavigationProp<BranchStackParamList>,
+  BottomTabNavigationProp<BranchTabParamList>
+>;
 
 export function FavoritesScreen() {
-  const navigation =
-    useNavigation<NativeStackNavigationProp<BranchStackParamList>>();
-  const { isFavorite } = useFavorites();
+  const navigation = useNavigation<FavoritesNavigation>();
   const cart = useOrderCart();
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("all");
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const list = await listProducts();
-      setProducts(list);
-    } catch {
-      setError("Failed to load favorites.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
+  const onIncrease = useCallback(
+    (item: { quantity: number; productId: string }) => {
+      cart.setQuantity(item.productId, item.quantity + 1);
+    },
+    [cart],
   );
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    void load();
-  }, [load]);
-
-  const categories = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          products.filter((p) => isFavorite(p.id)).map((p) => p.categoryName),
-        ),
-      )
-        .filter(Boolean)
-        .sort(),
-    [products, isFavorite],
+  const onDecrease = useCallback(
+    (item: { quantity: number; productId: string }) => {
+      const next = item.quantity - 1;
+      if (next <= 0) cart.removeItem(item.productId);
+      else cart.setQuantity(item.productId, next);
+    },
+    [cart],
   );
-
-  const favorites = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return products.filter(
-      (p) =>
-        isFavorite(p.id) &&
-        (category === "all" || p.categoryName === category) &&
-        (!q ||
-          p.name.toLowerCase().includes(q) ||
-          p.sku.toLowerCase().includes(q) ||
-          p.categoryName.toLowerCase().includes(q)),
-    );
-  }, [products, query, category, isFavorite]);
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-background">
       <FlatList
-        data={favorites}
-        keyExtractor={(p) => p.id}
-        numColumns={2}
-        columnWrapperStyle={{ gap: 12 }}
+        data={cart.hydrated ? cart.items : []}
+        keyExtractor={(i) => i.productId}
         contentContainerStyle={{
           padding: 16,
-          paddingBottom: cart.items.length > 0 ? 88 : 24,
+          paddingBottom: cart.items.length > 0 ? 108 : 24,
           gap: 12,
         }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#16A34A"
-          />
-        }
         ListHeaderComponent={
           <View className="mb-4">
-            <View className="flex-row items-start justify-between">
-              <View className="flex-1 flex-row items-center gap-3 pr-3">
-                <BrandLogo />
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-3">
                 <View>
                   <Text variant="small" tone="muted">
-                    Saved
+                    Order
                   </Text>
                   <Text variant="h1" weight="bold">
-                    My Favorites
+                    My Cart
                   </Text>
                 </View>
               </View>
-              <View className="mt-1 rounded-full bg-primary/10 px-2.5 py-1">
-                <Text variant="small" weight="semibold" tone="primary">
-                  {favorites.length} saved
-                </Text>
-              </View>
+              {cart.items.length > 0 ? (
+                <View className="rounded-full bg-primary/10 px-2.5 py-1">
+                  <Text variant="small" weight="semibold" tone="primary">
+                    {cart.totalQuantity} item
+                    {cart.totalQuantity === 1 ? "" : "s"}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             <Text variant="small" tone="muted" className="mt-1">
-              Products you&#39;ve saved for quick reordering.
+              Products you added to cart. Review before submitting your order.
             </Text>
-
-            <View className="mt-4 flex-row gap-2">
-              <Input
-                size="control"
-                containerClassName="flex-1"
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Search favorites"
-                autoCapitalize="none"
-                autoCorrect={false}
-                leftIcon={<Search size={18} color="#64748B" />}
-              />
-              <CategoryFilterButton
-                categories={categories}
-                value={category}
-                onChange={setCategory}
-              />
-            </View>
           </View>
         }
         ListEmptyComponent={
-          loading ? (
-            <LoadingState label="Loading favorites..." />
-          ) : error ? (
-            <ErrorState description={error} onRetry={() => void load()} />
-          ) : (
+          cart.hydrated ? (
             <EmptyState
-              icon={<Heart size={24} color="#64748B" />}
-              title="No favorites yet"
-              description={
-                query
-                  ? "Try a different search term."
-                  : "Tap the heart on any product to save it here."
-              }
-              actionLabel={query ? undefined : "Browse products"}
-              onAction={
-                query
-                  ? undefined
-                  : () => navigation.navigate("OrderCreate")
-              }
+              icon={<ShoppingCart size={24} color="#64748B" />}
+              title="Your cart is empty"
+              description="Tap “Add to cart” on any product and it will show up here."
+              actionLabel="Browse products"
+              onAction={() => navigation.navigate("Catalog")}
             />
+          ) : (
+            <View />
           )
         }
-        renderItem={({ item }) => {
-          const outOfStock = item.stockQuantity <= 0;
-          const inCart =
-            cart.items.find((i) => i.productId === item.id)?.quantity ?? 0;
-          const atMax = !outOfStock && inCart >= item.stockQuantity;
-          return (
-            <Card padded={false} className="flex-1 overflow-hidden">
-              <Pressable
-                onPress={() =>
-                  navigation.navigate("ProductDetail", { productId: item.id })
-                }
-                accessibilityRole="button"
-                accessibilityLabel={`View ${item.name}`}
-                className="active:opacity-80"
-              >
-                <View>
-                  <ProductImage
-                    source={item.image}
-                    className="h-32 w-full border-b border-border"
-                    iconSize={28}
-                  />
-                  <View className="absolute left-2 top-2">
-                    <FavoriteButton productId={item.id} />
-                  </View>
-                  {outOfStock ? (
-                    <View className="absolute inset-0 items-center justify-center bg-background/60">
-                      <View className="rounded-full bg-foreground/90 px-3 py-1">
-                        <Text
-                          variant="small"
-                          weight="semibold"
-                          className="text-white"
-                        >
-                          Out of stock
-                        </Text>
-                      </View>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View className="p-3">
-                  <Text
-                    weight="semibold"
-                    numberOfLines={2}
-                    className="text-sm leading-5"
+        renderItem={({ item }) => (
+          <Card padded={false} className="overflow-hidden">
+            <View className="flex-row items-center gap-3 p-3">
+              <ProductImage
+                className="h-16 w-16 shrink-0 rounded-lg border border-border"
+                iconSize={22}
+              />
+              <View className="flex-1">
+                <Text weight="semibold" numberOfLines={2} className="text-sm leading-5">
+                  {item.productName}
+                </Text>
+                <Text variant="small" tone="muted" numberOfLines={1} className="mt-0.5">
+                  {item.sku} · ₱{item.unitPrice.toLocaleString()} each
+                </Text>
+                <Text weight="bold" tone="primary" className="mt-1 text-sm">
+                  ₱{item.subtotal.toLocaleString()}
+                </Text>
+              </View>
+              <View className="items-center gap-2">
+                <View className="flex-row items-center gap-2 rounded-full border border-border px-1 py-1">
+                  <Pressable
+                    onPress={() => onDecrease(item)}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Decrease ${item.productName} quantity`}
+                    className="h-7 w-7 items-center justify-center rounded-full bg-muted active:scale-90"
                   >
-                    {item.name}
+                    <Minus size={14} color="#0F172A" />
+                  </Pressable>
+                  <Text weight="semibold" className="w-6 text-center text-sm">
+                    {item.quantity}
                   </Text>
-                  <Text
-                    variant="small"
-                    tone="muted"
-                    numberOfLines={1}
-                    className="mt-0.5"
+                  <Pressable
+                    onPress={() => onIncrease(item)}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Increase ${item.productName} quantity`}
+                    className="h-7 w-7 items-center justify-center rounded-full bg-primary active:scale-90"
                   >
-                    {item.sku} · {item.categoryName}
-                  </Text>
-
-                  <View className="mt-2.5 flex-row items-center justify-between gap-2">
-                    <Text weight="bold" tone="primary" className="text-sm">
-                      ₱{item.sellingPrice.toLocaleString()}
-                      <Text variant="small" tone="muted" weight="regular">
-                        {" "}
-                        / {item.unit}
-                      </Text>
-                    </Text>
-                    <Badge
-                      label={outOfStock ? "0 left" : `${item.stockQuantity} left`}
-                      tone={outOfStock ? "danger" : item.stockQuantity <= 5 ? "warning" : "success"}
-                    />
-                  </View>
-
-                  <View className="mt-3 flex-row items-center justify-between">
-                    {inCart > 0 ? (
-                      <View className="flex-row items-center gap-1 rounded-full bg-primary/10 px-2 py-1">
-                        <Check size={12} color="#16A34A" />
-                        <Text
-                          variant="small"
-                          weight="semibold"
-                          tone="primary"
-                        >
-                          ×{inCart} in cart
-                        </Text>
-                      </View>
-                    ) : (
-                      <Text variant="small" tone="muted">
-                        Tap + to add
-                      </Text>
-                    )}
-                    <Pressable
-                      onPress={() => cart.addItem(item, 1)}
-                      disabled={outOfStock || atMax}
-                      hitSlop={6}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Add ${item.name} to cart`}
-                      className={`h-8 w-8 items-center justify-center rounded-full active:scale-90 ${
-                        outOfStock || atMax
-                          ? "bg-muted"
-                          : "bg-primary"
-                      }`}
-                    >
-                      <Plus
-                        size={16}
-                        color={outOfStock || atMax ? "#94A3B8" : "#FFFFFF"}
-                      />
-                    </Pressable>
-                  </View>
+                    <Plus size={14} color="#FFFFFF" />
+                  </Pressable>
                 </View>
-              </Pressable>
-            </Card>
-          );
-        }}
+                <Pressable
+                  onPress={() => cart.removeItem(item.productId)}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${item.productName} from cart`}
+                  className="flex-row items-center gap-1 active:opacity-70"
+                >
+                  <Trash2 size={13} color="#DC2626" />
+                  <Text variant="small" className="text-[#DC2626]">
+                    Remove
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </Card>
+        )}
       />
 
       {cart.items.length > 0 ? (
@@ -292,10 +165,16 @@ export function FavoritesScreen() {
             elevation: 6,
           }}
         >
+          <View className="mb-2 flex-row items-center justify-between">
+            <Text variant="small" tone="muted">
+              {cart.totalQuantity} item{cart.totalQuantity === 1 ? "" : "s"}
+            </Text>
+            <Text weight="bold" className="text-base">
+              ₱{cart.subtotal.toLocaleString()}
+            </Text>
+          </View>
           <Button
-            label={`View cart (${cart.totalQuantity} item${
-              cart.totalQuantity === 1 ? "" : "s"
-            }) · ₱${cart.subtotal.toLocaleString()}`}
+            label="Review order"
             size="md"
             fullWidth
             leftIcon={<ShoppingCart size={16} color="#FFFFFF" />}
