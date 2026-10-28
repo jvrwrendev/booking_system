@@ -1,80 +1,149 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, View } from "react-native";
+import {
+  RefreshControl,
+  ScrollView,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Boxes,
-  ShoppingBag,
-  Clock,
   CheckCircle2,
+  Clock,
+  Plus,
+  ShoppingBag,
 } from "lucide-react-native";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import { useAuth } from "@/hooks/use-auth";
 import { Text } from "@/components/ui/text";
 import { Card } from "@/components/ui/card";
-import { StatCard } from "@/components/shared/stat-card";
-import { SectionHeader } from "@/components/ui/section-header";
 import { Button } from "@/components/ui/button";
+import { SectionHeader } from "@/components/ui/section-header";
 import { SearchInput } from "@/components/ui/search-input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard } from "@/components/shared/stat-card";
 import { OrderCard } from "@/components/shared/order-card";
-import { LoadingState } from "@/components/shared/loading-state";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
 import {
   NotificationBell,
   type NotificationItem,
 } from "@/components/shared/notification-bell";
+import { CategoryStrip } from "@/features/dashboard/components/category-strip";
+import { RecommendedProducts } from "@/features/dashboard/components/recommended-products";
 import { listOrdersForBranch } from "@/services/branch-order.service";
+import { listCategories } from "@/services/category.service";
 import { listProductsPage } from "@/services/product.service";
 import { formatDateTime } from "@/lib/utils";
 import type { BranchOrder } from "@/types/branch-order";
+import type { Category } from "@/types/category";
+import type { Product } from "@/types/product";
 import type {
   BranchStackParamList,
   BranchTabParamList,
 } from "@/app/navigation/types";
 
+const CONTENT_MAX_WIDTH = 1120;
+const RECOMMENDATION_LIMIT = 8;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    rows.push(items.slice(index, index + size));
+  }
+  return rows;
+}
+
+function OrderSkeleton() {
+  return (
+    <Card className="mb-2">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1">
+          <Skeleton className="h-3.5 w-1/3" />
+          <Skeleton className="mt-2 h-2.5 w-1/4" />
+        </View>
+        <Skeleton className="h-6 w-16 rounded-full" />
+      </View>
+    </Card>
+  );
+}
+
 export function BranchDashboardScreen() {
   const navigation =
     useNavigation<NavigationProp<BranchStackParamList & BranchTabParamList>>();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
 
   const [orders, setOrders] = useState<BranchOrder[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [productCount, setProductCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+
+  const [loadingOrders, setLoadingOrders] = useState(true);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
-
   const branchId = user?.branchId ?? "";
 
-  const load = useCallback(async () => {
+  const layoutWidth = Math.min(width, CONTENT_MAX_WIDTH);
+  const statColumns = layoutWidth >= 768 ? 4 : 2;
+
+  const loadOrders = useCallback(async () => {
     if (!branchId) {
-      setLoading(false);
+      setOrders([]);
+      setLoadingOrders(false);
       return;
     }
+
+    setOrdersError(null);
     try {
-      const [o, p] = await Promise.all([
-        listOrdersForBranch(branchId),
-        listProductsPage({ page: 1, pageSize: 1, status: "active" }),
-      ]);
-      setOrders(o);
-      setProductCount(p.total);
+      const result = await listOrdersForBranch(branchId);
+      setOrders(result);
     } catch {
-      setOrders([]);
-      setProductCount(0);
+      setOrdersError("Failed to load orders.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoadingOrders(false);
     }
   }, [branchId]);
 
+  const loadCatalog = useCallback(async () => {
+    setCatalogError(null);
+    try {
+      const [categoryList, productPage] = await Promise.all([
+        listCategories(),
+        listProductsPage({
+          page: 1,
+          pageSize: 100,
+          status: "active",
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        }),
+      ]);
+      setCategories(categoryList);
+      setProducts(productPage.products);
+      setProductCount(productPage.total);
+    } catch {
+      setCatalogError("Failed to load the catalog.");
+    } finally {
+      setLoadingCatalog(false);
+    }
+  }, []);
+
   useEffect(() => {
     void (async () => {
-      await load();
+      await Promise.all([loadOrders(), loadCatalog()]);
     })();
-  }, [load]);
+  }, [loadOrders, loadCatalog]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    void load();
-  }, [load]);
+    void Promise.all([loadOrders(), loadCatalog()]).finally(() =>
+      setRefreshing(false),
+    );
+  }, [loadOrders, loadCatalog]);
 
   const counts = useMemo(
     () => ({
@@ -112,6 +181,48 @@ export function BranchDashboardScreen() {
   }, [orders, query]);
 
   const displayedOrders = searchResults ?? recent;
+
+  const popularity = useMemo(() => {
+    const countsByProduct = new Map<string, number>();
+    for (const order of orders) {
+      if (order.status === "rejected") continue;
+      for (const item of order.items) {
+        countsByProduct.set(
+          item.productId,
+          (countsByProduct.get(item.productId) ?? 0) + item.quantity,
+        );
+      }
+    }
+    return countsByProduct;
+  }, [orders]);
+
+  const rankedProducts = useMemo(() => {
+    return [...products].sort((a, b) => {
+      const aOut = a.stockQuantity <= 0 ? 1 : 0;
+      const bOut = b.stockQuantity <= 0 ? 1 : 0;
+      if (aOut !== bOut) return aOut - bOut;
+
+      const aPopularity = popularity.get(a.id) ?? 0;
+      const bPopularity = popularity.get(b.id) ?? 0;
+      if (aPopularity !== bPopularity) return bPopularity - aPopularity;
+
+      return b.createdAt.localeCompare(a.createdAt);
+    });
+  }, [products, popularity]);
+
+  const recommended = useMemo(() => {
+    return rankedProducts.slice(0, RECOMMENDATION_LIMIT);
+  }, [rankedProducts]);
+
+  const openCatalog = useCallback(
+    (categoryId: string | null = null) => {
+      navigation.navigate("Catalog", {
+        categoryId: categoryId ?? "all",
+        requestId: Date.now(),
+      });
+    },
+    [navigation],
+  );
 
   const notifications = useMemo<NotificationItem[]>(() => {
     const items: NotificationItem[] = [];
@@ -173,10 +284,37 @@ export function BranchDashboardScreen() {
     [navigation],
   );
 
+  const statCards = [
+    {
+      label: "Products",
+      value: loadingCatalog ? "—" : productCount,
+      tone: "primary" as const,
+      icon: <Boxes size={16} color="#16A34A" />,
+    },
+    {
+      label: "Orders",
+      value: loadingOrders ? "—" : orders.length,
+      tone: "info" as const,
+      icon: <ShoppingBag size={16} color="#2563EB" />,
+    },
+    {
+      label: "Pending",
+      value: loadingOrders ? "—" : counts.pending,
+      tone: "warning" as const,
+      icon: <Clock size={16} color="#D97706" />,
+    },
+    {
+      label: "Completed",
+      value: loadingOrders ? "—" : counts.completed,
+      tone: "success" as const,
+      icon: <CheckCircle2 size={16} color="#16A34A" />,
+    },
+  ];
+
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-background">
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -185,114 +323,146 @@ export function BranchDashboardScreen() {
           />
         }
       >
-        <View className="mb-4 flex-row items-start justify-between">
-          <View className="flex-1 pr-3">
-            <Text variant="small" tone="muted">
-              Welcome back
-            </Text>
-            <Text variant="h1" weight="bold">
-              {user?.fullName ?? "Branch"}
-            </Text>
-          </View>
-          <NotificationBell
-            items={notifications}
-            onPressItem={onPressNotification}
-          />
-        </View>
-
-        <View className="mt-5 flex-row flex-wrap gap-3">
-          <StatCard
-            label="Products"
-            value={productCount}
-            tone="primary"
-            icon={<Boxes size={16} color="#16A34A" />}
-            className="min-w-[45%]"
-          />
-          <StatCard
-            label="Orders"
-            value={orders.length}
-            tone="info"
-            icon={<ShoppingBag size={16} color="#2563EB" />}
-            className="min-w-[45%]"
-          />
-          <StatCard
-            label="Pending"
-            value={counts.pending}
-            tone="warning"
-            icon={<Clock size={16} color="#D97706" />}
-            className="min-w-[45%]"
-          />
-          <StatCard
-            label="Completed"
-            value={counts.completed}
-            tone="success"
-            icon={<CheckCircle2 size={16} color="#16A34A" />}
-            className="min-w-[45%]"
-          />
-        </View>
-
-        <View className="mt-4">
-          <SearchInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search orders, items, references..."
-          />
-        </View>
-
-        <Card className="mt-4">
-          <Text weight="semibold">Quick actions</Text>
-          <View className="flex-row gap-2 mt-3">
-            <Button
-              label="Create Order"
-              size="md"
-              className="flex-1"
-              onPress={() => navigation.navigate("OrderCreate")}
+        <View
+          className="w-full self-center"
+          style={{ maxWidth: CONTENT_MAX_WIDTH }}
+        >
+          <View className="mb-5 flex-row items-start justify-between">
+            <View className="flex-1 pr-3">
+              <Text variant="small" tone="muted">
+                Welcome back
+              </Text>
+              <Text variant="h1" weight="bold">
+                {user?.fullName ?? "Branch"}
+              </Text>
+            </View>
+            <NotificationBell
+              items={notifications}
+              onPressItem={onPressNotification}
             />
           </View>
-        </Card>
 
-        <View className="mt-6">
-          <SectionHeader
-            title={
-              searchResults
-                ? `Search results (${searchResults.length})`
-                : "Recent Orders"
-            }
-            subtitle={
-              searchResults
-                ? "Matches across references, statuses, and items"
-                : "Latest orders from your branch"
-            }
-          />
-        </View>
+          <View className="mb-5 w-full" style={{ maxWidth: 480 }}>
+            <SearchInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search orders, items, references..."
+            />
+          </View>
 
-        {loading ? (
-          <LoadingState label="Loading orders..." />
-        ) : searchResults && displayedOrders.length === 0 ? (
-          <EmptyState
-            title="No matches found"
-            description="Try a different reference, status, or product name."
-          />
-        ) : displayedOrders.length === 0 ? (
-          <EmptyState
-            title="No orders yet"
-            description="Create your first branch order to see it here."
-            actionLabel="Create Order"
-            onAction={() => navigation.navigate("OrderCreate")}
-          />
-        ) : (
-          <View>
-            {displayedOrders.map((o) => (
-              <OrderCard
-                key={o.id}
-                order={o}
-                onPress={() =>
-                  navigation.navigate("OrderDetail", { orderId: o.id })
-                }
-              />
+          <View className="gap-3">
+            {chunk(statCards, statColumns).map((row, rowIndex) => (
+              <View key={rowIndex} className="flex-row gap-3">
+                {row.map((stat) => (
+                  <StatCard
+                    key={stat.label}
+                    label={stat.label}
+                    value={stat.value}
+                    tone={stat.tone}
+                    icon={stat.icon}
+                    className="flex-1"
+                  />
+                ))}
+                {Array.from({ length: statColumns - row.length }).map(
+                  (_, spacerIndex) => (
+                    <View key={`stat-spacer-${spacerIndex}`} className="flex-1" />
+                  ),
+                )}
+              </View>
             ))}
           </View>
-        )}
+
+          <View className="mt-6">
+            <SectionHeader
+              title="Product Categories"
+              subtitle="Browse the catalog by category"
+            />
+            <CategoryStrip
+              categories={categories}
+              onSelect={openCatalog}
+              loading={loadingCatalog}
+              error={catalogError}
+              onRetry={() => void loadCatalog()}
+            />
+          </View>
+
+          <View className="mt-6">
+            <RecommendedProducts
+              products={recommended}
+              loading={loadingCatalog}
+              error={catalogError}
+              onRetry={() => void loadCatalog()}
+              onPressProduct={(product) =>
+                navigation.navigate("ProductDetail", {
+                  productId: product.id,
+                })
+              }
+              onBrowseCatalog={() => openCatalog()}
+            />
+          </View>
+
+          <View className="mt-6">
+            <SectionHeader
+              title={
+                searchResults
+                  ? `Search results (${searchResults.length})`
+                  : "Recent Orders"
+              }
+              subtitle={
+                searchResults
+                  ? "Matches across references, statuses, and items"
+                  : "Latest orders from your branch"
+              }
+              action={
+                <Button
+                  size="sm"
+                  label="Create Order"
+                  leftIcon={<Plus size={14} color="#FFFFFF" />}
+                  onPress={() => navigation.navigate("OrderCreate")}
+                />
+              }
+            />
+
+            {loadingOrders ? (
+              <View>
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <OrderSkeleton key={index} />
+                ))}
+              </View>
+            ) : ordersError ? (
+              <ErrorState
+                description={ordersError}
+                onRetry={() => void loadOrders()}
+              />
+            ) : searchResults && displayedOrders.length === 0 ? (
+              <EmptyState
+                title="No matches found"
+                description="Try a different reference, status, or product name."
+              />
+            ) : displayedOrders.length === 0 ? (
+              <EmptyState
+                title="No orders yet"
+                description="Create your first branch order to see it here."
+                actionLabel="Create Order"
+                onAction={() => navigation.navigate("OrderCreate")}
+              />
+            ) : (
+              <View>
+                {displayedOrders.map((order) => (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    onPress={() =>
+                      navigation.navigate("OrderDetail", {
+                        orderId: order.id,
+                      })
+                    }
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

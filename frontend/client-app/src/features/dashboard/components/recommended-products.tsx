@@ -1,5 +1,10 @@
 import React from "react";
-import { Pressable, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { ChevronRight, Package } from "lucide-react-native";
 import { formatCurrency } from "@/lib/utils";
 import { getProductStockStatus, type Product } from "@/types/product";
@@ -15,27 +20,22 @@ import { ProductImage } from "@/components/shared/product-image";
 
 interface RecommendedProductsProps {
   products: Product[];
-  columns: number;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
   onPressProduct: (product: Product) => void;
   onBrowseCatalog: () => void;
-  selectedCategoryName: string | null;
-  onClearFilter: () => void;
 }
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const rows: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    rows.push(items.slice(index, index + size));
-  }
-  return rows;
-}
+const CARD_WIDTH = 208;
 
 function CardSkeleton() {
   return (
-    <Card padded={false} className="flex-1 overflow-hidden">
+    <Card
+      padded={false}
+      className="overflow-hidden"
+      style={{ width: CARD_WIDTH }}
+    >
       <Skeleton className="h-32 w-full rounded-none" />
       <View className="p-3">
         <Skeleton className="h-2.5 w-1/2" />
@@ -66,7 +66,11 @@ function ProductCard({
       : "warning";
 
   return (
-    <Card padded={false} className="flex-1 overflow-hidden">
+    <Card
+      padded={false}
+      className="overflow-hidden"
+      style={{ width: CARD_WIDTH }}
+    >
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
@@ -125,18 +129,15 @@ function ProductCard({
 
 export function RecommendedProducts({
   products,
-  columns,
   loading,
   error,
   onRetry,
   onPressProduct,
   onBrowseCatalog,
-  selectedCategoryName,
-  onClearFilter,
 }: RecommendedProductsProps) {
-  const subtitle = selectedCategoryName
-    ? `Top picks in ${selectedCategoryName}`
-    : "Popular with your branch and recently stocked";
+  const subtitle = "Popular with your branch and recently stocked";
+  const { width } = useWindowDimensions();
+  const showBrowseAction = width >= 560;
 
   return (
     <View>
@@ -144,63 +145,50 @@ export function RecommendedProducts({
         title="Recommended Products for You"
         subtitle={subtitle}
         action={
-          <Button
-            variant="outline"
-            size="sm"
-            label="Browse catalog"
-            rightIcon={<ChevronRight size={14} color="#64748B" />}
-            onPress={onBrowseCatalog}
-          />
+          showBrowseAction ? (
+            <Button
+              variant="outline"
+              size="sm"
+              label="Browse catalog"
+              rightIcon={<ChevronRight size={14} color="#64748B" />}
+              onPress={onBrowseCatalog}
+            />
+          ) : undefined
         }
       />
 
       {loading ? (
-        <View className="gap-3">
-          {Array.from({ length: 2 }).map((_, rowIndex) => (
-            <View key={rowIndex} className="flex-row gap-3">
-              {Array.from({ length: columns }).map((__, cardIndex) => (
-                <CardSkeleton key={cardIndex} />
-              ))}
-            </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 12, paddingRight: 4 }}
+        >
+          {Array.from({ length: 4 }).map((_, index) => (
+            <CardSkeleton key={index} />
           ))}
-        </View>
+        </ScrollView>
       ) : error ? (
         <ErrorState description={error} onRetry={onRetry} />
       ) : products.length === 0 ? (
         <EmptyState
           icon={<Package size={24} color="#64748B" />}
-          title={
-            selectedCategoryName
-              ? `No products in ${selectedCategoryName}`
-              : "No products available"
-          }
-          description={
-            selectedCategoryName
-              ? "Try another category or browse the full catalog."
-              : "Products will appear here once they are added to the catalog."
-          }
-          actionLabel={selectedCategoryName ? "Show all products" : undefined}
-          onAction={selectedCategoryName ? onClearFilter : undefined}
+          title="No products available"
+          description="Products will appear here once they are added to the catalog."
         />
       ) : (
-        <View className="gap-3">
-          {chunk(products, columns).map((row, rowIndex) => (
-            <View key={rowIndex} className="flex-row gap-3">
-              {row.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onPress={() => onPressProduct(product)}
-                />
-              ))}
-              {Array.from({ length: columns - row.length }).map(
-                (_, spacerIndex) => (
-                  <View key={`spacer-${spacerIndex}`} className="flex-1" />
-                ),
-              )}
-            </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 12, paddingRight: 4 }}
+        >
+          {products.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onPress={() => onPressProduct(product)}
+            />
           ))}
-        </View>
+        </ScrollView>
       )}
     </View>
   );

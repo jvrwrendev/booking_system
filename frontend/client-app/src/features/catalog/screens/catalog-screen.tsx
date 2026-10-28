@@ -20,7 +20,11 @@ import {
   Shapes,
   Search,
 } from "lucide-react-native";
-import { useNavigation } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { listProductsPage } from "@/services/product.service";
 import { listCategories } from "@/services/category.service";
@@ -50,8 +54,21 @@ type CatalogNavigation = NativeStackNavigationProp<{
   CatalogProductDetail: { productId: string };
 }>;
 
+type CatalogRoute = RouteProp<
+  {
+    Catalog:
+      | {
+          categoryId?: string;
+          requestId?: number;
+        }
+      | undefined;
+  },
+  "Catalog"
+>;
+
 export function CatalogScreen() {
   const navigation = useNavigation<CatalogNavigation>();
+  const route = useRoute<CatalogRoute>();
 
   const [mode, setMode] = useState<CatalogMode>("products");
   const [query, setQuery] = useState("");
@@ -73,6 +90,19 @@ export function CatalogScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const requestId = useRef(0);
+
+  useEffect(() => {
+    const requestedCategoryId = route.params?.categoryId;
+    if (!requestedCategoryId) return;
+
+    const timer = setTimeout(() => {
+      setMode("products");
+      setQuery("");
+      setDebouncedQuery("");
+      setCategoryId(requestedCategoryId);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [route.params?.categoryId, route.params?.requestId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

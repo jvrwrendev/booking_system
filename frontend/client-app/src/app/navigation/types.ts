@@ -46,7 +46,12 @@ export type ProfileStackParamList = {
 
 export type BranchTabParamList = {
   Dashboard: undefined;
-  Catalog: undefined;
+  Catalog:
+    | {
+        categoryId?: string;
+        requestId?: number;
+      }
+    | undefined;
   Favorites: undefined;
   Orders: undefined;
   Profile: undefined;
