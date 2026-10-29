@@ -332,6 +332,7 @@ export function BranchDashboardScreen() {
               onPressItem={onPressNotification}
             />
           }
+          contentMaxWidth={CONTENT_MAX_WIDTH}
           className="mb-5"
         />
 

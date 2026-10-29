@@ -8,19 +8,21 @@ interface ModuleHeaderProps {
   title: string;
   subtitle?: string;
   action?: React.ReactNode;
-  /** Horizontal content padding to bleed through so the band reaches the edges. */
+  /** Horizontal content padding to bleed through so the header aligns with the screen padding. */
   bleedX?: number;
-  /** Top content padding to bleed through so the band reaches the safe area. */
+  /** Top content padding to bleed through so the header keeps its original offset. */
   bleedTop?: number;
+  /** Keep header text aligned with a centered max-width content column. */
+  contentMaxWidth?: number;
   className?: string;
 }
 
 /**
- * Consistent top-level header surface for the Agent and Branch modules.
+ * Consistent top-level header for the Agent and Branch modules.
  *
  * Screens render this inside their existing padded list/scroll content; the
- * negative margins let the tinted band reach the screen edges without changing
- * the surrounding layout.
+ * negative margins keep the header content aligned with the screen padding
+ * while preserving the original plain (un-tinted) surface.
  */
 export function ModuleHeader({
   eyebrow,
@@ -29,14 +31,12 @@ export function ModuleHeader({
   action,
   bleedX = 16,
   bleedTop = 16,
+  contentMaxWidth,
   className,
 }: ModuleHeaderProps) {
   return (
     <View
-      className={cn(
-        "border-b border-primary/20 bg-primary/10 pb-4",
-        className,
-      )}
+      className={cn(className)}
       style={{
         marginHorizontal: -bleedX,
         marginTop: -bleedTop,
@@ -44,7 +44,18 @@ export function ModuleHeader({
         paddingTop: bleedTop,
       }}
     >
-      <View className="flex-row items-center justify-between gap-3">
+      <View
+        className="flex-row items-center justify-between gap-3"
+        style={
+          contentMaxWidth
+            ? {
+                width: "100%",
+                maxWidth: contentMaxWidth,
+                alignSelf: "center",
+              }
+            : undefined
+        }
+      >
         <View className="flex-1">
           {eyebrow ? (
             <Text

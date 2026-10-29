@@ -157,7 +157,7 @@ export function ProfileScreen() {
         />
 
         {/* Profile Avatar & Info */}
-        <View className="mb-4 mt-2 items-center">
+        <View className="items-center my-4">
           <View className="relative">
             <View className="h-24 w-24 rounded-full border-2 border-[#10B981] p-0.5 items-center justify-center bg-white">
               <Avatar
