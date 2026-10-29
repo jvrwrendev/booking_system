@@ -40,6 +40,7 @@ import { CategoryFilterButton } from "@/components/shared/category-filter";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ModuleHeader } from "@/components/shared/module-header";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -368,31 +369,26 @@ export function CatalogScreen() {
 
   const header = (
     <View className="pb-4">
-      <View className="flex-row items-start justify-between">
-        <View className="flex-1 pr-3">
-          <Text variant="small" tone="muted">
-            Browse
-          </Text>
-          <Text variant="h1" weight="bold">
-            Catalog
-          </Text>
-        </View>
-        <View className="mt-1 rounded-full bg-primary/10 px-2.5 py-1">
-          <Text variant="small" weight="semibold" tone="primary">
-            {mode === "products"
-              ? `${total} ${total === 1 ? "product" : "products"}`
-              : `${categories.length} ${
-                  categories.length === 1 ? "category" : "categories"
-                }`}
-          </Text>
-        </View>
-      </View>
-      <Text variant="small" tone="muted" className="mt-1">
-        Browse the catalog and open a product for full details.
-      </Text>
+      <ModuleHeader
+        eyebrow="Browse"
+        title="Catalog"
+        subtitle="Browse the catalog and open a product for full details."
+        action={
+          <View className="rounded-full border border-primary/20 bg-background px-2.5 py-1">
+            <Text variant="small" weight="semibold" tone="primary">
+              {mode === "products"
+                ? `${total} ${total === 1 ? "product" : "products"}`
+                : `${categories.length} ${
+                    categories.length === 1 ? "category" : "categories"
+                  }`}
+            </Text>
+          </View>
+        }
+        className="mb-4"
+      />
 
       {/* Products / Categories toggle */}
-      <View className="mt-4 flex-row rounded-xl border border-border bg-secondary p-1">
+      <View className="flex-row rounded-xl border border-border bg-secondary p-1">
         <Pressable
           onPress={() => setMode("products")}
           accessibilityRole="tab"

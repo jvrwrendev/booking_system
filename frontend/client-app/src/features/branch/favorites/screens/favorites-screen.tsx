@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ProductImage } from "@/components/shared/product-image";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ModuleHeader } from "@/components/shared/module-header";
 import type {
   BranchStackParamList,
   BranchTabParamList,
@@ -55,31 +56,22 @@ export function FavoritesScreen() {
           gap: 12,
         }}
         ListHeaderComponent={
-          <View className="mb-4">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-3">
-                <View>
-                  <Text variant="small" tone="muted">
-                    Order
-                  </Text>
-                  <Text variant="h1" weight="bold">
-                    My Cart
-                  </Text>
-                </View>
-              </View>
-              {cart.items.length > 0 ? (
-                <View className="rounded-full bg-primary/10 px-2.5 py-1">
+          <ModuleHeader
+            eyebrow="Order"
+            title="My Cart"
+            subtitle="Products you added to cart. Review before submitting your order."
+            action={
+              cart.items.length > 0 ? (
+                <View className="rounded-full border border-primary/20 bg-background px-2.5 py-1">
                   <Text variant="small" weight="semibold" tone="primary">
                     {cart.totalQuantity} item
                     {cart.totalQuantity === 1 ? "" : "s"}
                   </Text>
                 </View>
-              ) : null}
-            </View>
-            <Text variant="small" tone="muted" className="mt-1">
-              Products you added to cart. Review before submitting your order.
-            </Text>
-          </View>
+              ) : undefined
+            }
+            className="mb-4"
+          />
         }
         ListEmptyComponent={
           cart.hydrated ? (

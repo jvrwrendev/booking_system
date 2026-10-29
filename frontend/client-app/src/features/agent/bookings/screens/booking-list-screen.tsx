@@ -11,6 +11,7 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { ModuleHeader } from "@/components/shared/module-header";
 import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
@@ -77,25 +78,21 @@ export function BookingListScreen() {
         }
         ListHeaderComponent={
           <View className="mb-4">
-            <View className="flex-row items-center justify-between">
-              <View>
-                <Text variant="small" tone="muted">
-                  Manage
-                </Text>
-                <Text variant="h1" weight="bold">
-                  Bookings
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => navigation.navigate("BookingCreate")}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="New booking"
-                className="h-10 w-10 items-center justify-center rounded-full bg-primary active:opacity-80"
-              >
-                <Plus size={20} color="#FFFFFF" />
-              </Pressable>
-            </View>
+            <ModuleHeader
+              eyebrow="Manage"
+              title="Bookings"
+              action={
+                <Pressable
+                  onPress={() => navigation.navigate("BookingCreate")}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="New booking"
+                  className="h-10 w-10 items-center justify-center rounded-full bg-primary active:opacity-80"
+                >
+                  <Plus size={20} color="#FFFFFF" />
+                </Pressable>
+              }
+            />
 
             <View className="mt-4">
               <Input

@@ -10,6 +10,7 @@ import type { Customer } from "@/types/customer";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ModuleHeader } from "@/components/shared/module-header";
 import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { Badge } from "@/components/ui/badge";
@@ -78,25 +79,21 @@ export function CustomerListScreen() {
         }
         ListHeaderComponent={
           <View className="mb-4">
-            <View className="flex-row items-center justify-between">
-              <View>
-                <Text variant="small" tone="muted">
-                  Manage
-                </Text>
-                <Text variant="h1" weight="bold">
-                  Customers
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => navigation.navigate("CustomerAdd")}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="Add customer"
-                className="h-10 w-10 items-center justify-center rounded-full bg-primary active:opacity-80"
-              >
-                <Plus size={20} color="#FFFFFF" />
-              </Pressable>
-            </View>
+            <ModuleHeader
+              eyebrow="Manage"
+              title="Customers"
+              action={
+                <Pressable
+                  onPress={() => navigation.navigate("CustomerAdd")}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add customer"
+                  className="h-10 w-10 items-center justify-center rounded-full bg-primary active:opacity-80"
+                >
+                  <Plus size={20} color="#FFFFFF" />
+                </Pressable>
+              }
+            />
 
             <View className="mt-4">
               <Input

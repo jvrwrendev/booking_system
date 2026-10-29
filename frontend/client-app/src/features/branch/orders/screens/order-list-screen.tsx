@@ -7,12 +7,12 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { listOrdersForBranch } from "@/services/branch-order.service";
 import type { BranchOrder } from "@/types/branch-order";
-import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { OrderCard } from "@/components/shared/order-card";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ModuleHeader } from "@/components/shared/module-header";
 import type { BranchStackParamList } from "@/app/navigation/types";
 
 export function OrderListScreen() {
@@ -77,25 +77,21 @@ export function OrderListScreen() {
         }
         ListHeaderComponent={
           <View className="mb-4">
-            <View className="flex-row items-center justify-between">
-              <View>
-                <Text variant="small" tone="muted">
-                  Manage
-                </Text>
-                <Text variant="h1" weight="bold">
-                  Orders
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => navigation.navigate("OrderCreate")}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="New order"
-                className="h-10 w-10 items-center justify-center rounded-full bg-primary active:opacity-80"
-              >
-                <Plus size={20} color="#FFFFFF" />
-              </Pressable>
-            </View>
+            <ModuleHeader
+              eyebrow="Manage"
+              title="Orders"
+              action={
+                <Pressable
+                  onPress={() => navigation.navigate("OrderCreate")}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="New order"
+                  className="h-10 w-10 items-center justify-center rounded-full bg-primary active:opacity-80"
+                >
+                  <Plus size={20} color="#FFFFFF" />
+                </Pressable>
+              }
+            />
 
             <View className="mt-4">
               <Input

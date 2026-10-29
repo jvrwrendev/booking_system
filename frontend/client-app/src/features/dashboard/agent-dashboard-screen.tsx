@@ -14,6 +14,7 @@ import type {
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ModuleHeader } from "@/components/shared/module-header";
 import {
   NotificationBell,
   type NotificationItem,
@@ -197,22 +198,19 @@ export function AgentDashboardScreen() {
         }
         ListHeaderComponent={
           <View className="mb-4">
-            <View className="flex-row items-start justify-between">
-              <View className="flex-1 pr-3">
-                <Text variant="small" tone="muted">
-                  Welcome back
-                </Text>
-                <Text variant="h1" weight="bold">
-                  {user?.fullName ?? "Agent"}
-                </Text>
-              </View>
-              <NotificationBell
-                items={notifications}
-                onPressItem={onPressNotification}
-              />
-            </View>
+            <ModuleHeader
+              eyebrow="Welcome back"
+              title={user?.fullName ?? "Agent"}
+              action={
+                <NotificationBell
+                  items={notifications}
+                  onPressItem={onPressNotification}
+                />
+              }
+              className="mb-5"
+            />
 
-            <View className="mt-5 flex-row flex-wrap gap-3">
+            <View className="flex-row flex-wrap gap-3">
               {statCards.map((stat) => (
                 <StatCard
                   key={stat.label}

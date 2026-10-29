@@ -15,7 +15,6 @@ import {
 } from "lucide-react-native";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import { useAuth } from "@/hooks/use-auth";
-import { Text } from "@/components/ui/text";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -25,6 +24,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { OrderCard } from "@/components/shared/order-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
+import { ModuleHeader } from "@/components/shared/module-header";
 import {
   NotificationBell,
   type NotificationItem,
@@ -323,25 +323,22 @@ export function BranchDashboardScreen() {
           />
         }
       >
-        <View
-          className="w-full self-center"
-          style={{ maxWidth: CONTENT_MAX_WIDTH }}
-        >
-          <View className="mb-5 flex-row items-start justify-between">
-            <View className="flex-1 pr-3">
-              <Text variant="small" tone="muted">
-                Welcome back
-              </Text>
-              <Text variant="h1" weight="bold">
-                {user?.fullName ?? "Branch"}
-              </Text>
-            </View>
+        <ModuleHeader
+          eyebrow="Welcome back"
+          title={user?.fullName ?? "Branch"}
+          action={
             <NotificationBell
               items={notifications}
               onPressItem={onPressNotification}
             />
-          </View>
+          }
+          className="mb-5"
+        />
 
+        <View
+          className="w-full self-center"
+          style={{ maxWidth: CONTENT_MAX_WIDTH }}
+        >
           <View className="mb-5 w-full" style={{ maxWidth: 480 }}>
             <SearchInput
               value={query}
