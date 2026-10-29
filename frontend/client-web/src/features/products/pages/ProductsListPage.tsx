@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { useProductsStore } from "../hooks/useProductsStore";
 import { useCategoriesStore } from "@/features/categories/hooks/useCategoriesStore";
@@ -48,6 +49,7 @@ export function ProductsListPage() {
     setPageSize,
     refresh,
     removeProduct,
+    removeProducts,
   } = useProductsStore();
   const { options: categories } = useCategoriesStore();
   const { can } = usePermissions();
@@ -56,6 +58,34 @@ export function ProductsListPage() {
   const [deleting, setDeleting] = useState<Product | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+
+  // Selection either holds explicit ids or "all products matching the current
+  // filters" with the rows the user unchecked tracked as exclusions.
+  const [selectionMode, setSelectionMode] = useState<"explicit" | "all">(
+    "explicit",
+  );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+
+  const canDelete = can("products.delete");
+
+  // A different search or filter produces a different match set, so a stale
+  // selection would no longer mean what the user picked.
+  useEffect(() => {
+    setSelectionMode("explicit");
+    setSelectedIds(new Set());
+    setExcludedIds(new Set());
+  }, [
+    filters.search,
+    filters.categoryId,
+    filters.status,
+    filters.stockStatus,
+  ]);
 
   // Categories and suppliers link here with ?category=<id> / ?search=<term>.
   useEffect(() => {
@@ -77,7 +107,92 @@ export function ProductsListPage() {
     filters.status !== "all" ||
     filters.stockStatus !== "all";
 
+  const selectedCount =
+    selectionMode === "all"
+      ? Math.max(0, total - excludedIds.size)
+      : selectedIds.size;
+
+  const isRowSelected = (id: string) =>
+    selectionMode === "all" ? !excludedIds.has(id) : selectedIds.has(id);
+
+  const toggleRow = (id: string, checked: boolean) => {
+    if (selectionMode === "all") {
+      setExcludedIds((prev) => {
+        const next = new Set(prev);
+        if (checked) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    setSelectedIds(new Set());
+    setExcludedIds(new Set());
+    setSelectionMode(checked ? "all" : "explicit");
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedCount === 0) return;
+    setBulkDeleteOpen(false);
+    try {
+      await removeProducts(
+        selectionMode === "all"
+          ? {
+              selectAll: true,
+              filters: {
+                search: filters.search,
+                categoryId: filters.categoryId,
+                status: filters.status,
+                stockStatus: filters.stockStatus,
+              },
+              excludeIds: [...excludedIds],
+            }
+          : { ids: [...selectedIds] },
+      );
+      setSelectionMode("explicit");
+      setSelectedIds(new Set());
+      setExcludedIds(new Set());
+    } catch {
+      // The store already surfaced the error; keep the selection for a retry.
+    }
+  };
+
+  const selectionColumn: DataTableColumn<Product> = {
+    id: "select",
+    className: "w-10",
+    header: (
+      <Checkbox
+        checked={
+          selectionMode === "all" && excludedIds.size === 0
+            ? true
+            : selectedCount > 0
+              ? "indeterminate"
+              : false
+        }
+        onCheckedChange={(value) => toggleSelectAll(value === true)}
+        aria-label="Select all products matching the current filters"
+      />
+    ),
+    cell: (p) => (
+      <Checkbox
+        checked={isRowSelected(p.id)}
+        onCheckedChange={(value) => toggleRow(p.id, value === true)}
+        aria-label={`Select ${p.name}`}
+        onClick={(event) => event.stopPropagation()}
+      />
+    ),
+  };
+
   const columns: DataTableColumn<Product>[] = [
+    ...(canDelete ? [selectionColumn] : []),
     {
       id: "name",
       header: "Product",
@@ -258,6 +373,18 @@ export function ProductsListPage() {
         onRetry={() => void refresh()}
         searchPlaceholder="Search products by name, SKU, or brand…"
         rowKey={(p) => p.id}
+        globalActions={
+          canDelete && selectedCount > 0 ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+              Delete selected ({selectedCount})
+            </Button>
+          ) : undefined
+        }
         serverMode={{
           search: filters.search,
           onSearchChange: setSearch,
@@ -367,6 +494,20 @@ export function ProductsListPage() {
         open={!!editing}
         onOpenChange={(o) => !o && setEditing(null)}
         product={editing ?? undefined}
+      />
+
+      <ConfirmDialog
+        open={bulkDeleteOpen && selectedCount > 0}
+        onOpenChange={setBulkDeleteOpen}
+        title="Delete selected products"
+        description={`This will permanently delete ${selectedCount} ${
+          selectedCount === 1 ? "product" : "products"
+        }${
+          selectionMode === "all" ? " matching your current filters" : ""
+        }. This action cannot be undone.`}
+        confirmText={`Delete ${selectedCount}`}
+        destructive
+        onConfirm={() => void handleBulkDelete()}
       />
 
       <ConfirmDialog

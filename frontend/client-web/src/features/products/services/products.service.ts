@@ -163,3 +163,44 @@ export async function updateProduct(
 export async function deleteProduct(id: string): Promise<void> {
   await request<{ message: string }>(`/products/${id}`, { method: "DELETE" });
 }
+
+export interface BulkDeleteProductsParams {
+  /** Explicit ids to delete. Ignored when `selectAll` is set. */
+  ids?: string[];
+  /** Delete every product matching `filters` instead of `ids`. */
+  selectAll?: boolean;
+  filters?: ListProductsParams;
+  /** Rows unchecked by the user while in select-all mode. */
+  excludeIds?: string[];
+}
+
+export interface BulkDeleteProductsResponse {
+  deleted: number;
+}
+
+export function bulkDeleteProducts(
+  params: BulkDeleteProductsParams,
+): Promise<BulkDeleteProductsResponse> {
+  return request<BulkDeleteProductsResponse>("/products/bulk-delete", {
+    method: "POST",
+    body: {
+      ids: params.ids,
+      selectAll: params.selectAll,
+      filters: params.filters
+        ? {
+            search: params.filters.search || undefined,
+            categoryId:
+              params.filters.categoryId && params.filters.categoryId !== "all"
+                ? params.filters.categoryId
+                : undefined,
+            status:
+              params.filters.status && params.filters.status !== "all"
+                ? toStatusDto(params.filters.status)
+                : undefined,
+            stockStatus: toStockStatusDto(params.filters.stockStatus),
+          }
+        : undefined,
+      excludeIds: params.excludeIds,
+    },
+  });
+}

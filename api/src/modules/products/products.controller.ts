@@ -3,6 +3,7 @@ import { sendSuccess } from "../../lib/api-response.js";
 import type { AuthenticatedRequest } from "../auth/auth.types.js";
 import * as productsService from "./products.service.js";
 import type {
+  BulkDeleteProductsDto,
   CreateProductDto,
   ListProductsQueryDto,
   UpdateProductDto,
@@ -55,5 +56,12 @@ export const deleteProductController = asyncHandler(
   async (req: AuthenticatedRequest<{ id: string }>, res) => {
     await productsService.deleteProduct(req.params.id);
     return sendSuccess(res, { message: "Product deleted successfully" });
+  },
+);
+
+export const bulkDeleteProductsController = asyncHandler(
+  async (req: ProductsRequest<BulkDeleteProductsDto>, res) => {
+    const result = await productsService.bulkDeleteProducts(req.body);
+    return sendSuccess(res, result);
   },
 );

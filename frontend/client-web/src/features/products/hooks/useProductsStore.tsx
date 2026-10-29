@@ -14,12 +14,14 @@ import { PAGE_SIZE_DEFAULT } from "@/lib/constants";
 import { useDebounce } from "@/hooks/usePermissions";
 import type { Product, ProductFormValues } from "@/types/product";
 import {
+  bulkDeleteProducts as bulkDeleteProductsRequest,
   createProduct as createProductRequest,
   deleteProduct as deleteProductRequest,
   listProducts,
   toProduct,
   updateProduct as updateProductRequest,
 } from "../services/products.service";
+import type { BulkDeleteProductsParams } from "../services/products.service";
 
 export interface ProductFilters {
   search: string;
@@ -47,6 +49,7 @@ interface ProductsContextValue {
   addProduct: (values: ProductFormValues) => Promise<Product>;
   updateProduct: (id: string, values: ProductFormValues) => Promise<Product>;
   removeProduct: (id: string, name: string) => Promise<void>;
+  removeProducts: (input: BulkDeleteProductsParams) => Promise<number>;
 }
 
 const ProductsContext = createContext<ProductsContextValue | null>(null);
@@ -213,6 +216,39 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     [products.length, page, pageSize, load],
   );
 
+  const removeProducts = useCallback(
+    async (input: BulkDeleteProductsParams) => {
+      try {
+        const { deleted } = await bulkDeleteProductsRequest(input);
+        if (deleted === 0) {
+          toast.success("No products deleted", {
+            description: "Nothing matched the selected products.",
+          });
+        } else {
+          toast.success(
+            deleted === 1 ? "Product deleted" : `${deleted} products deleted`,
+            {
+              description: `${deleted} product${
+                deleted === 1 ? " was" : "s were"
+              } removed from the catalog.`,
+            },
+          );
+        }
+
+        const remaining = Math.max(0, total - deleted);
+        const lastPage = Math.max(1, Math.ceil(remaining / pageSize));
+        await load(Math.min(page, lastPage), pageSize);
+        return deleted;
+      } catch (err) {
+        toast.error("Could not delete products", {
+          description: messageFor(err, "Please try again."),
+        });
+        throw err;
+      }
+    },
+    [total, page, pageSize, load],
+  );
+
   const value = useMemo<ProductsContextValue>(
     () => ({
       products,
@@ -233,6 +269,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       addProduct,
       updateProduct,
       removeProduct,
+      removeProducts,
     }),
     [
       products,
@@ -251,6 +288,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       addProduct,
       updateProduct,
       removeProduct,
+      removeProducts,
       changePageSize,
     ],
   );

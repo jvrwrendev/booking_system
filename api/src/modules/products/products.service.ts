@@ -11,8 +11,10 @@ import {
   resolveBranchId,
 } from "../inventory/inventory.service.js";
 import type {
+  BulkDeleteProductsDto,
   CreateProductDto,
   ListProductsQueryDto,
+  ProductFiltersDto,
   UpdateProductDto,
 } from "./dto/index.js";
 
@@ -179,9 +181,7 @@ async function resolveSupplierSelection(
   return null;
 }
 
-export async function listProducts(
-  query: ListProductsQueryDto,
-): Promise<ListProductsResult> {
+function buildProductWhere(query: ProductFiltersDto): Prisma.ProductWhereInput {
   const where: Prisma.ProductWhereInput = {};
 
   if (query.search) {
@@ -198,6 +198,14 @@ export async function listProducts(
   if (query.categoryId) where.categoryId = query.categoryId;
   if (query.status) where.status = query.status;
   if (query.stockStatus) where.stockStatus = query.stockStatus;
+
+  return where;
+}
+
+export async function listProducts(
+  query: ListProductsQueryDto,
+): Promise<ListProductsResult> {
+  const where = buildProductWhere(query);
 
   const orderBy: Prisma.ProductOrderByWithRelationInput = {
     [query.sortBy]: query.sortOrder,
@@ -452,4 +460,28 @@ export async function updateProduct(
 export async function deleteProduct(id: string): Promise<void> {
   await mustGetProduct(id);
   await prisma.product.delete({ where: { id } });
+}
+
+export interface BulkDeleteProductsResult {
+  deleted: number;
+}
+
+/**
+ * Deletes products either by an explicit id list or by the same filters the
+ * list page uses. Relation rows are removed by the schema's cascade rules.
+ */
+export async function bulkDeleteProducts(
+  input: BulkDeleteProductsDto,
+): Promise<BulkDeleteProductsResult> {
+  const where: Prisma.ProductWhereInput = input.selectAll
+    ? {
+        ...buildProductWhere(input.filters ?? {}),
+        ...(input.excludeIds.length > 0
+          ? { id: { notIn: input.excludeIds } }
+          : {}),
+      }
+    : { id: { in: input.ids ?? [] } };
+
+  const { count } = await prisma.product.deleteMany({ where });
+  return { deleted: count };
 }

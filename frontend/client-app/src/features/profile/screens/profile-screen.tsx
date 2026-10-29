@@ -25,7 +25,6 @@ import { useFavorites } from "@/hooks/use-favorites";
 import { listBookingsForAgent } from "@/services/booking.service";
 import { listCustomersForAgent } from "@/services/customer.service";
 import { listOrdersForBranch } from "@/services/branch-order.service";
-import { getBranchById } from "@/services/directory.service";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 import { Text } from "@/components/ui/text";
@@ -52,7 +51,6 @@ export function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<StatEntry[]>([]);
-  const [branchName, setBranchName] = useState<string>("Davao Branch");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [signOutVisible, setSignOutVisible] = useState(false);
@@ -91,17 +89,11 @@ export function ProfileScreen() {
           { label: "Customers", value: customers.length },
         ]);
       } else {
-        const [branch, orders] = await Promise.all([
-          getBranchById(user.branchId ?? ""),
-          listOrdersForBranch(user.branchId ?? ""),
-        ]);
+        const orders = await listOrdersForBranch(user.branchId ?? "");
         setStats([
           { label: "Favorites", value: favoriteIds.length },
           { label: "Orders", value: orders.length },
         ]);
-        if (branch?.name) {
-          setBranchName(branch.name);
-        }
       }
       setError(null);
     } catch {
@@ -145,9 +137,12 @@ export function ProfileScreen() {
           title="Settings"
           subtitle="Manage your account"
           action={
-            <View className="rounded-full border border-gray-200 bg-white px-3 py-1">
-              <Text className="text-xs font-medium text-gray-600">
-                {branchName}
+            <View className="max-w-[160px] rounded-full border border-gray-200 bg-white px-3 py-1">
+              <Text
+                className="text-xs font-medium text-gray-600"
+                numberOfLines={1}
+              >
+                {user.fullName || "Agent"}
               </Text>
             </View>
           }

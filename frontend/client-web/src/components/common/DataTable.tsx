@@ -35,7 +35,7 @@ import { PAGE_SIZE_DEFAULT } from "@/lib/constants";
 
 export interface DataTableColumn<T> {
   id: string;
-  header: string;
+  header: ReactNode;
   cell: (row: T) => ReactNode;
   sortable?: boolean;
   sortKey?: keyof T | string;

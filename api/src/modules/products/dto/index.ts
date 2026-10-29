@@ -23,18 +23,38 @@ export const productParamsDto = z.object({
   id: z.string().min(1, "Product id is required").max(100),
 });
 
-export const listProductsQueryDto = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+const productFilterShape = {
   search: z.string().trim().max(255).optional(),
   categoryId: z.string().trim().max(100).optional(),
   status: z.enum(PRODUCT_STATUSES).optional(),
   stockStatus: z.enum(STOCK_STATUSES).optional(),
+};
+
+export const productFiltersDto = z.object(productFilterShape);
+
+export const listProductsQueryDto = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  ...productFilterShape,
   sortBy: z
     .enum(["name", "sku", "sellingPrice", "stockQuantity", "updatedAt", "createdAt"])
     .default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
+
+export const bulkDeleteProductsDto = z
+  .object({
+    ids: z.array(z.string().trim().min(1).max(100)).min(1).max(1000).optional(),
+    /** Delete every product matching `filters` instead of an explicit id list. */
+    selectAll: z.boolean().optional(),
+    filters: productFiltersDto.optional(),
+    /** Rows unchecked while in select-all mode. */
+    excludeIds: z.array(z.string().trim().min(1).max(100)).max(1000).default([]),
+  })
+  .refine((data) => Boolean(data.ids?.length) || data.selectAll === true, {
+    message: "Provide product ids or set selectAll to true",
+    path: ["ids"],
+  });
 
 export const createProductDto = z.object({
   name: z.string().trim().min(1, "Product name is required").max(255),
@@ -94,5 +114,7 @@ export const updateProductDto = z
 
 export type ProductParamsDto = z.infer<typeof productParamsDto>;
 export type ListProductsQueryDto = z.infer<typeof listProductsQueryDto>;
+export type ProductFiltersDto = z.infer<typeof productFiltersDto>;
+export type BulkDeleteProductsDto = z.infer<typeof bulkDeleteProductsDto>;
 export type CreateProductDto = z.infer<typeof createProductDto>;
 export type UpdateProductDto = z.infer<typeof updateProductDto>;

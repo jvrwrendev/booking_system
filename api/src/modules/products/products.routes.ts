@@ -6,6 +6,7 @@ import {
   validateQuery,
 } from "../../middleware/validation.middleware.js";
 import {
+  bulkDeleteProductsController,
   createProductController,
   deleteProductController,
   getProductController,
@@ -13,6 +14,7 @@ import {
   updateProductController,
 } from "./products.controller.js";
 import {
+  bulkDeleteProductsDto,
   createProductDto,
   listProductsQueryDto,
   productParamsDto,
@@ -44,6 +46,13 @@ productsRouter.post(
   canManageCatalog,
   validateBody(createProductDto),
   createProductController,
+);
+
+productsRouter.post(
+  "/bulk-delete",
+  canManageCatalog,
+  validateBody(bulkDeleteProductsDto),
+  bulkDeleteProductsController,
 );
 
 productsRouter.patch(
