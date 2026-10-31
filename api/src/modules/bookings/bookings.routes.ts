@@ -28,7 +28,7 @@ import {
 
 export const bookingsRouter = Router();
 
-bookingsRouter.use(requireRole("ADMIN"));
+bookingsRouter.use(requireRole("ADMIN", "AGENT"));
 
 bookingsRouter.get(
   "/",
@@ -50,6 +50,7 @@ bookingsRouter.post(
 
 bookingsRouter.patch(
   "/:id",
+  requireRole("ADMIN"),
   validateParams(bookingParamsDto),
   validateBody(updateBookingDto),
   updateBookingController,
@@ -57,6 +58,7 @@ bookingsRouter.patch(
 
 bookingsRouter.delete(
   "/:id",
+  requireRole("ADMIN"),
   validateParams(bookingParamsDto),
   deleteBookingController,
 );
@@ -70,7 +72,7 @@ bookingsRouter.patch(
 
 bookingsRouter.patch(
   "/:id/assign",
-  requireRole("SUPER_ADMIN"),
+  requireRole("ADMIN"),
   validateParams(bookingParamsDto),
   validateBody(assignBookingDto),
   assignBookingController,
@@ -78,13 +80,14 @@ bookingsRouter.patch(
 
 bookingsRouter.delete(
   "/:id/assignment",
-  requireRole("SUPER_ADMIN"),
+  requireRole("ADMIN"),
   validateParams(bookingParamsDto),
   unassignBookingController,
 );
 
 bookingsRouter.patch(
   "/:id/discount",
+  requireRole("ADMIN"),
   validateParams(bookingParamsDto),
   validateBody(applyBookingDiscountDto),
   applyBookingDiscountController,

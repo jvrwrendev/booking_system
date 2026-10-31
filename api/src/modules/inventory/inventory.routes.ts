@@ -33,6 +33,13 @@ import {
 
 export const inventoryRouter = Router();
 
+// Agents need the active branch list when creating a customer booking.
+inventoryRouter.get(
+  "/branches",
+  requireRole("ADMIN", "AGENT", "BRANCH"),
+  listBranchesController,
+);
+
 inventoryRouter.use(requireRole("ADMIN"));
 
 inventoryRouter.get(
@@ -52,8 +59,6 @@ inventoryRouter.get(
   validateQuery(inventoryAlertsQueryDto),
   getAlertsController,
 );
-
-inventoryRouter.get("/branches", listBranchesController);
 
 inventoryRouter.get(
   "/transactions",

@@ -91,6 +91,7 @@ const STATUS_LABELS: Record<BranchOrderStatus, string> = {
   ACCEPTED: "Accepted",
   ASSIGNED: "Assigned",
   ADMIN_ACCEPTED: "Admin accepted",
+  REVIEW_ORDER: "Review order",
   PROCESSING: "Processing",
   READY: "Ready",
   COMPLETED: "Completed",
@@ -102,17 +103,18 @@ const ALLOWED_TRANSITIONS: Record<BranchOrderStatus, BranchOrderStatus[]> = {
   PENDING: ["ACCEPTED", "REJECTED"],
   ACCEPTED: ["ASSIGNED", "REJECTED"],
   ASSIGNED: ["ADMIN_ACCEPTED", "REJECTED"],
-  ADMIN_ACCEPTED: ["PROCESSING", "REJECTED"],
+  ADMIN_ACCEPTED: ["REVIEW_ORDER", "REJECTED"],
+  REVIEW_ORDER: ["PROCESSING", "REJECTED"],
   PROCESSING: ["READY", "REJECTED"],
-  READY: ["COMPLETED", "REJECTED"],
-  COMPLETED: ["READY_FOR_DELIVERY"],
-  READY_FOR_DELIVERY: [],
+  READY: ["READY_FOR_DELIVERY", "REJECTED"],
+  READY_FOR_DELIVERY: ["COMPLETED"],
+  COMPLETED: [],
   REJECTED: [],
 };
 
 /** Statuses from which no further state change is possible. */
 const TERMINAL_STATUSES = new Set<BranchOrderStatus>([
-  "READY_FOR_DELIVERY",
+  "COMPLETED",
   "REJECTED",
 ]);
 
@@ -127,6 +129,7 @@ const ASSIGNABLE_STATUSES = new Set<BranchOrderStatus>([
   "ACCEPTED",
   "ASSIGNED",
   "ADMIN_ACCEPTED",
+  "REVIEW_ORDER",
   "PROCESSING",
   "READY",
 ]);
@@ -136,6 +139,7 @@ const DELETABLE_STATUSES = new Set<BranchOrderStatus>([
   "ACCEPTED",
   "ASSIGNED",
   "ADMIN_ACCEPTED",
+  "REVIEW_ORDER",
   "PROCESSING",
   "READY",
   "REJECTED",
@@ -313,13 +317,20 @@ async function mustGetBranchOrder(
   return order;
 }
 
-function assertBranchAccess(
+function assertBranchScope(
   order: BranchOrderRecord,
   actor: BranchOrderActor,
 ): void {
   if (actor.role === "BRANCH" && order.branchId !== actor.branchId) {
     throw Errors.forbidden("You can only access your own branch orders");
   }
+}
+
+function assertOrderAccess(
+  order: BranchOrderRecord,
+  actor: BranchOrderActor,
+): void {
+  assertBranchScope(order, actor);
 }
 
 function assertNotTerminal(order: BranchOrderRecord): void {
@@ -391,6 +402,7 @@ function assertAssignedActor(
   order: BranchOrderRecord,
   actor: BranchOrderActor,
 ): void {
+  if (actor.role !== "ADMIN" && actor.role !== "SUPER_ADMIN") return;
   if (
     order.assignedAdminId &&
     actor.role !== "SUPER_ADMIN" &&
@@ -399,6 +411,45 @@ function assertAssignedActor(
     throw Errors.forbidden(
       "Only the assigned admin can update this branch order",
     );
+  }
+}
+
+function assertStatusChangeAllowed(
+  order: BranchOrderRecord,
+  target: BranchOrderStatus,
+  actor: BranchOrderActor,
+): void {
+  if (actor.role !== "ADMIN" && actor.role !== "SUPER_ADMIN") {
+    throw Errors.forbidden(
+      "Only system administrators can change branch order status",
+    );
+  }
+
+  if (order.status === "PENDING") {
+    if (target !== "ACCEPTED" && target !== "REJECTED") {
+      throw Errors.forbidden(
+        "Pending orders can only be accepted or rejected",
+      );
+    }
+    return;
+  }
+  assertAssignedActor(order, actor);
+}
+
+function statusActionLabel(
+  status: BranchOrderStatus,
+  actorName: string,
+): string {
+  switch (status) {
+    case "ACCEPTED":
+    case "ADMIN_ACCEPTED":
+      return `${actorName} accepted`;
+    case "REVIEW_ORDER":
+      return "Reviewed order";
+    case "COMPLETED":
+      return `${actorName} completed the order`;
+    default:
+      return STATUS_LABELS[status];
   }
 }
 
@@ -440,6 +491,9 @@ function resolveCreateBranchId(
   input: CreateBranchOrderDto,
   actor: BranchOrderActor,
 ): string {
+  if (actor.role === "AGENT") {
+    throw Errors.forbidden("Agents cannot create branch purchase orders");
+  }
   if (actor.role === "BRANCH") {
     if (!actor.branchId) {
       throw Errors.forbidden("No branch is linked to this account");
@@ -518,7 +572,7 @@ export async function getBranchOrderById(
   actor: BranchOrderActor,
 ): Promise<BranchOrderView> {
   const order = await mustGetBranchOrder(id);
-  assertBranchAccess(order, actor);
+  assertOrderAccess(order, actor);
   return toBranchOrderView(order);
 }
 
@@ -563,7 +617,7 @@ export async function createBranchOrder(
           statusHistory: {
             create: {
               toStatus: "PENDING",
-              label: "Branch order created",
+              label: "Order created",
               byName: actor.name,
             },
           },
@@ -592,7 +646,7 @@ export async function updateBranchOrder(
   actor: BranchOrderActor,
 ): Promise<BranchOrderView> {
   const existing = await mustGetBranchOrder(id);
-  assertBranchAccess(existing, actor);
+  assertBranchScope(existing, actor);
   assertNotTerminal(existing);
   assertNotLocked(existing);
 
@@ -669,7 +723,7 @@ export async function updateBranchOrder(
           create: {
             fromStatus: order.status,
             toStatus: order.status,
-            label: "Branch order details updated",
+            label: "Order details updated",
             byName: actor.name,
           },
         },
@@ -687,7 +741,7 @@ export async function deleteBranchOrder(
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
     const order = await mustGetBranchOrder(id, tx);
-    assertBranchAccess(order, actor);
+    assertBranchScope(order, actor);
 
     if (!DELETABLE_STATUSES.has(order.status)) {
       throw Errors.conflict(
@@ -710,8 +764,8 @@ export async function updateBranchOrderStatus(
 ): Promise<BranchOrderView> {
   const updated = await prisma.$transaction(async (tx) => {
     const order = await mustGetBranchOrder(id, tx);
-    assertBranchAccess(order, actor);
-    assertAssignedActor(order, actor);
+    assertOrderAccess(order, actor);
+    assertStatusChangeAllowed(order, input.status, actor);
 
     if (order.status === input.status) {
       throw Errors.badRequest(
@@ -760,7 +814,7 @@ export async function updateBranchOrderStatus(
           create: {
             fromStatus: order.status,
             toStatus: input.status,
-            label: input.note || statusLabel(input.status),
+            label: input.note || statusActionLabel(input.status, actor.name),
             byName: actor.name,
           },
         },
@@ -779,7 +833,7 @@ export async function assignBranchOrder(
 ): Promise<BranchOrderView> {
   const updated = await prisma.$transaction(async (tx) => {
     const order = await mustGetBranchOrder(id, tx);
-    assertBranchAccess(order, actor);
+    assertBranchScope(order, actor);
     assertNotTerminal(order);
 
     if (!ASSIGNABLE_STATUSES.has(order.status)) {
@@ -826,7 +880,7 @@ export async function unassignBranchOrder(
 ): Promise<BranchOrderView> {
   const updated = await prisma.$transaction(async (tx) => {
     const order = await mustGetBranchOrder(id, tx);
-    assertBranchAccess(order, actor);
+    assertBranchScope(order, actor);
     assertNotTerminal(order);
 
     if (!order.assignedAdminId) {
@@ -870,7 +924,7 @@ export async function applyBranchOrderDiscount(
 ): Promise<BranchOrderView> {
   const updated = await prisma.$transaction(async (tx) => {
     const order = await mustGetBranchOrder(id, tx);
-    assertBranchAccess(order, actor);
+    assertBranchScope(order, actor);
     assertNotTerminal(order);
 
     const subtotal = Number(order.subtotal);

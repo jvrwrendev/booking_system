@@ -5,10 +5,11 @@ export type BranchOrderStatus =
   | "accepted"
   | "assigned"
   | "admin_accepted"
+  | "review_order"
   | "processing"
   | "ready"
-  | "completed"
   | "ready_for_delivery"
+  | "completed"
   | "rejected";
 
 export interface BranchOrderItem {
@@ -51,14 +52,15 @@ export const BRANCH_ORDER_STATUS_FLOW: BranchOrderStatus[] = [
   "accepted",
   "assigned",
   "admin_accepted",
+  "review_order",
   "processing",
   "ready",
-  "completed",
   "ready_for_delivery",
+  "completed",
 ];
 
 export const TERMINAL_BRANCH_ORDER_STATUSES: BranchOrderStatus[] = [
-  "ready_for_delivery",
+  "completed",
   "rejected",
 ];
 

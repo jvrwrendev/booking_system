@@ -62,9 +62,10 @@ export function BookingDetailPage() {
     assignBooking,
     reassignBooking,
   } = useBookingsStore();
-  const { can, isSuperAdmin } = usePermissions();
+  const { can, role, isSuperAdmin } = usePermissions();
+  const isAdminUser = role === "ADMIN" || role === "SUPER_ADMIN";
   const { user } = useAuth();
-  const { admins } = useBookingLookups(isSuperAdmin);
+  const { admins } = useBookingLookups(isAdminUser);
 
   const booking = id ? getBooking(id) : undefined;
   const [assignmentOpen, setAssignmentOpen] = useState(false);
@@ -152,7 +153,7 @@ export function BookingDetailPage() {
   const canUpdate = can("bookings.update");
   const isAssignedToMe =
     !!user?.id && booking.assignedAdminId === user.id;
-  const canProcessBooking = isAssignedToMe;
+  const canProcessBooking = isAssignedToMe || isSuperAdmin;
   const isTerminal = TERMINAL_STATUSES.includes(booking.status);
 
   const actionButtons = buildActionButtons(
@@ -162,9 +163,9 @@ export function BookingDetailPage() {
     },
     {
       onAccept: () => setStatus(booking.id, "admin_accepted"),
+      onReview: () => setStatus(booking.id, "review_order"),
       onProcess: () => setStatus(booking.id, "processing"),
       onReady: () => setStatus(booking.id, "ready"),
-      onComplete: () => setStatus(booking.id, "completed"),
       onReadyForDelivery: () => setStatus(booking.id, "ready_for_delivery"),
     }
   );
@@ -210,7 +211,7 @@ export function BookingDetailPage() {
           {btn.label}
         </Button>
       ))}
-      {isSuperAdmin &&
+      {isAdminUser &&
         !isTerminal &&
         booking.status === "pending" && (
           <>
@@ -251,7 +252,7 @@ export function BookingDetailPage() {
           {deleting ? "Deleting..." : "Delete"}
         </Button>
       )}
-      {isSuperAdmin &&
+      {isAdminUser &&
         !isTerminal &&
         booking.status === "accepted" &&
         !booking.assignedAdminId && (
@@ -260,7 +261,7 @@ export function BookingDetailPage() {
             Assign Booking
           </Button>
         )}
-      {isSuperAdmin &&
+      {isAdminUser &&
         !isTerminal &&
         booking.assignedAdminId && (
           <Button
@@ -499,7 +500,7 @@ export function BookingDetailPage() {
       />
 
       {user &&
-        isSuperAdmin &&
+        isAdminUser &&
         !isTerminal &&
         (booking.status === "accepted" || booking.assignedAdminId) && (
           <AssignmentDialog
@@ -533,9 +534,9 @@ function buildActionButtons(
   perms: { canProcess: boolean },
   handlers: {
     onAccept: () => void;
+    onReview: () => void;
     onProcess: () => void;
     onReady: () => void;
-    onComplete: () => void;
     onReadyForDelivery: () => void;
   }
 ): ActionButton[] {
@@ -555,6 +556,14 @@ function buildActionButtons(
     case "admin_accepted":
     case "confirmed":
       buttons.push({
+        label: "Review Order",
+        icon: CheckCircle2,
+        onClick: handlers.onReview,
+      });
+      break;
+
+    case "review_order":
+      buttons.push({
         label: "Process Order",
         icon: CheckCircle2,
         onClick: handlers.onProcess,
@@ -570,14 +579,6 @@ function buildActionButtons(
       break;
 
     case "ready":
-      buttons.push({
-        label: "Complete Order",
-        icon: CheckCircle2,
-        onClick: handlers.onComplete,
-      });
-      break;
-
-    case "completed":
       buttons.push({
         label: "Ready for Delivery",
         icon: CheckCircle2,
@@ -619,10 +620,11 @@ function buildTimeline(booking: Booking) {
     "accepted",
     "assigned",
     "admin_accepted",
+    "review_order",
     "processing",
     "ready",
-    "completed",
     "ready_for_delivery",
+    "completed",
   ];
   const currentIdx = sequence.indexOf(booking.status);
   const events: {

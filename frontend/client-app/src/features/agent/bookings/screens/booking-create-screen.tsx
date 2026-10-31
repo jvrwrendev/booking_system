@@ -24,7 +24,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { useAgentCart } from "@/hooks/use-agent-cart";
 import { listCustomersForAgent } from "@/services/customer.service";
 import { listProducts } from "@/services/product.service";
-import { createBookingForAgent } from "@/services/booking.service";
+import {
+  createBookingForAgent,
+  listBookingBranches,
+  type BookingBranchOption,
+} from "@/services/booking.service";
 import type { Customer } from "@/types/customer";
 import type { Product } from "@/types/product";
 import { Text } from "@/components/ui/text";
@@ -66,6 +70,8 @@ export function BookingCreateScreen() {
   });
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [branches, setBranches] = useState<BookingBranchOption[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState("");
   const [loading, setLoading] = useState(true);
   const [customerQuery, setCustomerQuery] = useState("");
   const [productQuery, setProductQuery] = useState("");
@@ -97,13 +103,18 @@ export function BookingCreateScreen() {
     let mounted = true;
     void (async () => {
       try {
-        const [c, p] = await Promise.all([
+        const [c, p, availableBranches] = await Promise.all([
           listCustomersForAgent(agentId),
           listProducts(),
+          listBookingBranches(),
         ]);
         if (!mounted) return;
         setCustomers(c);
         setProducts(p);
+        setBranches(availableBranches);
+        setSelectedBranchId((current) =>
+          current || availableBranches[0]?.id || "",
+        );
         if (route.params?.customerId && !cart.customer) {
           const found = c.find((x) => x.id === route.params?.customerId);
           if (found) cart.setCustomer(found);
@@ -169,7 +180,14 @@ export function BookingCreateScreen() {
   };
 
   const onConfirm = async () => {
-    if (submitting || !cart.customer || cart.items.length === 0) return;
+    if (
+      submitting ||
+      !cart.customer ||
+      cart.items.length === 0 ||
+      !selectedBranchId
+    ) {
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -177,6 +195,7 @@ export function BookingCreateScreen() {
         customer: cart.customer,
         agentId,
         agentName: user?.fullName ?? "Agent",
+        branchId: selectedBranchId,
         items: cart.items,
         notes: notes.trim() || undefined,
       });
@@ -478,6 +497,45 @@ export function BookingCreateScreen() {
                 </View>
               </Card>
 
+              <Card className="mt-4">
+                <Text variant="label" tone="muted">
+                  FULFILLING BRANCH
+                </Text>
+                <Text variant="small" tone="muted" className="mt-1">
+                  This booking will be fulfilled from the selected branch.
+                </Text>
+                <View className="mt-3 gap-2">
+                  {branches.map((branch) => {
+                    const selected = branch.id === selectedBranchId;
+                    return (
+                      <Pressable
+                        key={branch.id}
+                        onPress={() => setSelectedBranchId(branch.id)}
+                        className={`rounded-md border px-3 py-2.5 ${
+                          selected
+                            ? "border-primary bg-primary/5"
+                            : "border-border bg-background"
+                        }`}
+                      >
+                        <Text weight={selected ? "semibold" : "medium"}>
+                          {branch.name}
+                        </Text>
+                        {branch.code ? (
+                          <Text variant="small" tone="muted">
+                            {branch.code}
+                          </Text>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                  {branches.length === 0 ? (
+                    <Text variant="small" tone="danger">
+                      No active branch is available. Contact an administrator.
+                    </Text>
+                  ) : null}
+                </View>
+              </Card>
+
               <View className="mt-4">
                 <Input
                   size="control"
@@ -507,7 +565,11 @@ export function BookingCreateScreen() {
                 size="control"
                 fullWidth
                 loading={submitting}
-                disabled={!cart.customer || cart.items.length === 0}
+                disabled={
+                  !cart.customer ||
+                  cart.items.length === 0 ||
+                  !selectedBranchId
+                }
                 onPress={() => {
                   void onConfirm();
                 }}

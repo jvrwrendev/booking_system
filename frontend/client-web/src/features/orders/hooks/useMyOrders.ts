@@ -8,16 +8,20 @@ import type { BranchOrder } from "@/types/branch-order";
 export const ACTIVE_AGENT_STATUSES = [
   "assigned",
   "admin_accepted",
+  "review_order",
   "confirmed",
   "processing",
   "ready",
+  "ready_for_delivery",
 ];
 
 export const ACTIVE_BRANCH_STATUSES = [
   "assigned",
   "admin_accepted",
+  "review_order",
   "processing",
   "ready",
+  "ready_for_delivery",
 ];
 
 export function useMyOrders() {

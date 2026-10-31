@@ -139,6 +139,23 @@ function buildListQuery(
   return params.length > 0 ? `?${params.join("&")}` : "";
 }
 
+async function fetchAllPages(branchId: string): Promise<BranchOrder[]> {
+  const orders: BranchOrder[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const result = await request<ApiBranchOrderList>(
+      `/branch-orders${buildListQuery(branchId, page, LIST_PAGE_SIZE)}`,
+    );
+    orders.push(...result.branchOrders.map(toBranchOrder));
+    totalPages = result.totalPages;
+    page += 1;
+  } while (page <= totalPages);
+
+  return orders;
+}
+
 export interface CreateBranchOrderInput {
   branchId: string;
   items: BranchOrderItem[];
@@ -154,20 +171,7 @@ export interface CreateBranchOrderInput {
 export async function listOrdersForBranch(
   branchId: string,
 ): Promise<BranchOrder[]> {
-  const orders: BranchOrder[] = [];
-  let page = 1;
-  let totalPages = 1;
-
-  do {
-    const result = await request<ApiBranchOrderList>(
-      `/branch-orders${buildListQuery(branchId, page, LIST_PAGE_SIZE)}`,
-    );
-    orders.push(...result.branchOrders.map(toBranchOrder));
-    totalPages = result.totalPages;
-    page += 1;
-  } while (page <= totalPages);
-
-  return orders;
+  return fetchAllPages(branchId);
 }
 
 export async function getOrderForBranch(

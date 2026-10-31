@@ -22,6 +22,7 @@ export type BookingStatus =
   | "accepted"
   | "assigned"
   | "admin_accepted"
+  | "review_order"
   | "confirmed"
   | "processing"
   | "ready"
@@ -63,6 +64,7 @@ const BOOKING_STATUS_VARIANTS: Record<string, StatusVariant> = {
   assigned: "warning",
   accepted: "info",
   admin_accepted: "info",
+  review_order: "info",
   confirmed: "info",
   processing: "info",
   ready: "info",
@@ -117,6 +119,7 @@ export const ORDER_STATUS_OPTIONS: StatusOption[] = [
   { value: "accepted", label: "Accepted" },
   { value: "assigned", label: "Assigned" },
   { value: "admin_accepted", label: "Admin accepted" },
+  { value: "review_order", label: "Review order" },
   { value: "confirmed", label: "Confirmed" },
   { value: "processing", label: "Processing" },
   { value: "ready", label: "Ready" },
@@ -133,6 +136,7 @@ export const BRANCH_ORDER_STATUS_OPTIONS: StatusOption[] = [
   { value: "accepted", label: "Accepted" },
   { value: "assigned", label: "Assigned" },
   { value: "admin_accepted", label: "Admin accepted" },
+  { value: "review_order", label: "Review order" },
   { value: "processing", label: "Processing" },
   { value: "ready", label: "Ready" },
   { value: "completed", label: "Completed" },

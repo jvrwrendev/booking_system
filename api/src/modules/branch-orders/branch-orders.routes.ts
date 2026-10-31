@@ -28,8 +28,8 @@ import {
 
 export const branchOrdersRouter = Router();
 
-// Admins manage every branch order; branch accounts can list, view, and
-// create orders for their own branch only (enforced by the service).
+// Admins manage every branch order. Branch accounts can create and view their
+// own orders, but only system administrators can change order status.
 branchOrdersRouter.use(requireRole("ADMIN", "BRANCH"));
 
 branchOrdersRouter.get(
@@ -46,6 +46,7 @@ branchOrdersRouter.get(
 
 branchOrdersRouter.post(
   "/",
+  requireRole("ADMIN", "BRANCH"),
   validateBody(createBranchOrderDto),
   createBranchOrderController,
 );
@@ -75,7 +76,7 @@ branchOrdersRouter.patch(
 
 branchOrdersRouter.patch(
   "/:id/assign",
-  requireRole("SUPER_ADMIN"),
+  requireRole("ADMIN"),
   validateParams(branchOrderParamsDto),
   validateBody(assignBranchOrderDto),
   assignBranchOrderController,
@@ -83,7 +84,7 @@ branchOrdersRouter.patch(
 
 branchOrdersRouter.delete(
   "/:id/assignment",
-  requireRole("SUPER_ADMIN"),
+  requireRole("ADMIN"),
   validateParams(branchOrderParamsDto),
   unassignBranchOrderController,
 );

@@ -5,6 +5,7 @@ export type BookingStatus =
   | "accepted"
   | "assigned"
   | "admin_accepted"
+  | "review_order"
   | "confirmed"
   | "processing"
   | "ready"
@@ -66,15 +67,15 @@ export const BOOKING_STATUS_FLOW: BookingStatus[] = [
   "accepted",
   "assigned",
   "admin_accepted",
+  "review_order",
   "processing",
   "ready",
-  "completed",
   "ready_for_delivery",
+  "completed",
 ];
 
 export const TERMINAL_STATUSES: BookingStatus[] = [
   "completed",
-  "ready_for_delivery",
   "cancelled",
   "rejected",
 ];

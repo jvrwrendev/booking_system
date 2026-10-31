@@ -4,6 +4,7 @@ import { Check } from "lucide-react-native";
 import { cn } from "@/lib/utils";
 import { Text } from "@/components/ui/text";
 import type { StatusHistoryEntry } from "@/types/order-history";
+import { humanizeStatus } from "@/types/status";
 import { formatDateTime } from "@/lib/utils";
 
 interface StatusTimelineProps {
@@ -43,6 +44,11 @@ export function StatusTimeline({ events, className }: StatusTimelineProps) {
               <Text variant="subtitle" weight="semibold">
                 {event.label}
               </Text>
+              {event.from && event.from !== event.to ? (
+                <Text variant="small" tone="muted" className="mt-0.5">
+                  {humanizeStatus(event.from)} → {humanizeStatus(event.to)}
+                </Text>
+              ) : null}
               <Text variant="small" tone="muted" className="mt-0.5">
                 {event.by}
                 {event.by ? " · " : ""}

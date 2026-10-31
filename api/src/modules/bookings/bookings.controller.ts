@@ -17,6 +17,7 @@ function actor(req: AuthenticatedRequest) {
     name: req.user.name,
     role: req.user.role,
     branchId: req.user.branchId,
+    agentId: req.user.agentId,
   };
 }
 
@@ -36,7 +37,10 @@ export const listBookingsController = asyncHandler(
 
 export const getBookingController = asyncHandler(
   async (req: AuthenticatedRequest<{ id: string }>, res) => {
-    const booking = await bookingsService.getBookingById(req.params.id);
+    const booking = await bookingsService.getBookingById(
+      req.params.id,
+      actor(req),
+    );
     return sendSuccess(res, { booking });
   },
 );

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Plus, Search } from "lucide-react-native";
@@ -33,10 +33,9 @@ export function BookingListScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const list = await listBookingsForAgent(agentId);
-      setBookings(list);
+      setBookings(await listBookingsForAgent(agentId));
     } catch {
-      setError("Failed to load bookings.");
+      setError("Failed to load your bookings.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -54,20 +53,76 @@ export function BookingListScreen() {
     void load();
   }, [load]);
 
-  const filtered = bookings.filter((b) => {
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      b.customerName.toLowerCase().includes(q) ||
-      b.reference.toLowerCase().includes(q)
-    );
-  });
+  const normalizedQuery = query.trim().toLowerCase();
+
+  const filteredBookings = useMemo(
+    () =>
+      bookings.filter((booking) => {
+        if (!normalizedQuery) return true;
+        return (
+          booking.customerName.toLowerCase().includes(normalizedQuery) ||
+          booking.reference.toLowerCase().includes(normalizedQuery)
+        );
+      }),
+    [bookings, normalizedQuery],
+  );
+
+  const header = (
+    <View className="mb-4">
+      <ModuleHeader
+        eyebrow="Manage"
+        title="Bookings"
+        action={
+          <Pressable
+            onPress={() => navigation.navigate("BookingCreate")}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="New booking"
+            className="h-10 w-10 items-center justify-center rounded-full bg-primary active:opacity-80"
+          >
+            <Plus size={20} color="#FFFFFF" />
+          </Pressable>
+        }
+      />
+
+      <View className="mt-4">
+        <Input
+          size="control"
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search by customer or reference"
+          autoCapitalize="none"
+          autoCorrect={false}
+          leftIcon={<Search size={18} color="#64748B" />}
+        />
+      </View>
+    </View>
+  );
+
+  const empty = loading ? (
+    <LoadingState label="Loading bookings..." />
+  ) : error ? (
+    <ErrorState description={error} onRetry={() => void load()} />
+  ) : (
+    <EmptyState
+      title="No bookings found"
+      description={
+        query
+          ? "Try a different search term."
+          : "Create your first booking to see it here."
+      }
+      actionLabel={query ? undefined : "New Booking"}
+      onAction={
+        query ? undefined : () => navigation.navigate("BookingCreate")
+      }
+    />
+  );
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-background">
       <FlatList
-        data={filtered}
-        keyExtractor={(b) => b.id}
+        data={filteredBookings}
+        keyExtractor={(booking) => booking.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
         refreshControl={
           <RefreshControl
@@ -76,57 +131,8 @@ export function BookingListScreen() {
             tintColor="#16A34A"
           />
         }
-        ListHeaderComponent={
-          <View className="mb-4">
-            <ModuleHeader
-              eyebrow="Manage"
-              title="Bookings"
-              action={
-                <Pressable
-                  onPress={() => navigation.navigate("BookingCreate")}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel="New booking"
-                  className="h-10 w-10 items-center justify-center rounded-full bg-primary active:opacity-80"
-                >
-                  <Plus size={20} color="#FFFFFF" />
-                </Pressable>
-              }
-            />
-
-            <View className="mt-4">
-              <Input
-                size="control"
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Search by customer or reference"
-                autoCapitalize="none"
-                autoCorrect={false}
-                leftIcon={<Search size={18} color="#64748B" />}
-              />
-            </View>
-          </View>
-        }
-        ListEmptyComponent={
-          loading ? (
-            <LoadingState label="Loading bookings..." />
-          ) : error ? (
-            <ErrorState description={error} onRetry={() => void load()} />
-          ) : (
-            <EmptyState
-              title="No bookings found"
-              description={
-                query
-                  ? "Try a different search term."
-                  : "Create your first booking to see it here."
-              }
-              actionLabel={query ? undefined : "New Booking"}
-              onAction={
-                query ? undefined : () => navigation.navigate("BookingCreate")
-              }
-            />
-          )
-        }
+        ListHeaderComponent={header}
+        ListEmptyComponent={empty}
         renderItem={({ item }) => (
           <Pressable
             onPress={() =>

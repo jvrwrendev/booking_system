@@ -149,9 +149,13 @@ export function BranchDashboardScreen() {
     () => ({
       pending: orders.filter((o) => o.status === "pending").length,
       processing: orders.filter((o) =>
-        ["accepted", "assigned", "admin_accepted", "processing"].includes(
-          o.status,
-        ),
+        [
+          "accepted",
+          "assigned",
+          "admin_accepted",
+          "review_order",
+          "processing",
+        ].includes(o.status),
       ).length,
       ready: orders.filter((o) => o.status === "ready").length,
       completed: orders.filter((o) =>

@@ -1,6 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgePercent, CheckCircle2, History, RefreshCw, ShieldAlert, ShoppingCart, UserCheck, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  BadgePercent,
+  CheckCircle2,
+  History,
+  RefreshCw,
+  ShieldAlert,
+  ShoppingCart,
+  UserCheck,
+  XCircle,
+} from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +37,7 @@ import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import type { BranchOrderStatus } from "@/types/branch-order";
 
 const TERMINAL_STATUSES = [
-  "ready_for_delivery",
+  "completed",
   "rejected",
 ] as BranchOrderStatus[];
 
@@ -41,12 +51,17 @@ const NEXT_ACTION: Record<
   { label: string; target: BranchOrderStatus; confirm?: boolean }
 > = {
   assigned: { label: "Accept Order", target: "admin_accepted", confirm: true },
-  admin_accepted: { label: "Process Order", target: "processing" },
+  admin_accepted: { label: "Review Order", target: "review_order" },
+  review_order: { label: "Process Order", target: "processing" },
   processing: { label: "Mark as Ready", target: "ready" },
-  ready: { label: "Complete Order", target: "completed", confirm: true },
-  completed: {
+  ready: {
     label: "Ready for Delivery",
     target: "ready_for_delivery",
+    confirm: true,
+  },
+  ready_for_delivery: {
+    label: "Complete Order",
+    target: "completed",
     confirm: true,
   },
 };
@@ -55,20 +70,25 @@ const CONFIRM_COPY: Record<
   string,
   { title: string; description: (reference: string) => string }
 > = {
-  completed: {
-    title: "Complete this order?",
-    description: (ref) =>
-      `This will complete order ${ref}. This action cannot be undone.`,
-  },
   ready_for_delivery: {
     title: "Mark order ready for delivery?",
     description: (ref) =>
-      `Order ${ref} will be marked as ready for delivery. This action cannot be undone.`,
+      `Order ${ref} will be marked ready for delivery. A system administrator completes it after a successful delivery.`,
+  },
+  completed: {
+    title: "Complete this order?",
+    description: (ref) =>
+      `Order ${ref} will be marked completed. This cannot be undone.`,
   },
   admin_accepted: {
     title: "Accept this order?",
     description: (ref) =>
-      `You are accepting order ${ref}. It will move to the accepted stage for processing.`,
+      `You are accepting order ${ref}. It will move to the review stage.`,
+  },
+  rejected: {
+    title: "Reject this order?",
+    description: (ref) =>
+      `Order ${ref} will be rejected and cannot be processed further.`,
   },
 };
 
@@ -105,11 +125,10 @@ export function BranchOrderDetailView({
   } = useBranchOrdersStore();
   const { user } = useAuth();
   const { isSuperAdmin } = usePermissions();
-  const { admins } = useBookingLookups(isSuperAdmin);
+  const { admins } = useBookingLookups(true);
 
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
-  const [rejectOpen, setRejectOpen] = useState(false);
   const [discountOpen, setDiscountOpen] = useState(false);
   const [loadAttempted, setLoadAttempted] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -193,27 +212,25 @@ export function BranchOrderDetailView({
   const assignedUser = order.assignedAdminId
     ? admins.find((u) => u.id === order.assignedAdminId)
     : undefined;
-  const isAssignedToMe = !!user?.id && order.assignedAdminId === user.id;
-  const canProcess = isAssignedToMe;
-  const canEditDiscount =
+  const isAdminUser =
     user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
+  const isAssignedToMe = !!user?.id && order.assignedAdminId === user.id;
+  const canProcess = isAssignedToMe || isSuperAdmin;
+  const canEditDiscount = isAdminUser;
   const nextAction = canProcess ? NEXT_ACTION[order.status] : undefined;
   const timeline = branchOrderTimeline(order);
   const isTerminal = TERMINAL_STATUSES.includes(order.status);
   const canReassign =
-    isSuperAdmin &&
+    isAdminUser &&
     !!order.assignedAdminId &&
-    !["completed", "ready_for_delivery", "rejected"].includes(order.status);
+    !["completed", "rejected"].includes(order.status);
+  const canAssignAdmin =
+    isAdminUser && order.status === "accepted" && !order.assignedAdminId;
 
   const applyAction = () => {
     if (!pendingAction || !user) return;
     setStatus(order.id, pendingAction.target, user);
     setPendingAction(null);
-  };
-
-  const rejectOrder = () => {
-    setStatus(order.id, "rejected", user ?? undefined);
-    setRejectOpen(false);
   };
 
   const confirmCopy = pendingAction
@@ -246,35 +263,42 @@ export function BranchOrderDetailView({
               label={humanize(order.status)}
             />
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {isSuperAdmin && order.status === "pending" && (
+              {isAdminUser && order.status === "pending" && (
                 <>
                   <Button
                     size="sm"
                     onClick={() =>
-                      setStatus(order.id, "accepted", user ?? undefined)
+                      setStatus(
+                        order.id,
+                        "accepted",
+                        user ?? undefined
+                      )
                     }
                   >
                     <CheckCircle2 className="h-4 w-4" aria-hidden />
-                    Accept
+                    Accept Order
                   </Button>
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => setRejectOpen(true)}
+                    onClick={() =>
+                      setPendingAction({
+                        target: "rejected",
+                        label: "Reject Order",
+                      })
+                    }
                   >
                     <XCircle className="h-4 w-4" aria-hidden />
-                    Reject
+                    Reject Order
                   </Button>
                 </>
               )}
-              {isSuperAdmin &&
-                order.status === "accepted" &&
-                !order.assignedAdminId && (
-                  <Button size="sm" onClick={() => setAssignmentOpen(true)}>
-                    <UserCheck className="h-4 w-4" aria-hidden />
-                    Assign to Admin
-                  </Button>
-                )}
+              {canAssignAdmin && (
+                <Button size="sm" onClick={() => setAssignmentOpen(true)}>
+                  <UserCheck className="h-4 w-4" aria-hidden />
+                  Assign to Admin
+                </Button>
+              )}
               {canReassign && (
                 <Button
                   size="sm"
@@ -312,7 +336,35 @@ export function BranchOrderDetailView({
         }
       />
 
-      {order.assignedAdminId && !isAssignedToMe && (
+      {order.status === "pending" && (
+        <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <div>
+            This order is awaiting acceptance from a system administrator.
+          </div>
+        </div>
+      )}
+
+      {order.status === "ready" && (
+        <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <div>
+            Mark this order ready for delivery once it has been prepared.
+          </div>
+        </div>
+      )}
+
+      {order.status === "ready_for_delivery" && (
+        <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <div>
+            This order is ready for delivery. Complete it once delivery has
+            been confirmed.
+          </div>
+        </div>
+      )}
+
+      {order.assignedAdminId && !isAssignedToMe && !isSuperAdmin && (
         <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <div>
@@ -325,7 +377,7 @@ export function BranchOrderDetailView({
         </div>
       )}
 
-      {isSuperAdmin && isTerminal && (
+      {isAdminUser && isTerminal && (
         <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <div>
@@ -472,16 +524,6 @@ export function BranchOrderDetailView({
       </div>
 
       <ConfirmDialog
-        open={rejectOpen}
-        onOpenChange={setRejectOpen}
-        title="Reject this order?"
-        description={`This will reject order ${order.reference}. This action cannot be undone.`}
-        confirmText="Reject"
-        destructive
-        onConfirm={rejectOrder}
-      />
-
-      <ConfirmDialog
         open={pendingAction !== null}
         onOpenChange={(o) => !o && setPendingAction(null)}
         title={confirmCopy?.title ?? "Confirm action?"}
@@ -491,10 +533,11 @@ export function BranchOrderDetailView({
             : "This action cannot be undone."
         }
         confirmText={pendingAction?.label ?? "Confirm"}
+        destructive={pendingAction?.target === "rejected"}
         onConfirm={applyAction}
       />
 
-      {user && isSuperAdmin && (
+      {user && isAdminUser && (
         <AssignmentDialog
           open={assignmentOpen}
           onOpenChange={setAssignmentOpen}

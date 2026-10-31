@@ -144,8 +144,7 @@ export function BranchOrderTrackingPage() {
         backLabel: "Back to orders",
       }}
       isTerminal={
-        order?.status === "rejected" ||
-        order?.status === "ready_for_delivery"
+        order?.status === "rejected" || order?.status === "completed"
       }
       summaryRows={[
         { label: "Branch", value: order?.branchName ?? "—" },
@@ -154,7 +153,7 @@ export function BranchOrderTrackingPage() {
       ]}
       onSimulateNext={() => void simulateNext()}
       nextStepLabel={next ? humanize(next.status) : null}
-      isDone={!next || order?.status === "ready_for_delivery"}
+      isDone={!next || order?.status === "completed"}
     />
   );
 }

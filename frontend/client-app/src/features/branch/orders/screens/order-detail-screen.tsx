@@ -124,6 +124,17 @@ export function OrderDetailScreen() {
               ) : null}
             </Card>
 
+            {order.status === "pending" ? (
+              <Card className="mt-4">
+                <Text variant="label" tone="muted">
+                  ORDER PENDING
+                </Text>
+                <Text variant="small" tone="muted" className="mt-1">
+                  A system administrator will review and accept this order.
+                </Text>
+              </Card>
+            ) : null}
+
             <Card className="mt-4">
               <Text variant="label" tone="muted">
                 ITEMS

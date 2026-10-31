@@ -5,6 +5,7 @@ export type BranchOrderStatus =
   | "assigned"
   | "accepted"
   | "admin_accepted"
+  | "review_order"
   | "processing"
   | "ready"
   | "completed"

@@ -65,6 +65,7 @@ enum BookingStatus {
   ACCEPTED
   ASSIGNED
   ADMIN_ACCEPTED
+  REVIEW_ORDER
   CONFIRMED
   PROCESSING
   READY
@@ -79,6 +80,7 @@ enum BranchOrderStatus {
   ACCEPTED
   ASSIGNED
   ADMIN_ACCEPTED
+  REVIEW_ORDER
   PROCESSING
   READY
   COMPLETED
@@ -87,27 +89,27 @@ enum BranchOrderStatus {
 }
 
 model User {
-  id                         String                  @id @default(cuid())
-  name                       String
-  email                      String                  @unique
-  passwordHash               String
-  role                       Role
-  status                     AccountStatus           @default(ACTIVE)
-  emailVerified              DateTime?               @map("email_verified")
-  contactNumber              String?
-  address                    String?
-  avatar                     String?
-  agentId                    String?                 @unique
-  branchId                   String?                 @unique
-  createdAt                  DateTime                @default(now())
-  updatedAt                  DateTime                @updatedAt
-  sessions                   Session[]
-  verificationCodes          EmailVerificationCode[]
-  inventoryTransactions      InventoryTransaction[]
-  assignedBookings           Booking[]               @relation("BookingAssignedAdmin")
-  assignedBookingActions     Booking[]               @relation("BookingAssignedBy")
-  assignedBranchOrders       BranchOrder[]           @relation("BranchOrderAssignedAdmin")
-  assignedBranchOrderActions BranchOrder[]           @relation("BranchOrderAssignedBy")
+  id                            String                  @id @default(cuid())
+  name                          String
+  email                         String                  @unique
+  passwordHash                  String
+  role                          Role
+  status                        AccountStatus           @default(ACTIVE)
+  emailVerified                 DateTime?               @map("email_verified")
+  contactNumber                 String?
+  address                       String?
+  avatar                        String?
+  agentId                       String?                 @unique
+  branchId                      String?                 @unique
+  createdAt                     DateTime                @default(now())
+  updatedAt                     DateTime                @updatedAt
+  sessions                      Session[]
+  verificationCodes             EmailVerificationCode[]
+  inventoryTransactions         InventoryTransaction[]
+  assignedBookings              Booking[]               @relation("BookingAssignedAdmin")
+  assignedBookingActions        Booking[]               @relation("BookingAssignedBy")
+  assignedBranchOrders          BranchOrder[]           @relation("BranchOrderAssignedAdmin")
+  assignedBranchOrderActions    BranchOrder[]           @relation("BranchOrderAssignedBy")
 
   @@map("users")
 }
@@ -330,31 +332,31 @@ model BookingStatusHistory {
 }
 
 model BranchOrder {
-  id                String                     @id @default(cuid())
-  reference         String                     @unique
-  branchId          String
-  branch            Branch                     @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  branchName        String
-  branchManager     String?
-  branchContact     String?
-  branchAddress     String?
-  orderDate         DateTime
-  subtotal          Decimal                    @db.Decimal(12, 2)
-  discount          Decimal                    @default(0) @db.Decimal(12, 2)
-  totalAmount       Decimal                    @db.Decimal(12, 2)
-  status            BranchOrderStatus          @default(PENDING)
-  notes             String?
-  assignedAdminId   String?
-  assignedAdmin     User?                      @relation("BranchOrderAssignedAdmin", fields: [assignedAdminId], references: [id], onDelete: SetNull)
-  assignedAdminName String?
-  assignedById      String?
-  assignedBy        User?                      @relation("BranchOrderAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
-  assignedByName    String?
-  assignmentDate    DateTime?
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
-  items             BranchOrderItem[]
-  statusHistory     BranchOrderStatusHistory[]
+  id                  String                     @id @default(cuid())
+  reference           String                     @unique
+  branchId            String
+  branch              Branch                     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branchName          String
+  branchManager       String?
+  branchContact       String?
+  branchAddress       String?
+  orderDate           DateTime
+  subtotal            Decimal                    @db.Decimal(12, 2)
+  discount            Decimal                    @default(0) @db.Decimal(12, 2)
+  totalAmount         Decimal                    @db.Decimal(12, 2)
+  status              BranchOrderStatus          @default(PENDING)
+  notes               String?
+  assignedAdminId     String?
+  assignedAdmin       User?                      @relation("BranchOrderAssignedAdmin", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  assignedAdminName   String?
+  assignedById        String?
+  assignedBy          User?                      @relation("BranchOrderAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  assignedByName      String?
+  assignmentDate      DateTime?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  items               BranchOrderItem[]
+  statusHistory       BranchOrderStatusHistory[]
 
   @@index([status, createdAt])
   @@index([branchId, createdAt])

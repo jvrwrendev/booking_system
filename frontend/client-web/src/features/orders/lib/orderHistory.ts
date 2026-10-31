@@ -50,7 +50,7 @@ export function bookingTimeline(booking: Booking): TimelineEvent[] {
       timestamp: booking.assignmentDate
         ? formatDateTime(booking.assignmentDate)
         : "",
-      by: booking.assignedByName ?? "Super Admin",
+      by: booking.assignedByName ?? "Admin",
       active: booking.status === "assigned",
     });
   }
@@ -92,7 +92,7 @@ export function branchOrderTimeline(order: BranchOrder): TimelineEvent[] {
       timestamp: order.assignmentDate
         ? formatDateTime(order.assignmentDate)
         : "",
-      by: order.assignedByName ?? "Super Admin",
+      by: order.assignedByName ?? "Admin",
       active: order.status === "assigned",
     });
   }

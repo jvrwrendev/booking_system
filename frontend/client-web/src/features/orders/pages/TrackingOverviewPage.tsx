@@ -43,11 +43,12 @@ const AGENT_STATUS_OPTIONS = [
   "accepted",
   "assigned",
   "admin_accepted",
+  "review_order",
   "confirmed",
   "processing",
   "ready",
-  "completed",
   "ready_for_delivery",
+  "completed",
   "cancelled",
   "rejected",
 ] as const;
@@ -57,10 +58,11 @@ const BRANCH_STATUS_OPTIONS = [
   "assigned",
   "accepted",
   "admin_accepted",
+  "review_order",
   "processing",
   "ready",
-  "completed",
   "ready_for_delivery",
+  "completed",
   "rejected",
 ] as const;
 

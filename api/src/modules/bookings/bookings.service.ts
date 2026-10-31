@@ -31,6 +31,7 @@ export interface BookingActor {
   name: string;
   role?: Role;
   branchId?: string | null;
+  agentId?: string | null;
 }
 
 export interface BookingItemView {
@@ -95,6 +96,7 @@ const STATUS_LABELS: Record<BookingStatus, string> = {
   ACCEPTED: "Accepted",
   ASSIGNED: "Assigned",
   ADMIN_ACCEPTED: "Admin accepted",
+  REVIEW_ORDER: "Review order",
   CONFIRMED: "Confirmed",
   PROCESSING: "Processing",
   READY: "Ready",
@@ -108,24 +110,25 @@ const ALLOWED_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
   PENDING: ["ACCEPTED", "REJECTED", "CANCELLED"],
   ACCEPTED: ["ASSIGNED", "REJECTED", "CANCELLED"],
   ASSIGNED: ["ADMIN_ACCEPTED", "REJECTED", "CANCELLED"],
-  ADMIN_ACCEPTED: ["CONFIRMED", "PROCESSING", "CANCELLED"],
-  CONFIRMED: ["PROCESSING", "CANCELLED"],
-  PROCESSING: ["READY", "CANCELLED"],
-  READY: ["COMPLETED", "CANCELLED"],
-  COMPLETED: ["READY_FOR_DELIVERY"],
-  READY_FOR_DELIVERY: [],
+  ADMIN_ACCEPTED: ["REVIEW_ORDER", "REJECTED", "CANCELLED"],
+  REVIEW_ORDER: ["PROCESSING", "REJECTED", "CANCELLED"],
+  CONFIRMED: ["REVIEW_ORDER", "PROCESSING", "REJECTED", "CANCELLED"],
+  PROCESSING: ["READY", "REJECTED", "CANCELLED"],
+  READY: ["READY_FOR_DELIVERY", "REJECTED", "CANCELLED"],
+  READY_FOR_DELIVERY: ["COMPLETED", "CANCELLED"],
+  COMPLETED: [],
   CANCELLED: [],
   REJECTED: [],
 };
 
 const TERMINAL_STATUSES = new Set<BookingStatus>([
   "COMPLETED",
-  "READY_FOR_DELIVERY",
   "CANCELLED",
   "REJECTED",
 ]);
 
 const STOCK_COMMITTED_STATUSES = new Set<BookingStatus>([
+  "REVIEW_ORDER",
   "CONFIRMED",
   "PROCESSING",
   "READY",
@@ -348,10 +351,25 @@ async function assertItemsEditable(
   }
 }
 
+function assertBookingAccess(
+  booking: BookingRecord,
+  actor: BookingActor,
+): void {
+  if (actor.role === "AGENT") {
+    if (!actor.agentId || booking.agentId !== actor.agentId) {
+      throw Errors.forbidden("You can only access your own bookings");
+    }
+  }
+  if (actor.role === "BRANCH" && booking.branchId !== actor.branchId) {
+    throw Errors.forbidden("You can only access bookings for your branch");
+  }
+}
+
 function assertAssignedActor(
   booking: BookingRecord,
   actor: BookingActor,
 ): void {
+  if (actor.role !== "ADMIN" && actor.role !== "SUPER_ADMIN") return;
   if (
     booking.assignedAdminId &&
     actor.role !== "SUPER_ADMIN" &&
@@ -360,6 +378,49 @@ function assertAssignedActor(
     throw Errors.forbidden(
       "Only the assigned admin can update this booking",
     );
+  }
+}
+
+function assertStatusChangeAllowed(
+  booking: BookingRecord,
+  target: BookingStatus,
+  actor: BookingActor,
+): void {
+  if (actor.role === "AGENT") {
+    assertBookingAccess(booking, actor);
+    if (
+      booking.status !== "READY_FOR_DELIVERY" ||
+      target !== "COMPLETED"
+    ) {
+      throw Errors.forbidden(
+        "Agents can only complete bookings that are ready for delivery",
+      );
+    }
+    return;
+  }
+
+  if (actor.role !== "ADMIN" && actor.role !== "SUPER_ADMIN") {
+    throw Errors.forbidden("You cannot change this booking status");
+  }
+  if (target === "COMPLETED") {
+    throw Errors.forbidden(
+      "Only the assigned agent can complete this booking",
+    );
+  }
+  assertAssignedActor(booking, actor);
+}
+
+function statusActionLabel(status: BookingStatus, actorName: string): string {
+  switch (status) {
+    case "ACCEPTED":
+    case "ADMIN_ACCEPTED":
+      return `${actorName} accepted`;
+    case "REVIEW_ORDER":
+      return "Reviewed order";
+    case "COMPLETED":
+      return `${actorName} completed the order`;
+    default:
+      return STATUS_LABELS[status];
   }
 }
 
@@ -425,9 +486,12 @@ export async function listBookings(
     };
   }
 
-  // Branch users only ever see their own branch. The DMS currently grants
-  // this module to admins, but keeping the guard here prevents a future role
-  // change from exposing cross-branch data.
+  if (actor.role === "AGENT") {
+    if (!actor.agentId) {
+      throw Errors.forbidden("No agent profile is linked to this account");
+    }
+    where.agentId = actor.agentId;
+  }
   if (actor.role === "BRANCH" && actor.branchId) {
     where.branchId = actor.branchId;
   }
@@ -456,14 +520,26 @@ export async function listBookings(
   };
 }
 
-export async function getBookingById(id: string): Promise<BookingView> {
-  return toBookingView(await mustGetBooking(id));
+export async function getBookingById(
+  id: string,
+  actor: BookingActor,
+): Promise<BookingView> {
+  const booking = await mustGetBooking(id);
+  assertBookingAccess(booking, actor);
+  return toBookingView(booking);
 }
 
 export async function createBooking(
   input: CreateBookingDto,
   actor: BookingActor,
 ): Promise<BookingView> {
+  if (actor.role === "AGENT" && !actor.agentId) {
+    throw Errors.forbidden("No agent profile is linked to this account");
+  }
+  const agentId =
+    actor.role === "AGENT" ? (actor.agentId ?? null) : input.agentId || null;
+  const agentName = actor.role === "AGENT" ? actor.name : input.agentName;
+
   try {
     const booking = await prisma.$transaction(async (tx) => {
       const branch = await resolveBranch(tx, input.branchId);
@@ -479,8 +555,8 @@ export async function createBooking(
           customerName: input.customerName,
           customerContact: input.customerContact || null,
           customerAddress: input.customerAddress || null,
-          agentId: input.agentId || null,
-          agentName: input.agentName,
+          agentId,
+          agentName,
           branchId: branch.id,
           branchName: branch.name,
           bookingDate: input.bookingDate,
@@ -503,7 +579,7 @@ export async function createBooking(
           statusHistory: {
             create: {
               toStatus: "PENDING",
-              label: "Booking created",
+              label: "Order created",
               byName: actor.name,
             },
           },
@@ -618,7 +694,7 @@ export async function updateBooking(
           create: {
             fromStatus: booking.status,
             toStatus: booking.status,
-            label: "Booking details updated",
+            label: "Order details updated",
             byName: actor.name,
           },
         },
@@ -649,7 +725,8 @@ export async function updateBookingStatus(
 ): Promise<BookingView> {
   const updated = await prisma.$transaction(async (tx) => {
     const booking = await mustGetBooking(id, tx);
-    assertAssignedActor(booking, actor);
+    assertBookingAccess(booking, actor);
+    assertStatusChangeAllowed(booking, input.status, actor);
 
     if (booking.status === input.status) {
       throw Errors.badRequest(
@@ -700,7 +777,7 @@ export async function updateBookingStatus(
           create: {
             fromStatus: booking.status,
             toStatus: input.status,
-            label: input.note || statusLabel(input.status),
+            label: input.note || statusActionLabel(input.status, actor.name),
             byName: actor.name,
           },
         },

@@ -67,6 +67,7 @@ const STATUS_LABELS: Record<string, string> = {
   ACCEPTED: "Accepted",
   ASSIGNED: "Assigned",
   ADMIN_ACCEPTED: "Admin accepted",
+  REVIEW_ORDER: "Review order",
   CONFIRMED: "Confirmed",
   PROCESSING: "Processing",
   READY: "Ready",

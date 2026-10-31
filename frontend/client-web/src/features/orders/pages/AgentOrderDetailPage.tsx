@@ -15,12 +15,12 @@ import { DetailRow } from "@/components/common/DescriptionList";
 import { NotFound } from "@/components/common/NotFound";
 
 import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
+import { useBookingLookups } from "@/features/bookings/hooks/useBookingLookups";
 import { AssignmentDialog } from "@/features/bookings/components/AssignmentDialog";
 import { DiscountDialog } from "../components/DiscountDialog";
 import { bookingTimeline } from "../lib/orderHistory";
 import { mockCustomers } from "@/data/mock-customers";
 import { mockAgents } from "@/data/mock-agents";
-import { mockUsers } from "@/data/mock-users";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
@@ -28,7 +28,6 @@ import type { BookingStatus } from "@/types/booking";
 
 const TERMINAL_STATUSES = [
   "completed",
-  "ready_for_delivery",
   "cancelled",
   "rejected",
 ] as BookingStatus[];
@@ -43,11 +42,11 @@ const NEXT_ACTION: Record<
   { label: string; target: BookingStatus; confirm?: boolean }
 > = {
   assigned: { label: "Accept Order", target: "admin_accepted", confirm: true },
-  admin_accepted: { label: "Process Order", target: "processing" },
-  confirmed: { label: "Process Order", target: "processing" },
+  admin_accepted: { label: "Review Order", target: "review_order" },
+  confirmed: { label: "Review Order", target: "review_order" },
+  review_order: { label: "Process Order", target: "processing" },
   processing: { label: "Mark as Ready", target: "ready" },
-  ready: { label: "Complete Order", target: "completed", confirm: true },
-  completed: {
+  ready: {
     label: "Ready for Delivery",
     target: "ready_for_delivery",
     confirm: true,
@@ -60,7 +59,9 @@ export function AgentOrderDetailPage() {
   const { getBooking, setStatus, assignBooking, reassignBooking, applyDiscount } =
     useBookingsStore();
   const { user } = useAuth();
-  const { isSuperAdmin } = usePermissions();
+  const { role, isSuperAdmin } = usePermissions();
+  const isAdminUser = role === "ADMIN" || role === "SUPER_ADMIN";
+  const { admins } = useBookingLookups(isAdminUser);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -92,10 +93,10 @@ export function AgentOrderDetailPage() {
   const customer = mockCustomers.find((c) => c.id === booking.customerId);
   const agent = mockAgents.find((a) => a.id === booking.agentId);
   const assignedUser = booking.assignedAdminId
-    ? mockUsers.find((u) => u.id === booking.assignedAdminId)
+    ? admins.find((u) => u.id === booking.assignedAdminId)
     : undefined;
   const isAssignedToMe = !!user?.id && booking.assignedAdminId === user.id;
-  const canProcess = isAssignedToMe;
+  const canProcess = isAssignedToMe || isSuperAdmin;
   const nextAction = canProcess ? NEXT_ACTION[booking.status] : undefined;
   const timeline = bookingTimeline(booking);
   const isTerminal = TERMINAL_STATUSES.includes(booking.status);
@@ -113,8 +114,6 @@ export function AgentOrderDetailPage() {
 
   const confirmTitle = (() => {
     switch (pendingAction?.target) {
-      case "completed":
-        return "Complete this order?";
       case "ready_for_delivery":
         return "Mark order ready for delivery?";
       case "admin_accepted":
@@ -128,12 +127,10 @@ export function AgentOrderDetailPage() {
 
   const confirmDescription = (() => {
     switch (pendingAction?.target) {
-      case "completed":
-        return `This will complete order ${booking.reference}. This action cannot be undone.`;
       case "ready_for_delivery":
-        return `Order ${booking.reference} will be marked as ready for delivery. This action cannot be undone.`;
+        return `Order ${booking.reference} will be assigned to ${booking.agentName} for delivery. The delivery agent completes the order after a successful delivery.`;
       case "admin_accepted":
-        return `You are accepting order ${booking.reference}. It will move to the accepted stage for processing.`;
+        return `You are accepting order ${booking.reference}. It will move to the review stage.`;
       case "rejected":
         return `This will reject order ${booking.reference}. This action cannot be undone.`;
       default:
@@ -168,7 +165,7 @@ export function AgentOrderDetailPage() {
               variant={getStatusVariant(booking.status)}
               label={humanize(booking.status)}
             />
-            {isSuperAdmin && (
+            {isAdminUser && (
               <div className="flex flex-wrap items-center justify-end gap-2">
                 {booking.status === "pending" && (
                   <>
@@ -221,7 +218,7 @@ export function AgentOrderDetailPage() {
         }
       />
 
-      {booking.assignedAdminId && !isAssignedToMe && (
+      {booking.assignedAdminId && !isAssignedToMe && !isSuperAdmin && (
         <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
@@ -234,7 +231,7 @@ export function AgentOrderDetailPage() {
         </div>
       )}
 
-      {isSuperAdmin && isTerminal && (
+      {isAdminUser && isTerminal && (
         <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
@@ -425,7 +422,7 @@ export function AgentOrderDetailPage() {
         onConfirm={applyAction}
       />
 
-      {user && isSuperAdmin && (
+      {user && isAdminUser && (
         <AssignmentDialog
           open={assignmentOpen}
           onOpenChange={setAssignmentOpen}
@@ -437,7 +434,7 @@ export function AgentOrderDetailPage() {
             assignedByName: booking.assignedByName,
             assignmentDate: booking.assignmentDate,
           }}
-          admins={mockUsers}
+          admins={admins}
           currentUser={user}
           onAssign={(admin, by) => {
             if (booking.assignedAdminId) {

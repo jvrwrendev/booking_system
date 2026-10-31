@@ -18,6 +18,8 @@ function toneFor(status: string) {
     case "ACCEPTED":
     case "admin_accepted":
     case "ADMIN_ACCEPTED":
+    case "review_order":
+    case "REVIEW_ORDER":
     case "processing":
     case "PROCESSING":
       return "info" as const;

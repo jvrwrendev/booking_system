@@ -1,8 +1,13 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertCircle, ArrowLeft } from "lucide-react-native";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -31,13 +36,12 @@ export function BookingDetailScreen() {
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
 
+  const agentId = user?.agentId ?? "";
+
   const load = useCallback(async () => {
     setError(null);
     try {
-      const b = await getBookingForAgent(
-        route.params.bookingId,
-        user?.agentId ?? "",
-      );
+      const b = await getBookingForAgent(route.params.bookingId, agentId);
       setBooking(b);
       if (!b) setError("Booking not found.");
     } catch {
@@ -45,29 +49,31 @@ export function BookingDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [route.params.bookingId, user?.agentId]);
+  }, [route.params.bookingId, agentId]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   const onMarkCompleted = async () => {
     if (!booking || completing) return;
     setCompleting(true);
     setCompleteError(null);
     try {
-      const updated = await updateBookingStatus(
-        booking.id,
-        "completed",
-        user?.fullName ?? "Agent",
-      );
+      const updated = await updateBookingStatus(booking.id, "completed");
       if (updated) {
         setBooking(updated);
       } else {
         setCompleteError("Booking not found.");
       }
-    } catch {
-      setCompleteError("Failed to update booking. Please try again.");
+    } catch (updateFailure) {
+      setCompleteError(
+        updateFailure instanceof Error && updateFailure.message
+          ? updateFailure.message
+          : "Failed to update booking. Please try again.",
+      );
     } finally {
       setCompleting(false);
     }
@@ -114,6 +120,16 @@ export function BookingDetailScreen() {
               <Text weight="semibold" className="mt-1">
                 {booking.customerName}
               </Text>
+              {booking.customerContact ? (
+                <Text variant="small" tone="muted" className="mt-0.5">
+                  {booking.customerContact}
+                </Text>
+              ) : null}
+              {booking.customerAddress ? (
+                <Text variant="small" tone="muted" className="mt-0.5">
+                  {booking.customerAddress}
+                </Text>
+              ) : null}
               <View className="mt-3 flex-row justify-between">
                 <Text variant="small" tone="muted">
                   Booking date
@@ -124,12 +140,30 @@ export function BookingDetailScreen() {
               </View>
               <View className="mt-1 flex-row justify-between">
                 <Text variant="small" tone="muted">
+                  Branch
+                </Text>
+                <Text variant="small" weight="medium">
+                  {booking.branchName}
+                </Text>
+              </View>
+              <View className="mt-1 flex-row justify-between">
+                <Text variant="small" tone="muted">
                   Agent
                 </Text>
                 <Text variant="small" weight="medium">
                   {booking.agentName}
                 </Text>
               </View>
+              {booking.assignedAdminName ? (
+                <View className="mt-1 flex-row justify-between">
+                  <Text variant="small" tone="muted">
+                    Admin
+                  </Text>
+                  <Text variant="small" weight="medium">
+                    {booking.assignedAdminName}
+                  </Text>
+                </View>
+              ) : null}
             </Card>
 
             <Card className="mt-4">
@@ -188,7 +222,7 @@ export function BookingDetailScreen() {
         )}
       </ScrollView>
 
-      {booking?.status === "ready" ? (
+      {booking?.status === "ready_for_delivery" ? (
         <View className="border-t border-border px-6 pb-3 pt-4">
           {completeError ? (
             <View className="mb-3 flex-row items-start gap-2.5 rounded-md border border-danger/30 bg-danger/5 px-3 py-2.5">
@@ -203,7 +237,7 @@ export function BookingDetailScreen() {
             </View>
           ) : null}
           <Button
-            label="Mark as completed"
+            label="Confirm delivery & complete"
             size="control"
             fullWidth
             loading={completing}
