@@ -14,6 +14,7 @@ export type BookingStatus =
   | "rejected";
 
 export interface BookingItem {
+  id: string;
   productId: string;
   productName: string;
   sku: string;
@@ -27,6 +28,8 @@ export interface Booking {
   reference: string;
   customerId: string;
   customerName: string;
+  customerContact?: string;
+  customerAddress?: string;
   agentId: string;
   agentName: string;
   branchId: string;
@@ -40,6 +43,7 @@ export interface Booking {
   totalAmount: number;
   status: BookingStatus;
   createdAt: string;
+  updatedAt: string;
   notes?: string;
   assignedAdminId?: string | null;
   assignedAdminName?: string | null;

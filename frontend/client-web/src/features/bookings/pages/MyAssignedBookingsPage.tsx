@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Eye, Filter, MoreHorizontal, ShoppingCart } from "lucide-react";
 
@@ -26,34 +26,37 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { useBookingsStore } from "../hooks/useBookingsStore";
+import { useBookingList } from "../hooks/useBookingList";
+import { useBookingLookups } from "../hooks/useBookingLookups";
 import type { Booking } from "@/types/booking";
-import { mockBranches } from "@/data/mock-branches";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
 export function MyAssignedBookingsPage() {
   const { user } = useAuth();
-  const { bookings } = useBookingsStore();
+  const { branches } = useBookingLookups();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
 
-  const myBookings = useMemo(
-    () =>
-      bookings.filter(
-        (b) => !!b.assignedAdminId && b.assignedAdminId === user?.id
-      ),
-    [bookings, user?.id]
-  );
-
-  const filtered = useMemo(
-    () =>
-      myBookings.filter((b) => {
-        if (statusFilter !== "all" && b.status !== statusFilter) return false;
-        if (branchFilter !== "all" && b.branchId !== branchFilter) return false;
-        return true;
-      }),
-    [myBookings, statusFilter, branchFilter]
+  const {
+    bookings,
+    total,
+    loading,
+    error,
+    refresh,
+    searchInput,
+    setSearchInput,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+  } = useBookingList(
+    {
+      status: statusFilter,
+      branchId: branchFilter,
+      assignedAdminId: user?.id ?? "__none__",
+    },
+    10,
   );
 
   const columns: DataTableColumn<Booking>[] = [
@@ -167,26 +170,37 @@ export function MyAssignedBookingsPage() {
       />
 
       <DataTable<Booking>
-        data={filtered}
+        data={bookings}
         columns={columns}
         searchPlaceholder="Search by reference, customer..."
-        searchKeys={[
-          "reference",
-          "customerName",
-          "agentName",
-          "branchName",
-        ]}
         rowKey={(b) => b.id}
+        loading={loading}
+        error={error}
+        onRetry={refresh}
+        serverMode={{
+          search: searchInput,
+          onSearchChange: setSearchInput,
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
         toolbar={
           <>
             <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[150px]">
+              <SelectTrigger
+                aria-label="Filter by status"
+                className="h-9 w-full sm:w-[150px]"
+              >
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                {ORDER_STATUS_OPTIONS.map((option) => (
+                {ORDER_STATUS_OPTIONS.filter(
+                  (option) => option.value !== "all",
+                ).map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -194,14 +208,17 @@ export function MyAssignedBookingsPage() {
               </SelectContent>
             </Select>
             <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger aria-label="Filter by branch" className="h-9 w-full sm:w-[170px]">
+              <SelectTrigger
+                aria-label="Filter by branch"
+                className="h-9 w-full sm:w-[170px]"
+              >
                 <SelectValue placeholder="Branch" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All branches</SelectItem>
-                {mockBranches.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.name}
+                {branches.map((branch) => (
+                  <SelectItem key={branch.id} value={branch.id}>
+                    {branch.name}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -1,10 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarDays, CheckCircle2, History, Mail, MapPin, Phone, RefreshCw, ShieldAlert, Truck, User, UserCheck, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  History,
+  MapPin,
+  Phone,
+  RefreshCw,
+  ShieldAlert,
+  Trash2,
+  Truck,
+  User,
+  UserCheck,
+  XCircle,
+} from "lucide-react";
+import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/common/PageHeader";
 import { ActivityTimeline } from "@/components/common/ActivityTimeline";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -13,12 +29,13 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { OrderItemsTable } from "@/components/common/OrderItemsTable";
 import { DetailRow } from "@/components/common/DescriptionList";
 import { NotFound } from "@/components/common/NotFound";
+import { ErrorState } from "@/components/common/ErrorState";
 
 import { useBookingsStore } from "../hooks/useBookingsStore";
+import { useBookingLookups } from "../hooks/useBookingLookups";
 import { AssignmentDialog } from "../components/AssignmentDialog";
-import { mockCustomers } from "@/data/mock-customers";
-import { mockAgents } from "@/data/mock-agents";
-import { mockUsers } from "@/data/mock-users";
+import { deleteBooking as deleteBookingRequest } from "../services/bookings.service";
+import { ApiError } from "@/lib/api-client";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,16 +52,56 @@ interface ActionButton {
 export function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getBooking, setStatus, assignBooking, reassignBooking } =
-    useBookingsStore();
+  const {
+    getBooking,
+    loadBooking,
+    removeBooking,
+    loading,
+    error,
+    setStatus,
+    assignBooking,
+    reassignBooking,
+  } = useBookingsStore();
   const { can, isSuperAdmin } = usePermissions();
   const { user } = useAuth();
+  const { admins } = useBookingLookups(isSuperAdmin);
 
   const booking = id ? getBooking(id) : undefined;
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [loadAttempted, setLoadAttempted] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id || getBooking(id)) {
+      setLoadAttempted(true);
+      return;
+    }
+    let cancelled = false;
+    setLoadError(null);
+    void loadBooking(id)
+      .then((result) => {
+        if (!cancelled && !result) {
+          setLoadError("Could not load booking. Please try again.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadAttempted(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // getBooking intentionally omitted: the id is the load trigger and the
+    // store cache is checked at effect time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, loadBooking]);
 
   if (!booking) {
+    const waiting = loading || !loadAttempted;
+    const displayError = loadError ?? error;
     return (
       <div className="space-y-4">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
@@ -53,18 +110,43 @@ export function BookingDetailPage() {
             Back to bookings
           </Link>
         </Button>
-        <NotFound
-          title="Booking not found"
-          message="The booking you are looking for does not exist."
-          backHref="/bookings"
-          backLabel="Back to bookings"
-        />
+        {waiting ? (
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-64" />
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Skeleton className="h-64 lg:col-span-2" />
+              <Skeleton className="h-64" />
+            </div>
+          </div>
+        ) : displayError ? (
+          <ErrorState
+            title="Could not load booking"
+            message={displayError}
+            onRetry={() => {
+              setLoadError(null);
+              setLoadAttempted(false);
+              if (id) {
+                void loadBooking(id)
+                  .then((result) => {
+                    if (!result) {
+                      setLoadError("Could not load booking. Please try again.");
+                    }
+                  })
+                  .finally(() => setLoadAttempted(true));
+              }
+            }}
+          />
+        ) : (
+          <NotFound
+            title="Booking not found"
+            message="The booking you are looking for does not exist."
+            backHref="/bookings"
+            backLabel="Back to bookings"
+          />
+        )}
       </div>
     );
   }
-
-  const customer = mockCustomers.find((c) => c.id === booking.customerId);
-  const agent = mockAgents.find((a) => a.id === booking.agentId);
 
   const timeline = buildTimeline(booking);
   const canUpdate = can("bookings.update");
@@ -86,6 +168,34 @@ export function BookingDetailPage() {
       onReadyForDelivery: () => setStatus(booking.id, "ready_for_delivery"),
     }
   );
+
+  const canDelete =
+    can("bookings.delete") &&
+    ["pending", "accepted", "assigned", "admin_accepted", "cancelled", "rejected"].includes(
+      booking.status,
+    );
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteBookingRequest(booking.id);
+      removeBooking(booking.id);
+      toast.success("Booking deleted", {
+        description: `${booking.reference} was removed.`,
+      });
+      navigate("/bookings");
+    } catch (err) {
+      toast.error("Could not delete booking", {
+        description:
+          err instanceof ApiError
+            ? err.message
+            : "The booking was not deleted. Please try again.",
+      });
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  };
 
   const headerActions = (
     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -118,6 +228,29 @@ export function BookingDetailPage() {
             </Button>
           </>
         )}
+      {canUpdate &&
+        !isTerminal &&
+        (isSuperAdmin || isAssignedToMe) && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setCancelOpen(true)}
+          >
+            <XCircle className="h-4 w-4" />
+            Cancel
+          </Button>
+        )}
+      {canDelete && (
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={() => setDeleteOpen(true)}
+          disabled={deleting}
+        >
+          <Trash2 className="h-4 w-4" />
+          {deleting ? "Deleting..." : "Delete"}
+        </Button>
+      )}
       {isSuperAdmin &&
         !isTerminal &&
         booking.status === "accepted" &&
@@ -200,7 +333,7 @@ export function BookingDetailPage() {
           <CardContent className="space-y-3">
             <OrderItemsTable
               items={booking.items.map((item) => ({
-                key: item.productId,
+                key: item.id,
                 productName: item.productName,
                 sku: item.sku,
                 quantity: item.quantity,
@@ -231,13 +364,15 @@ export function BookingDetailPage() {
               <CardTitle>Customer</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
+              <InfoLine icon={User} label={booking.customerName} />
               <InfoLine
-                icon={User}
-                label={customer?.fullName ?? booking.customerName}
+                icon={Phone}
+                label={booking.customerContact || "No contact number"}
               />
-              <InfoLine icon={Phone} label={customer?.contactNumber ?? "—"} />
-              <InfoLine icon={Mail} label={customer?.email ?? "—"} />
-              <InfoLine icon={MapPin} label={customer?.address ?? "—"} />
+              <InfoLine
+                icon={MapPin}
+                label={booking.customerAddress || "No address provided"}
+              />
             </CardContent>
           </Card>
           <Card>
@@ -245,13 +380,15 @@ export function BookingDetailPage() {
               <CardTitle>Agent</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
+              <InfoLine icon={User} label={booking.agentName} />
               <InfoLine
-                icon={User}
-                label={agent?.fullName ?? booking.agentName}
+                icon={UserCheck}
+                label={
+                  booking.agentId
+                    ? `Agent ID: ${booking.agentId}`
+                    : "Agent ID not recorded"
+                }
               />
-              <InfoLine icon={Phone} label={agent?.contactNumber ?? "—"} />
-              <InfoLine icon={Mail} label={agent?.email ?? "—"} />
-              <InfoLine icon={MapPin} label={agent?.address ?? "—"} />
             </CardContent>
           </Card>
           <Card>
@@ -316,12 +453,10 @@ export function BookingDetailPage() {
               label="Created"
               value={formatDateTime(booking.createdAt)}
             />
-            {booking.assignmentDate && (
-              <SummaryLine
-                label="Last Updated"
-                value={formatDateTime(booking.assignmentDate)}
-              />
-            )}
+            <SummaryLine
+              label="Last Updated"
+              value={formatDateTime(booking.updatedAt)}
+            />
             <Separator />
           </CardContent>
         </Card>
@@ -340,6 +475,29 @@ export function BookingDetailPage() {
         }}
       />
 
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="Cancel this booking?"
+        description={`This will cancel booking ${booking.reference} and release any stock already committed to it. This action cannot be undone.`}
+        confirmText="Cancel booking"
+        destructive
+        onConfirm={() => {
+          setStatus(booking.id, "cancelled");
+          setCancelOpen(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete this booking?"
+        description={`This will permanently delete ${booking.reference}. Only bookings without outstanding committed stock can be deleted.`}
+        confirmText={deleting ? "Deleting..." : "Delete booking"}
+        destructive
+        onConfirm={() => void handleDelete()}
+      />
+
       {user &&
         isSuperAdmin &&
         !isTerminal &&
@@ -355,13 +513,13 @@ export function BookingDetailPage() {
               assignedByName: booking.assignedByName,
               assignmentDate: booking.assignmentDate,
             }}
-            admins={mockUsers}
+            admins={admins}
             currentUser={user}
             onAssign={(admin, by) => {
-              if (booking.status === "accepted") {
-                assignBooking(booking.id, admin, by);
+              if (booking.assignedAdminId) {
+                void reassignBooking(booking.id, admin, by);
               } else {
-                reassignBooking(booking.id, admin, by);
+                void assignBooking(booking.id, admin, by);
               }
             }}
           />
@@ -440,6 +598,22 @@ function buildActionButtons(
 }
 
 function buildTimeline(booking: Booking) {
+  if (booking.statusHistory && booking.statusHistory.length > 0) {
+    return booking.statusHistory.map((entry, index) => ({
+      id: entry.id,
+      title: entry.label || humanize(entry.to),
+      description:
+        entry.from && entry.from !== entry.to
+          ? `From ${humanize(entry.from)} to ${humanize(entry.to)}`
+          : "",
+      timestamp: formatDateTime(entry.timestamp),
+      by: entry.by,
+      active:
+        index === booking.statusHistory!.length - 1 ||
+        entry.to === booking.status,
+    }));
+  }
+
   const sequence: BookingStatus[] = [
     "pending",
     "accepted",
@@ -493,11 +667,7 @@ function buildTimeline(booking: Booking) {
         ? `Booking is currently ${humanize(status).toLowerCase()}.`
         : "",
       timestamp: isCurrent ? formatDateTime(booking.createdAt) : "",
-      by: isCurrent
-        ? booking.assignedAdminId
-        ? "Admin"
-          : "Super Admin"
-        : "",
+      by: isCurrent ? (booking.assignedAdminId ? "Admin" : "Super Admin") : "",
       active: isCurrent,
     });
   });

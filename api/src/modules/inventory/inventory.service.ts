@@ -874,70 +874,9 @@ export async function commitOrderStock(
   actor: InventoryActor,
 ): Promise<{ committed: number; skipped: number }> {
   try {
-    return await prisma.$transaction(async (tx) => {
-    const branchId = await resolveBranchId(tx, input.branchId);
-    const { items, skipped } = await resolveOrderItems(tx, input);
-
-    if (items.length === 0) {
-      return { committed: 0, skipped };
-    }
-
-    const existing = await tx.inventoryTransaction.findMany({
-      where: {
-        referenceType,
-        referenceId,
-        type: "ORDER_COMMIT",
-        productId: { in: items.map((item) => item.productId) },
-      },
-      select: { productId: true },
-    });
-    const committedProducts = new Set(existing.map((row) => row.productId));
-
-    let committed = 0;
-
-    for (const item of items) {
-      if (committedProducts.has(item.productId)) {
-        continue;
-      }
-
-      const product = await mustGetProduct(tx, item.productId);
-      const row = await ensureStockRow(
-        tx,
-        product.id,
-        branchId,
-        product.minimumStockLevel,
-      );
-      const updated = await decrementStock(
-        tx,
-        row.id,
-        item.quantity,
-        product.name,
-      );
-
-      await recordTransaction(tx, {
-        productId: product.id,
-        branchId,
-        type: "ORDER_COMMIT",
-        quantity: -item.quantity,
-        previousStock: updated.currentStock + item.quantity,
-        newStock: updated.currentStock,
-        reason: `Stock committed for ${referenceType.replace("_", " ")} ${referenceId}`,
-        actor,
-        referenceType,
-        referenceId,
-      });
-
-      committed += 1;
-    }
-
-    if (committed > 0) {
-      for (const item of items) {
-        await refreshProductTotals(tx, item.productId);
-      }
-    }
-
-      return { committed, skipped };
-    });
+    return await prisma.$transaction((tx) =>
+      commitOrderStockInTransaction(tx, referenceType, referenceId, input, actor),
+    );
   } catch (error) {
     if (isUniqueTransactionError(error)) {
       // A concurrent confirmation already committed this order. The unique
@@ -948,6 +887,81 @@ export async function commitOrderStock(
   }
 }
 
+/**
+ * Transaction-aware variant used by modules that must update their own
+ * records and inventory atomically (for example booking status changes).
+ */
+export async function commitOrderStockInTransaction(
+  tx: Prisma.TransactionClient,
+  referenceType: string,
+  referenceId: string,
+  input: OrderStockItemsDto,
+  actor: InventoryActor,
+): Promise<{ committed: number; skipped: number }> {
+  const branchId = await resolveBranchId(tx, input.branchId);
+  const { items, skipped } = await resolveOrderItems(tx, input);
+
+  if (items.length === 0) {
+    return { committed: 0, skipped };
+  }
+
+  const existing = await tx.inventoryTransaction.findMany({
+    where: {
+      referenceType,
+      referenceId,
+      type: "ORDER_COMMIT",
+      productId: { in: items.map((item) => item.productId) },
+    },
+    select: { productId: true },
+  });
+  const committedProducts = new Set(existing.map((row) => row.productId));
+
+  let committed = 0;
+
+  for (const item of items) {
+    if (committedProducts.has(item.productId)) {
+      continue;
+    }
+
+    const product = await mustGetProduct(tx, item.productId);
+    const row = await ensureStockRow(
+      tx,
+      product.id,
+      branchId,
+      product.minimumStockLevel,
+    );
+    const updated = await decrementStock(
+      tx,
+      row.id,
+      item.quantity,
+      product.name,
+    );
+
+    await recordTransaction(tx, {
+      productId: product.id,
+      branchId,
+      type: "ORDER_COMMIT",
+      quantity: -item.quantity,
+      previousStock: updated.currentStock + item.quantity,
+      newStock: updated.currentStock,
+      reason: `Stock committed for ${referenceType.replace("_", " ")} ${referenceId}`,
+      actor,
+      referenceType,
+      referenceId,
+    });
+
+    committed += 1;
+  }
+
+  if (committed > 0) {
+    for (const item of items) {
+      await refreshProductTotals(tx, item.productId);
+    }
+  }
+
+  return { committed, skipped };
+}
+
 export async function releaseOrderStock(
   referenceType: string,
   referenceId: string,
@@ -955,81 +969,95 @@ export async function releaseOrderStock(
   actor: InventoryActor,
 ): Promise<{ released: number; skipped: number }> {
   try {
-    return await prisma.$transaction(async (tx) => {
-    const { items, skipped } = await resolveOrderItems(tx, input);
-
-    const committed = await tx.inventoryTransaction.findMany({
-      where: {
-        referenceType,
-        referenceId,
-        type: "ORDER_COMMIT",
-        ...(items.length > 0
-          ? { productId: { in: items.map((item) => item.productId) } }
-          : {}),
-      },
-      select: { productId: true, quantity: true, branchId: true },
-    });
-
-    if (committed.length === 0) {
-      return { released: 0, skipped };
-    }
-
-    const releasedRows = await tx.inventoryTransaction.findMany({
-      where: {
-        referenceType,
-        referenceId,
-        type: "ORDER_RELEASE",
-        productId: { in: committed.map((row) => row.productId) },
-      },
-      select: { productId: true },
-    });
-    const releasedProducts = new Set(releasedRows.map((row) => row.productId));
-
-    let released = 0;
-
-    for (const row of committed) {
-      if (releasedProducts.has(row.productId)) continue;
-
-      const quantity = Math.abs(row.quantity);
-      const product = await mustGetProduct(tx, row.productId);
-      const stockRow = await ensureStockRow(
-        tx,
-        product.id,
-        row.branchId,
-        product.minimumStockLevel,
-      );
-      const updated = await incrementStock(tx, stockRow.id, quantity);
-
-      await recordTransaction(tx, {
-        productId: product.id,
-        branchId: row.branchId,
-        type: "ORDER_RELEASE",
-        quantity,
-        previousStock: updated.currentStock - quantity,
-        newStock: updated.currentStock,
-        reason: `Stock restored for ${referenceType.replace("_", " ")} ${referenceId}`,
-        actor,
-        referenceType,
-        referenceId,
-      });
-
-      released += 1;
-    }
-
-    if (released > 0) {
-      for (const row of committed) {
-        await refreshProductTotals(tx, row.productId);
-      }
-    }
-
-      return { released, skipped };
-    });
+    return await prisma.$transaction((tx) =>
+      releaseOrderStockInTransaction(tx, referenceType, referenceId, input, actor),
+    );
   } catch (error) {
     if (isUniqueTransactionError(error)) {
       return { released: 0, skipped: 0 };
     }
     throw error;
   }
+}
+
+/**
+ * Transaction-aware variant used by modules that must update their own
+ * records and inventory atomically (for example booking cancellations).
+ */
+export async function releaseOrderStockInTransaction(
+  tx: Prisma.TransactionClient,
+  referenceType: string,
+  referenceId: string,
+  input: OrderStockItemsDto,
+  actor: InventoryActor,
+): Promise<{ released: number; skipped: number }> {
+  const { items, skipped } = await resolveOrderItems(tx, input);
+
+  const committed = await tx.inventoryTransaction.findMany({
+    where: {
+      referenceType,
+      referenceId,
+      type: "ORDER_COMMIT",
+      ...(items.length > 0
+        ? { productId: { in: items.map((item) => item.productId) } }
+        : {}),
+    },
+    select: { productId: true, quantity: true, branchId: true },
+  });
+
+  if (committed.length === 0) {
+    return { released: 0, skipped };
+  }
+
+  const releasedRows = await tx.inventoryTransaction.findMany({
+    where: {
+      referenceType,
+      referenceId,
+      type: "ORDER_RELEASE",
+      productId: { in: committed.map((row) => row.productId) },
+    },
+    select: { productId: true },
+  });
+  const releasedProducts = new Set(releasedRows.map((row) => row.productId));
+
+  let released = 0;
+
+  for (const row of committed) {
+    if (releasedProducts.has(row.productId)) continue;
+
+    const quantity = Math.abs(row.quantity);
+    const product = await mustGetProduct(tx, row.productId);
+    const stockRow = await ensureStockRow(
+      tx,
+      product.id,
+      row.branchId,
+      product.minimumStockLevel,
+    );
+    const updated = await incrementStock(tx, stockRow.id, quantity);
+
+    await recordTransaction(tx, {
+      productId: product.id,
+      branchId: row.branchId,
+      type: "ORDER_RELEASE",
+      quantity,
+      previousStock: updated.currentStock - quantity,
+      newStock: updated.currentStock,
+      reason: `Stock restored for ${referenceType.replace("_", " ")} ${referenceId}`,
+      actor,
+      referenceType,
+      referenceId,
+    });
+
+    released += 1;
+  }
+
+  if (released > 0) {
+    for (const row of committed) {
+      await refreshProductTotals(tx, row.productId);
+    }
+  }
+
+  return { released, skipped };
 }
 
 function isUniqueTransactionError(error: unknown): boolean {

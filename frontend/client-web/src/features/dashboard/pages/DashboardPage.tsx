@@ -25,7 +25,6 @@ import { ChartCard } from "@/components/common/ChartCard";
 import { EmptyState } from "@/components/common/EmptyState";
 import { NotificationsCard } from "@/features/notifications/components/NotificationsCard";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -37,11 +36,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { mockCustomers } from "@/data/mock-customers";
-import { mockAgents } from "@/data/mock-agents";
-import { mockBranches } from "@/data/mock-branches";
-import { mockBookings } from "@/data/mock-bookings";
-import { mockReports } from "@/data/mock-reports";
 import {
   formatCurrency,
   formatDate,
@@ -55,25 +49,32 @@ import {
   gridProps,
   tooltipProps,
 } from "@/lib/chart-theme";
-import { getInventorySummary } from "@/features/inventory/services/inventory.service";
+import {
+  getInventorySummary,
+  listInventoryBranches,
+} from "@/features/inventory/services/inventory.service";
+import {
+  listBookingAgents,
+  listBookings,
+} from "@/features/bookings/services/bookings.service";
+import { getReports } from "@/features/reports/services/reports.service";
 import type { InventorySummary } from "@/types/inventory";
-
-/**
- * Marks a panel whose figures come from the seeded sample dataset rather
- * than the live API, so no metric is mistaken for a real measurement.
- */
-function SampleDataBadge() {
-  return (
-    <Badge variant="muted" className="shrink-0 text-xs">
-      Sample data
-    </Badge>
-  );
-}
+import type { Booking } from "@/types/booking";
+import type { ReportsBundleDto } from "@/types/api";
 
 export function DashboardPage() {
   const [inventorySummary, setInventorySummary] =
     useState<InventorySummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
+  const [report, setReport] = useState<ReportsBundleDto | null>(null);
+  const [reportLoading, setReportLoading] = useState(true);
+  const [pendingBookings, setPendingBookings] = useState(0);
+  const [todaysBookings, setTodaysBookings] = useState(0);
+  const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [agentCount, setAgentCount] = useState(0);
+  const [branchCount, setBranchCount] = useState(0);
+  const [lookupsLoading, setLookupsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,51 +94,114 @@ export function DashboardPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    getReports()
+      .then((data) => {
+        if (!cancelled) setReport(data);
+      })
+      .catch(() => {
+        // Booking charts fall back to empty states.
+      })
+      .finally(() => {
+        if (!cancelled) setReportLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    setBookingsLoading(true);
+
+    Promise.all([
+      listBookings({ status: "pending", pageSize: 1 }),
+      listBookings({ dateFrom: todayIso, dateTo: todayIso, pageSize: 1 }),
+      listBookings({ pageSize: 5, sortBy: "createdAt", sortOrder: "desc" }),
+    ])
+      .then(([pending, today, recent]) => {
+        if (cancelled) return;
+        setPendingBookings(pending.total);
+        setTodaysBookings(today.total);
+        setRecentBookings(recent.bookings);
+      })
+      .catch(() => {
+        // Booking widgets show their empty states if the API is unavailable.
+      })
+      .finally(() => {
+        if (!cancelled) setBookingsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([listBookingAgents(), listInventoryBranches()])
+      .then(([agents, branches]) => {
+        if (cancelled) return;
+        setAgentCount(agents.length);
+        setBranchCount(
+          branches.filter((branch) => branch.status === "active").length,
+        );
+      })
+      .catch(() => {
+        // Counts stay at zero when lookups fail.
+      })
+      .finally(() => {
+        if (!cancelled) setLookupsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const lowStockItems = inventorySummary?.alerts ?? [];
-  const pendingBookings = mockBookings.filter((b) => b.status === "pending");
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const todaysBookings = mockBookings.filter((b) => b.bookingDate === todayIso);
-  const totalCustomers = mockCustomers.length;
-  const totalAgents = mockAgents.filter((a) => a.status === "active").length;
-  const totalBranches = mockBranches.filter((b) => b.status === "active").length;
+  const totalCustomers = report?.summary.uniqueCustomers ?? 0;
 
-  const recentBookings = useMemo(
-    () =>
-      [...mockBookings]
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )
-        .slice(0, 5),
-    []
-  );
+  const recentCustomers = useMemo(() => {
+    const seen = new Set<string>();
+    const customers: {
+      id: string;
+      fullName: string;
+      reference: string;
+      branchName: string;
+    }[] = [];
 
-  const recentCustomers = useMemo(
-    () =>
-      [...mockCustomers]
-        .sort(
-          (a, b) =>
-            new Date(b.registeredDate).getTime() -
-            new Date(a.registeredDate).getTime()
-        )
-        .slice(0, 5),
-    []
-  );
+    for (const booking of recentBookings) {
+      const key = booking.customerId || booking.customerName.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      customers.push({
+        id: key,
+        fullName: booking.customerName,
+        reference: booking.reference,
+        branchName: booking.branchName,
+      });
+      if (customers.length >= 5) break;
+    }
+
+    return customers;
+  }, [recentBookings]);
 
   const branchPerformance = useMemo(
     () =>
-      [...mockReports.branchPerformance].sort(
+      [...(report?.branchPerformance ?? [])].sort(
         (a, b) => b.bookings - a.bookings
       ),
-    []
+    [report]
   );
 
   const maxBranchBookings = Math.max(
-    ...mockReports.branchPerformance.map((b) => b.bookings),
+    ...(report?.branchPerformance.map((b) => b.bookings) ?? [0]),
     1
   );
   const maxAgentRevenue = Math.max(
-    ...mockReports.agentPerformance.map((a) => a.revenue),
+    ...(report?.agentPerformance.map((a) => a.revenue) ?? [0]),
     1
   );
 
@@ -185,33 +249,59 @@ export function DashboardPage() {
         />
         <StatisticsCard
           label="Pending Bookings"
-          value={formatNumber(pendingBookings.length)}
+          value={
+            bookingsLoading ? (
+              <Skeleton className="h-7 w-10" />
+            ) : (
+              formatNumber(pendingBookings)
+            )
+          }
           icon={<ShoppingCart className="h-4 w-4" aria-hidden />}
-          badge={<SampleDataBadge />}
         />
         <StatisticsCard
           label="Today's Bookings"
-          value={formatNumber(todaysBookings.length)}
+          value={
+            bookingsLoading ? (
+              <Skeleton className="h-7 w-10" />
+            ) : (
+              formatNumber(todaysBookings)
+            )
+          }
           icon={<ShoppingCart className="h-4 w-4" aria-hidden />}
-          badge={<SampleDataBadge />}
         />
         <StatisticsCard
-          label="Total Customers"
-          value={formatNumber(totalCustomers)}
+          label="Customers"
+          value={
+            reportLoading ? (
+              <Skeleton className="h-7 w-10" />
+            ) : (
+              formatNumber(totalCustomers)
+            )
+          }
           icon={<UsersIcon className="h-4 w-4" aria-hidden />}
-          badge={<SampleDataBadge />}
+          hint="Unique customers in the last 9 months"
         />
         <StatisticsCard
           label="Active Agents"
-          value={formatNumber(totalAgents)}
+          value={
+            lookupsLoading ? (
+              <Skeleton className="h-7 w-10" />
+            ) : (
+              formatNumber(agentCount)
+            )
+          }
           icon={<UserCog className="h-4 w-4" aria-hidden />}
-          badge={<SampleDataBadge />}
         />
         <StatisticsCard
           label="Active Branches"
-          value={formatNumber(totalBranches)}
+          value={
+            lookupsLoading ? (
+              <Skeleton className="h-7 w-10" />
+            ) : (
+              formatNumber(branchCount)
+            )
+          }
           icon={<Building2 className="h-4 w-4" aria-hidden />}
-          badge={<SampleDataBadge />}
         />
       </div>
 
@@ -219,29 +309,37 @@ export function DashboardPage() {
         <ChartCard
           className="lg:col-span-2"
           title="Booking Volume"
-          description="Monthly booking count for the current year."
-          actions={<SampleDataBadge />}
+          description="Monthly booking count."
           height="h-[240px]"
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={mockReports.bookingVolumeMonthly}
-              margin={{ left: 0, right: 0, top: 4, bottom: 0 }}
-            >
-              <CartesianGrid {...gridProps} />
-              <XAxis dataKey="month" {...axisProps} />
-              <YAxis {...axisProps} />
-              <Tooltip {...tooltipProps} />
-              <Area
-                type="monotone"
-                dataKey="count"
-                stroke="hsl(var(--chart-1))"
-                strokeWidth={2}
-                fill="hsl(var(--chart-1))"
-                fillOpacity={0.1}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {reportLoading ? (
+            <Skeleton className="h-full w-full" />
+          ) : (report?.bookingVolumeMonthly.length ?? 0) === 0 ? (
+            <EmptyState
+              title="No booking volume"
+              description="Monthly booking activity will appear here."
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={report?.bookingVolumeMonthly ?? []}
+                margin={{ left: 0, right: 0, top: 4, bottom: 0 }}
+              >
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="month" {...axisProps} />
+                <YAxis {...axisProps} />
+                <Tooltip {...tooltipProps} />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="hsl(var(--chart-1))"
+                  strokeWidth={2}
+                  fill="hsl(var(--chart-1))"
+                  fillOpacity={0.1}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
 
         <NotificationsCard />
@@ -250,11 +348,12 @@ export function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard
           title="Branch Performance"
-          description="Bookings and revenue by branch location."
-          actions={<SampleDataBadge />}
+          description="Bookings and completed revenue by branch location."
           height="auto"
         >
-          {branchPerformance.length === 0 ? (
+          {reportLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : branchPerformance.length === 0 ? (
             <EmptyState
               title="No branch data"
               description="Branch performance will appear here once bookings are recorded."
@@ -268,7 +367,7 @@ export function DashboardPage() {
                     Bookings
                   </TableHead>
                   <TableHead scope="col" className="text-right">
-                    Revenue
+                    Completed Revenue
                   </TableHead>
                   <TableHead scope="col" className="w-[140px]">
                     Activity
@@ -309,11 +408,12 @@ export function DashboardPage() {
 
         <ChartCard
           title="Agent Leaderboard"
-          description="Top performing sales agents by revenue."
-          actions={<SampleDataBadge />}
+          description="Top performing sales agents by completed revenue."
           height="auto"
         >
-          {mockReports.agentPerformance.length === 0 ? (
+          {reportLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : (report?.agentPerformance.length ?? 0) === 0 ? (
             <EmptyState
               title="No agent data"
               description="Agent performance will appear here once bookings are recorded."
@@ -327,7 +427,7 @@ export function DashboardPage() {
                     Bookings
                   </TableHead>
                   <TableHead scope="col" className="text-right">
-                    Revenue
+                    Completed Revenue
                   </TableHead>
                   <TableHead scope="col" className="w-[140px]">
                     Performance
@@ -335,7 +435,7 @@ export function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockReports.agentPerformance.map((ap, idx) => (
+                {(report?.agentPerformance ?? []).map((ap, idx) => (
                   <TableRow key={ap.agent}>
                     <TableCell>
                       <div className="flex items-center gap-2.5">
@@ -379,16 +479,15 @@ export function DashboardPage() {
           title="Recent Bookings"
           description="Latest booking transactions across all branches."
           actions={
-            <>
-              <SampleDataBadge />
-              <Button asChild variant="ghost" size="sm" className="h-8">
-                <Link to="/bookings">View all</Link>
-              </Button>
-            </>
+            <Button asChild variant="ghost" size="sm" className="h-8">
+              <Link to="/bookings">View all</Link>
+            </Button>
           }
           height="auto"
         >
-          {recentBookings.length === 0 ? (
+          {bookingsLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : recentBookings.length === 0 ? (
             <EmptyState
               title="No bookings yet"
               description="New bookings will appear here as soon as they are created."
@@ -500,21 +599,20 @@ export function DashboardPage() {
 
       <ChartCard
         title="Recent Customers"
-        description="Newly registered customers."
+        description="Customers with the latest bookings."
         actions={
-          <>
-            <SampleDataBadge />
-            <Button asChild variant="ghost" size="sm" className="h-8">
-              <Link to="/customers">View all</Link>
-            </Button>
-          </>
+          <Button asChild variant="ghost" size="sm" className="h-8">
+            <Link to="/customers">View all</Link>
+          </Button>
         }
         height="auto"
       >
-        {recentCustomers.length === 0 ? (
+        {bookingsLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : recentCustomers.length === 0 ? (
           <EmptyState
             title="No customers yet"
-            description="Newly registered customers will appear here."
+            description="Customers with recent bookings will appear here."
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -533,7 +631,8 @@ export function DashboardPage() {
                     {customer.fullName}
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
-                    {customer.totalBookings} bookings
+                    {customer.branchName.replace(" Branch", "")} ·{" "}
+                    {customer.reference}
                   </div>
                 </div>
               </div>

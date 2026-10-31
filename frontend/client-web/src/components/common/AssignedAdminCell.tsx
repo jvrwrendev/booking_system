@@ -1,7 +1,6 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { initials } from "@/lib/utils";
-import { mockUsers } from "@/data/mock-users";
 
 interface AssignedAdminCellProps {
   adminId?: string | null;
@@ -20,7 +19,7 @@ interface AssignedAdminCellProps {
 export function AssignedAdminCell({
   adminId,
   adminName,
-  showRole = true,
+  showRole: _showRole = true,
   stacked = false,
   className,
 }: AssignedAdminCellProps) {
@@ -31,11 +30,6 @@ export function AssignedAdminCell({
       </Badge>
     );
   }
-
-  const role = adminId
-    ? mockUsers.find((u) => u.id === adminId)?.role
-    : undefined;
-  const isSuperAdmin = role === "SUPER_ADMIN";
 
   if (stacked) {
     return (
@@ -50,11 +44,6 @@ export function AssignedAdminCell({
             {adminName}
           </p>
         </div>
-        {showRole && isSuperAdmin && (
-          <Badge variant="secondary" className="mt-1 text-xs">
-            Super Admin
-          </Badge>
-        )}
       </div>
     );
   }
@@ -71,11 +60,6 @@ export function AssignedAdminCell({
           {adminName}
         </span>
       </div>
-      {showRole && isSuperAdmin && (
-        <Badge variant="outline" className="mt-1 text-xs">
-          Super Admin
-        </Badge>
-      )}
     </div>
   );
 }

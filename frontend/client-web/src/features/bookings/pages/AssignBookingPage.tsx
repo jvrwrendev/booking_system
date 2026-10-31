@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Eye,
@@ -33,35 +33,61 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 
-import { useBookingsStore } from "../hooks/useBookingsStore";
+import { useBookingList } from "../hooks/useBookingList";
+import { useBookingLookups } from "../hooks/useBookingLookups";
 import { AssignmentDialog } from "../components/AssignmentDialog";
 import type { Booking } from "@/types/booking";
-import { mockBranches } from "@/data/mock-branches";
-import { mockAgents } from "@/data/mock-agents";
-import { mockUsers } from "@/data/mock-users";
 import { formatCurrency, formatDate, initials } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useBookingsStore } from "../hooks/useBookingsStore";
+
+type AssignmentFilter = "all" | "assigned" | "unassigned";
+
+const TERMINAL_FOR_ASSIGNMENT = new Set<Booking["status"]>([
+  "completed",
+  "ready_for_delivery",
+  "cancelled",
+  "rejected",
+]);
+
+function canAssignBooking(booking: Booking): boolean {
+  return (
+    !TERMINAL_FOR_ASSIGNMENT.has(booking.status) &&
+    (Boolean(booking.assignedAdminId) || booking.status === "accepted")
+  );
+}
 
 export function AssignBookingPage() {
   const { user } = useAuth();
-  const { bookings, assignBooking, reassignBooking } = useBookingsStore();
+  const { assignBooking, reassignBooking } = useBookingsStore();
+  const { branches, agents, admins } = useBookingLookups(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
-  const [assignedFilter, setAssignedFilter] = useState<string>("all");
+  const [assignedFilter, setAssignedFilter] =
+    useState<AssignmentFilter>("all");
   const [assignTarget, setAssignTarget] = useState<Booking | null>(null);
 
-  const filtered = useMemo(
-    () =>
-      bookings.filter((b) => {
-        if (statusFilter !== "all" && b.status !== statusFilter) return false;
-        if (branchFilter !== "all" && b.branchId !== branchFilter) return false;
-        if (agentFilter !== "all" && b.agentId !== agentFilter) return false;
-        if (assignedFilter === "assigned" && !b.assignedAdminId) return false;
-        if (assignedFilter === "unassigned" && b.assignedAdminId) return false;
-        return true;
-      }),
-    [bookings, statusFilter, branchFilter, agentFilter, assignedFilter]
+  const {
+    bookings,
+    total,
+    loading,
+    error,
+    refresh,
+    searchInput,
+    setSearchInput,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+  } = useBookingList(
+    {
+      status: statusFilter,
+      branchId: branchFilter,
+      agentId: agentFilter,
+      assignment: assignedFilter === "all" ? undefined : assignedFilter,
+    },
+    10,
   );
 
   const columns: DataTableColumn<Booking>[] = [
@@ -196,7 +222,7 @@ export function AssignBookingPage() {
                 View details
               </Link>
             </DropdownMenuItem>
-            {(b.assignedAdminId || b.status === "accepted") && (
+            {canAssignBooking(b) && (
               <DropdownMenuItem onSelect={() => setAssignTarget(b)}>
                 {b.assignedAdminId ? (
                   <>
@@ -226,27 +252,37 @@ export function AssignBookingPage() {
       />
 
       <DataTable<Booking>
-        data={filtered}
+        data={bookings}
         columns={columns}
         searchPlaceholder="Search by reference, customer..."
-        searchKeys={[
-          "reference",
-          "customerName",
-          "agentName",
-          "branchName",
-          "assignedAdminName",
-        ]}
         rowKey={(b) => b.id}
+        loading={loading}
+        error={error}
+        onRetry={refresh}
+        serverMode={{
+          search: searchInput,
+          onSearchChange: setSearchInput,
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
         toolbar={
           <>
             <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[150px]">
+              <SelectTrigger
+                aria-label="Filter by status"
+                className="h-9 w-full sm:w-[150px]"
+              >
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                {ORDER_STATUS_OPTIONS.map((option) => (
+                {ORDER_STATUS_OPTIONS.filter(
+                  (option) => option.value !== "all",
+                ).map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -254,33 +290,52 @@ export function AssignBookingPage() {
               </SelectContent>
             </Select>
             <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger aria-label="Filter by branch" className="h-9 w-full sm:w-[170px]">
+              <SelectTrigger
+                aria-label="Filter by branch"
+                className="h-9 w-full sm:w-[170px]"
+              >
                 <SelectValue placeholder="Branch" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All branches</SelectItem>
-                {mockBranches.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.name}
+                {branches.map((branch) => (
+                  <SelectItem key={branch.id} value={branch.id}>
+                    {branch.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={agentFilter} onValueChange={setAgentFilter}>
-              <SelectTrigger aria-label="Filter by agent" className="h-9 w-full sm:w-[160px]">
+              <SelectTrigger
+                aria-label="Filter by agent"
+                className="h-9 w-full sm:w-[160px]"
+              >
                 <SelectValue placeholder="Agent" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All agents</SelectItem>
-                {mockAgents.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.fullName}
-                  </SelectItem>
-                ))}
+                {agents
+                  .filter((agent) => agent.agentId)
+                  .map((agent) => (
+                    <SelectItem
+                      key={agent.id}
+                      value={agent.agentId ?? agent.id}
+                    >
+                      {agent.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
-            <Select value={assignedFilter} onValueChange={setAssignedFilter}>
-              <SelectTrigger aria-label="Filter by assignment" className="h-9 w-full sm:w-[160px]">
+            <Select
+              value={assignedFilter}
+              onValueChange={(value) =>
+                setAssignedFilter(value as AssignmentFilter)
+              }
+            >
+              <SelectTrigger
+                aria-label="Filter by assignment"
+                className="h-9 w-full sm:w-[160px]"
+              >
                 <SelectValue placeholder="Assignment" />
               </SelectTrigger>
               <SelectContent>
@@ -305,14 +360,15 @@ export function AssignBookingPage() {
             assignedByName: assignTarget.assignedByName,
             assignmentDate: assignTarget.assignmentDate,
           }}
-          admins={mockUsers}
+          admins={admins}
           currentUser={user}
           onAssign={(admin, by) => {
             if (assignTarget.assignedAdminId) {
-              reassignBooking(assignTarget.id, admin, by);
+              void reassignBooking(assignTarget.id, admin, by).then(refresh);
             } else {
-              assignBooking(assignTarget.id, admin, by);
+              void assignBooking(assignTarget.id, admin, by).then(refresh);
             }
+            setAssignTarget(null);
           }}
         />
       )}

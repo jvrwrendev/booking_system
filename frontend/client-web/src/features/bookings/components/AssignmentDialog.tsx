@@ -57,7 +57,7 @@ export function AssignmentDialog({
     () =>
       admins.filter(
         (a) =>
-          a.role === "ADMIN" &&
+          (a.role === "ADMIN" || a.role === "SUPER_ADMIN") &&
           a.status === "active" &&
           a.id !== currentUser.id
       ),
@@ -197,7 +197,7 @@ export function AssignmentDialog({
                           <div className="flex flex-col text-left">
                             <span className="text-sm">{a.fullName}</span>
                             <span className="text-xs text-muted-foreground">
-                              @{a.username}
+                              {a.email}
                             </span>
                           </div>
                         </div>

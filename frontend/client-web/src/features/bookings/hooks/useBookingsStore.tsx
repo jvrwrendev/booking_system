@@ -4,316 +4,292 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { mockBookings } from "@/data/mock-bookings";
 import type { AuthUser } from "@/types/auth";
 import type { Booking, BookingStatus } from "@/types/booking";
-import type { StatusHistoryEntry } from "@/types/order-history";
+import { ApiError } from "@/lib/api-client";
 import { humanize } from "@/lib/status";
 import { formatCurrency } from "@/lib/utils";
 import {
-  commitOrderStock,
-  releaseOrderStock,
-} from "@/features/inventory/services/inventory.service";
-import { ApiError } from "@/lib/api-client";
-
-const STORAGE_KEY = "agrivet-bookings-v3";
-
-function historyEntry(
-  from: string,
-  to: string,
-  by?: Pick<AuthUser, "id" | "fullName">,
-  label?: string
-): StatusHistoryEntry {
-  return {
-    id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    from,
-    to,
-    label: label ?? humanize(to),
-    timestamp: new Date().toISOString(),
-    by: by?.fullName ?? "System",
-  };
-}
+  applyBookingDiscount,
+  assignBooking as assignBookingRequest,
+  getBooking as getBookingRequest,
+  listBookings,
+  unassignBooking as unassignBookingRequest,
+  updateBookingStatus,
+} from "../services/bookings.service";
 
 interface BookingsContextValue {
   bookings: Booking[];
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
   getBooking: (id: string) => Booking | undefined;
+  loadBooking: (id: string) => Promise<Booking | undefined>;
+  removeBooking: (id: string) => void;
   setStatus: (
     id: string,
     status: BookingStatus,
-    by?: Pick<AuthUser, "id" | "fullName">
-  ) => void;
+    by?: Pick<AuthUser, "id" | "fullName">,
+  ) => Promise<void>;
   assignBooking: (
     id: string,
     admin: Pick<AuthUser, "id" | "fullName">,
-    by: Pick<AuthUser, "id" | "fullName">
-  ) => void;
+    by: Pick<AuthUser, "id" | "fullName">,
+  ) => Promise<void>;
   reassignBooking: (
     id: string,
     admin: Pick<AuthUser, "id" | "fullName">,
-    by: Pick<AuthUser, "id" | "fullName">
-  ) => void;
-  unassignBooking: (id: string) => void;
+    by: Pick<AuthUser, "id" | "fullName">,
+  ) => Promise<void>;
+  unassignBooking: (id: string) => Promise<void>;
   applyDiscount: (
     id: string,
     discount: number,
     by?: Pick<AuthUser, "id" | "fullName">,
-    note?: string
-  ) => void;
-}
-
-function loadBookings(): Booking[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed as Booking[];
-    }
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-  return mockBookings;
+    note?: string,
+  ) => Promise<void>;
 }
 
 const BookingsContext = createContext<BookingsContextValue | null>(null);
 
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? error.message : fallback;
+}
+
 export function BookingsProvider({ children }: { children: ReactNode }) {
-  const [bookings, setBookings] = useState<Booking[]>(loadBookings);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const loadedIds = useRef(new Set<string>());
+
+  const upsert = useCallback((booking: Booking) => {
+    setBookings((prev) => {
+      const index = prev.findIndex((item) => item.id === booking.id);
+      if (index === -1) return [booking, ...prev];
+      const next = [...prev];
+      next[index] = booking;
+      return next;
+    });
+  }, []);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await listBookings({
+        pageSize: 100,
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      });
+      setBookings((previous) => {
+        const byId = new Map(previous.map((booking) => [booking.id, booking]));
+        const listIds = new Set(result.bookings.map((booking) => booking.id));
+        const merged = result.bookings.map((booking) => {
+          const cached = byId.get(booking.id);
+          if (!cached) return booking;
+          return new Date(booking.updatedAt) >= new Date(cached.updatedAt)
+            ? booking
+            : cached;
+        });
+        // Keep bookings opened by direct link even when they are outside the
+        // most recent 100 records returned by the list endpoint.
+        for (const booking of previous) {
+          if (!listIds.has(booking.id) && loadedIds.current.has(booking.id)) {
+            merged.push(booking);
+          }
+        }
+        return merged.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+      });
+      setError(null);
+    } catch (err) {
+      setError(errorMessage(err, "Could not load bookings."));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
-    } catch {
-      // Ignore quota/availability errors; state remains in-memory.
-    }
-  }, [bookings]);
+    void refresh();
+  }, [refresh]);
+
+  const loadBooking = useCallback(
+    async (id: string) => {
+      try {
+        const booking = await getBookingRequest(id);
+        loadedIds.current.add(id);
+        upsert(booking);
+        return booking;
+      } catch (err) {
+        if (!(err instanceof ApiError && err.isUnauthorized)) {
+          toast.error("Could not load booking", {
+            description: errorMessage(err, "Please try again."),
+          });
+        }
+        return undefined;
+      }
+    },
+    [upsert],
+  );
+
+  const removeBooking = useCallback((id: string) => {
+    loadedIds.current.delete(id);
+    setBookings((previous) => previous.filter((booking) => booking.id !== id));
+  }, []);
 
   const setStatus = useCallback(
     async (
       id: string,
       status: BookingStatus,
-      by?: Pick<AuthUser, "id" | "fullName">
+      _by?: Pick<AuthUser, "id" | "fullName">,
     ) => {
-      const booking = bookings.find((item) => item.id === id);
-      if (!booking) return;
-
-      const shouldCommit = status === "confirmed" || status === "completed";
-      const shouldRelease = status === "cancelled" || status === "rejected";
-
-      if (shouldCommit || shouldRelease) {
-        try {
-          const items = booking.items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-          }));
-
-          if (shouldCommit) {
-            const result = await commitOrderStock(
-              "booking",
-              booking.id,
-              booking.branchId,
-              items
-            );
-            if (result.skipped > 0) {
-              toast.warning("Some items were not found in inventory", {
-                description: `${result.skipped} item(s) could not be matched to a product.`,
-              });
-            }
-          } else {
-            await releaseOrderStock(
-              "booking",
-              booking.id,
-              booking.branchId,
-              items
-            );
-          }
-        } catch (error) {
-          toast.error(
-            shouldCommit ? "Could not deduct stock" : "Could not restore stock",
-            {
-              description:
-                error instanceof ApiError
-                  ? error.message
-                  : "The booking status was not changed. Please try again.",
-            }
-          );
-          return;
-        }
+      try {
+        const booking = await updateBookingStatus(id, status);
+        upsert(booking);
+        toast.success("Booking status updated", {
+          description: `Booking marked as ${humanize(status)}.`,
+        });
+      } catch (err) {
+        toast.error("Could not update booking status", {
+          description: errorMessage(err, "The booking status was not changed."),
+        });
       }
-
-      setBookings((prev) =>
-        prev.map((b) => {
-          if (b.id !== id) return b;
-          return {
-            ...b,
-            status,
-            statusHistory: [
-              ...(b.statusHistory ?? []),
-              historyEntry(b.status, status, by),
-            ],
-          };
-        })
-      );
-      toast.success("Booking status updated", {
-        description: `Booking marked as ${humanize(status)}.`,
-      });
     },
-    [bookings]
+    [upsert],
   );
 
-  const assignBooking = useCallback(
-    (
+  const assign = useCallback(
+    async (
       id: string,
       admin: Pick<AuthUser, "id" | "fullName">,
-      by: Pick<AuthUser, "id" | "fullName">
+      _by: Pick<AuthUser, "id" | "fullName">,
     ) => {
-      setBookings((prev) =>
-        prev.map((b) =>
-          b.id === id
-            ? {
-                ...b,
-                assignedAdminId: admin.id,
-                assignedAdminName: admin.fullName,
-                assignedById: by.id,
-                assignedByName: by.fullName,
-                assignmentDate: new Date().toISOString(),
-                status:
-                  b.status === "pending" || b.status === "accepted"
-                    ? "assigned"
-                    : b.status,
-                statusHistory: [
-                  ...(b.statusHistory ?? []),
-                  historyEntry(b.status, "assigned", by),
-                ],
-              }
-            : b
-        )
-      );
-      toast.success("Booking assigned", {
-        description: `Booking assigned to ${admin.fullName}.`,
-      });
+      try {
+        const booking = await assignBookingRequest(id, { adminId: admin.id });
+        upsert(booking);
+        toast.success("Booking assigned", {
+          description: `Booking assigned to ${admin.fullName}.`,
+        });
+      } catch (err) {
+        toast.error("Could not assign booking", {
+          description: errorMessage(err, "Please try again."),
+        });
+      }
     },
-    []
+    [upsert],
   );
 
   const reassignBooking = useCallback(
-    (
+    async (
       id: string,
       admin: Pick<AuthUser, "id" | "fullName">,
-      by: Pick<AuthUser, "id" | "fullName">
+      by: Pick<AuthUser, "id" | "fullName">,
     ) => {
-      setBookings((prev) =>
-        prev.map((b) =>
-          b.id === id
-            ? {
-                ...b,
-                assignedAdminId: admin.id,
-                assignedAdminName: admin.fullName,
-                assignedById: by.id,
-                assignedByName: by.fullName,
-                assignmentDate: new Date().toISOString(),
-                statusHistory: [
-                  ...(b.statusHistory ?? []),
-                  historyEntry("assigned", "assigned", by),
-                ],
-              }
-            : b
-        )
-      );
-      toast.success("Booking reassigned", {
-        description: `Booking reassigned to ${admin.fullName}.`,
-      });
+      try {
+        const booking = await assignBookingRequest(id, { adminId: admin.id });
+        upsert(booking);
+        toast.success("Booking reassigned", {
+          description: `Booking reassigned to ${admin.fullName}.`,
+        });
+      } catch (err) {
+        toast.error("Could not reassign booking", {
+          description: errorMessage(err, "Please try again."),
+        });
+      }
+      void by;
     },
-    []
+    [upsert],
   );
 
-  const unassignBooking = useCallback((id: string) => {
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === id
-          ? {
-              ...b,
-              assignedAdminId: null,
-              assignedAdminName: null,
-              assignedById: null,
-              assignedByName: null,
-              assignmentDate: null,
-              statusHistory: [
-                ...(b.statusHistory ?? []),
-                historyEntry("assigned", "assigned", undefined, "Unassigned"),
-              ],
-            }
-          : b
-      )
-    );
-    toast.success("Assignment removed", {
-      description: "Booking is now unassigned.",
-    });
-  }, []);
+  const unassignBooking = useCallback(
+    async (id: string) => {
+      try {
+        const booking = await unassignBookingRequest(id);
+        upsert(booking);
+        toast.success("Assignment removed", {
+          description: "Booking is now unassigned.",
+        });
+      } catch (err) {
+        toast.error("Could not remove assignment", {
+          description: errorMessage(err, "Please try again."),
+        });
+      }
+    },
+    [upsert],
+  );
 
   const applyDiscount = useCallback(
-    (
+    async (
       id: string,
       discount: number,
-      by?: Pick<AuthUser, "id" | "fullName">,
-      note?: string
+      _by?: Pick<AuthUser, "id" | "fullName">,
+      note?: string,
     ) => {
-      setBookings((prev) =>
-        prev.map((b) => {
-          if (b.id !== id) return b;
-          const previous = b.discount ?? 0;
-          const removed = discount === 0 && previous > 0;
-          return {
-            ...b,
-            discount,
-            totalAmount: Math.max(0, b.subtotal - discount),
-            statusHistory: [
-              ...(b.statusHistory ?? []),
-              historyEntry(
-                b.status,
-                b.status,
-                by,
-                removed
-                  ? "Discount removed"
-                  : `Discount ${note ? `${note}: ` : ""}${formatCurrency(discount)}`
-              ),
-            ],
-          };
-        })
-      );
-      toast.success("Discount updated", {
-        description:
-          discount === 0
-            ? "Discount removed from the order."
-            : `Discount of ${formatCurrency(discount)} applied.`,
-      });
+      try {
+        const booking = await applyBookingDiscount(id, { discount, note });
+        upsert(booking);
+        toast.success("Discount updated", {
+          description:
+            discount === 0
+              ? "Discount removed from the order."
+              : `Discount of ${formatCurrency(discount)} applied.`,
+        });
+      } catch (err) {
+        toast.error("Could not update discount", {
+          description: errorMessage(err, "Please try again."),
+        });
+      }
     },
-    []
+    [upsert],
   );
 
   const value = useMemo<BookingsContextValue>(
     () => ({
       bookings,
-      getBooking: (id) => bookings.find((b) => b.id === id),
+      loading,
+      error,
+      refresh,
+      getBooking: (id) => bookings.find((booking) => booking.id === id),
+      loadBooking,
+      removeBooking,
       setStatus,
-      assignBooking,
+      assignBooking: assign,
       reassignBooking,
       unassignBooking,
       applyDiscount,
     }),
-    [bookings, setStatus, assignBooking, reassignBooking, unassignBooking, applyDiscount]
+    [
+      bookings,
+      loading,
+      error,
+      refresh,
+      loadBooking,
+      removeBooking,
+      setStatus,
+      assign,
+      reassignBooking,
+      unassignBooking,
+      applyDiscount,
+    ],
   );
 
   return (
-    <BookingsContext.Provider value={value}>{children}</BookingsContext.Provider>
+    <BookingsContext.Provider value={value}>
+      {children}
+    </BookingsContext.Provider>
   );
 }
 
 export function useBookingsStore() {
   const ctx = useContext(BookingsContext);
-  if (!ctx) throw new Error("useBookingsStore must be used within BookingsProvider");
+  if (!ctx) {
+    throw new Error("useBookingsStore must be used within BookingsProvider");
+  }
   return ctx;
 }

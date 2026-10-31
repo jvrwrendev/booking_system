@@ -307,3 +307,157 @@ export interface OrderStockPayloadDto {
   branchId?: string;
   items: OrderStockItemDto[];
 }
+
+/* ------------------------------------------------------------------ */
+/* Booking wire types                                                  */
+/* ------------------------------------------------------------------ */
+
+export type BookingStatusDto =
+  | "PENDING"
+  | "ACCEPTED"
+  | "ASSIGNED"
+  | "ADMIN_ACCEPTED"
+  | "CONFIRMED"
+  | "PROCESSING"
+  | "READY"
+  | "COMPLETED"
+  | "READY_FOR_DELIVERY"
+  | "CANCELLED"
+  | "REJECTED";
+
+export interface BookingItemDto {
+  id: string;
+  productId: string | null;
+  productName: string;
+  sku: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+}
+
+export interface BookingStatusHistoryDto {
+  id: string;
+  from: string;
+  to: string;
+  label: string;
+  timestamp: string;
+  by: string;
+}
+
+export interface BookingDto {
+  id: string;
+  reference: string;
+  customerId: string | null;
+  customerName: string;
+  customerContact: string | null;
+  customerAddress: string | null;
+  agentId: string | null;
+  agentName: string;
+  branchId: string;
+  branchName: string;
+  bookingDate: string;
+  pickupDate: string;
+  items: BookingItemDto[];
+  totalQuantity: number;
+  subtotal: number;
+  discount: number;
+  totalAmount: number;
+  status: BookingStatusDto;
+  notes: string | null;
+  assignedAdminId: string | null;
+  assignedAdminName: string | null;
+  assignedById: string | null;
+  assignedByName: string | null;
+  assignmentDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  statusHistory: BookingStatusHistoryDto[];
+}
+
+export interface ListBookingsResponseDto {
+  bookings: BookingDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface BookingItemPayloadDto {
+  productId: string;
+  quantity: number;
+}
+
+export interface CreateBookingPayloadDto {
+  customerId?: string;
+  customerName: string;
+  customerContact?: string;
+  customerAddress?: string;
+  agentId?: string;
+  agentName: string;
+  branchId: string;
+  bookingDate: string;
+  pickupDate: string;
+  items: BookingItemPayloadDto[];
+  discount?: number;
+  notes?: string;
+}
+
+export type UpdateBookingPayloadDto = Partial<CreateBookingPayloadDto>;
+
+export interface AssignBookingPayloadDto {
+  adminId: string;
+  note?: string;
+}
+
+export interface ApplyBookingDiscountPayloadDto {
+  discount: number;
+  note?: string;
+}
+
+/* ------------------------------------------------------------------ */
+/* Reports wire types                                                  */
+/* ------------------------------------------------------------------ */
+
+export interface ReportsBundleDto {
+  generatedAt: string;
+  filters: {
+    dateFrom: string;
+    dateTo: string;
+    branchId: string | null;
+    agentId: string | null;
+    status: BookingStatusDto | null;
+    categoryId: string | null;
+  };
+  summary: {
+    totalBookings: number;
+    completedBookings: number;
+    pendingBookings: number;
+    totalRevenue: number;
+    uniqueCustomers: number;
+  };
+  bookingVolumeMonthly: { month: string; count: number }[];
+  bookingRevenueMonthly: { month: string; revenue: number }[];
+  bookingsByStatus: { status: string; count: number }[];
+  inventoryByCategory: { category: string; value: number }[];
+  branchPerformance: {
+    branch: string;
+    bookings: number;
+    completed: number;
+    revenue: number;
+  }[];
+  agentPerformance: {
+    agent: string;
+    bookings: number;
+    completed: number;
+    revenue: number;
+  }[];
+  lowStockProducts: {
+    name: string;
+    sku: string;
+    stock: number;
+    minimum: number;
+  }[];
+}
+
+export type ReportExportFormat = "csv" | "excel" | "pdf";
+export type ReportSection = "all" | "bookings" | "inventory" | "branches" | "agents";

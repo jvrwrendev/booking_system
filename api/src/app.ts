@@ -10,6 +10,8 @@ import { categoriesModule } from "./modules/categories/categories.module.js";
 import { productsModule } from "./modules/products/products.module.js";
 import { suppliersModule } from "./modules/suppliers/suppliers.module.js";
 import { inventoryModule } from "./modules/inventory/inventory.module.js";
+import { bookingsModule } from "./modules/bookings/bookings.module.js";
+import { reportsModule } from "./modules/reports/reports.module.js";
 import { registerModules } from "./app.module.js";
 import { authenticateUnlessPublic } from "./middleware/auth.middleware.js";
 import {
@@ -93,6 +95,8 @@ export function createApp(): Express {
     productsModule,
     suppliersModule,
     inventoryModule,
+    bookingsModule,
+    reportsModule,
   ]);
 
   app.use(notFoundHandler);

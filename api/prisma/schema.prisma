@@ -60,35 +60,51 @@ enum InventoryTransactionType {
   ORDER_RELEASE
 }
 
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  ASSIGNED
+  ADMIN_ACCEPTED
+  CONFIRMED
+  PROCESSING
+  READY
+  COMPLETED
+  READY_FOR_DELIVERY
+  CANCELLED
+  REJECTED
+}
+
 model User {
-  id                    String                 @id @default(cuid())
-  name                  String
-  email                 String                 @unique
-  passwordHash          String
-  role                  Role
-  status                AccountStatus          @default(ACTIVE)
-  emailVerified         DateTime?              @map("email_verified")
-  contactNumber         String?
-  address               String?
-  avatar                String?
-  agentId               String?                @unique
-  branchId              String?                @unique
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  sessions              Session[]
-  verificationCodes     EmailVerificationCode[]
-  inventoryTransactions InventoryTransaction[]
+  id                     String                  @id @default(cuid())
+  name                   String
+  email                  String                  @unique
+  passwordHash           String
+  role                   Role
+  status                 AccountStatus           @default(ACTIVE)
+  emailVerified          DateTime?               @map("email_verified")
+  contactNumber          String?
+  address                String?
+  avatar                 String?
+  agentId                String?                 @unique
+  branchId               String?                 @unique
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  sessions               Session[]
+  verificationCodes      EmailVerificationCode[]
+  inventoryTransactions  InventoryTransaction[]
+  assignedBookings       Booking[]               @relation("BookingAssignedAdmin")
+  assignedBookingActions Booking[]               @relation("BookingAssignedBy")
 
   @@map("users")
 }
 
 model Session {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ip        String?  @db.VarChar(45)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip        String?   @db.VarChar(45)
   userAgent String?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   expiresAt DateTime
   revokedAt DateTime?
 
@@ -123,14 +139,15 @@ model Category {
 }
 
 model Branch {
-  id          String                @id
-  name        String
-  code        String?               @unique
-  status      BranchStatus          @default(ACTIVE)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-  inventory   InventoryStock[]
+  id           String                 @id
+  name         String
+  code         String?                @unique
+  status       BranchStatus           @default(ACTIVE)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  inventory    InventoryStock[]
   transactions InventoryTransaction[]
+  bookings     Booking[]
 
   @@map("branches")
 }
@@ -151,28 +168,29 @@ model Supplier {
 }
 
 model Product {
-  id                String        @id @default(cuid())
+  id                String                 @id @default(cuid())
   name              String
-  sku               String        @unique
+  sku               String                 @unique
   categoryId        String?
-  category          Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category          Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   supplierId        String?
-  supplierRef       Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  supplierRef       Supplier?              @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   brand             String?
   description       String?
   unit              String
-  costPrice         Decimal       @db.Decimal(12, 2)
-  sellingPrice      Decimal       @db.Decimal(12, 2)
-  stockQuantity     Int           @default(0)
-  minimumStockLevel Int           @default(0)
+  costPrice         Decimal                @db.Decimal(12, 2)
+  sellingPrice      Decimal                @db.Decimal(12, 2)
+  stockQuantity     Int                    @default(0)
+  minimumStockLevel Int                    @default(0)
   supplier          String?
-  status            ProductStatus @default(ACTIVE)
-  stockStatus       StockStatus   @default(OUT_OF_STOCK)
+  status            ProductStatus          @default(ACTIVE)
+  stockStatus       StockStatus            @default(OUT_OF_STOCK)
   image             String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
   inventory         InventoryStock[]
   transactions      InventoryTransaction[]
+  bookingItems      BookingItem[]
 
   @@index([categoryId])
   @@index([supplierId])
@@ -181,17 +199,17 @@ model Product {
 }
 
 model InventoryStock {
-  id           String      @id @default(cuid())
-  productId    String
-  product      Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  branchId     String
-  branch       Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  currentStock Int         @default(0)
-  reservedStock Int        @default(0)
-  minimumStock Int         @default(0)
-  status       StockStatus @default(OUT_OF_STOCK)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id            String      @id @default(cuid())
+  productId     String
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branchId      String
+  branch        Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  currentStock  Int         @default(0)
+  reservedStock Int         @default(0)
+  minimumStock  Int         @default(0)
+  status        StockStatus @default(OUT_OF_STOCK)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@unique([productId, branchId])
   @@index([branchId])
@@ -200,26 +218,97 @@ model InventoryStock {
 }
 
 model InventoryTransaction {
-  id             String                   @id @default(cuid())
-  productId      String
-  product        Product                  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  branchId       String
-  branch         Branch                   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  type           InventoryTransactionType
-  quantity       Int
-  previousStock  Int
-  newStock       Int
-  reason         String
-  performedById  String?
-  performedBy    User?                    @relation(fields: [performedById], references: [id], onDelete: SetNull)
+  id              String                   @id @default(cuid())
+  productId       String
+  product         Product                  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branchId        String
+  branch          Branch                   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  type            InventoryTransactionType
+  quantity        Int
+  previousStock   Int
+  newStock        Int
+  reason          String
+  performedById   String?
+  performedBy     User?                    @relation(fields: [performedById], references: [id], onDelete: SetNull)
   performedByName String
-  referenceType  String?
-  referenceId    String?
-  createdAt      DateTime                 @default(now())
+  referenceType   String?
+  referenceId     String?
+  createdAt       DateTime                 @default(now())
 
   @@unique([referenceType, referenceId, productId, type])
   @@index([productId, createdAt])
   @@index([branchId, createdAt])
   @@index([referenceType, referenceId])
   @@map("inventory_transactions")
+}
+
+model Booking {
+  id                String                 @id @default(cuid())
+  reference         String                 @unique
+  customerId        String?
+  customerName      String
+  customerContact   String?
+  customerAddress   String?
+  agentId           String?
+  agentName         String
+  branchId          String
+  branch            Branch                 @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branchName        String
+  bookingDate       DateTime
+  pickupDate        DateTime
+  subtotal          Decimal                @db.Decimal(12, 2)
+  discount          Decimal                @default(0) @db.Decimal(12, 2)
+  totalAmount       Decimal                @db.Decimal(12, 2)
+  status            BookingStatus          @default(PENDING)
+  notes             String?
+  assignedAdminId   String?
+  assignedAdmin     User?                  @relation("BookingAssignedAdmin", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  assignedAdminName String?
+  assignedById      String?
+  assignedBy        User?                  @relation("BookingAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  assignedByName    String?
+  assignmentDate    DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  items             BookingItem[]
+  statusHistory     BookingStatusHistory[]
+
+  @@index([status, createdAt])
+  @@index([branchId, createdAt])
+  @@index([agentId, createdAt])
+  @@index([assignedAdminId])
+  @@index([bookingDate])
+  @@map("bookings")
+}
+
+model BookingItem {
+  id          String   @id @default(cuid())
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName String
+  sku         String
+  quantity    Int
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  subtotal    Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+
+  @@index([bookingId])
+  @@index([productId])
+  @@map("booking_items")
+}
+
+model BookingStatusHistory {
+  id         String         @id @default(cuid())
+  bookingId  String
+  booking    Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  fromStatus BookingStatus?
+  toStatus   BookingStatus
+  label      String
+  byName     String
+  createdAt  DateTime       @default(now())
+
+  @@index([bookingId, createdAt])
+  @@map("booking_status_history")
 }

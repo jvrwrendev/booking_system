@@ -7,11 +7,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { mockBookings } from "@/data/mock-bookings";
 import type { AppNotification } from "@/features/notifications/types";
 import { useAuth } from "@/hooks/useAuth";
 import { listInventoryAlerts } from "@/features/inventory/services/inventory.service";
+import { listBookings } from "@/features/bookings/services/bookings.service";
 import type { InventoryItem } from "@/types/inventory";
+import type { Booking } from "@/types/booking";
 
 const STORAGE_KEY = "agrivet-notifications-read-v1";
 
@@ -28,7 +29,10 @@ function loadReadIds(): string[] {
   }
 }
 
-function deriveNotifications(alerts: InventoryItem[]): AppNotification[] {
+function deriveNotifications(
+  alerts: InventoryItem[],
+  pendingBookings: Booking[],
+): AppNotification[] {
   const items: AppNotification[] = [];
 
   for (const product of alerts) {
@@ -48,7 +52,7 @@ function deriveNotifications(alerts: InventoryItem[]): AppNotification[] {
     });
   }
 
-  for (const booking of mockBookings) {
+  for (const booking of pendingBookings) {
     if (booking.status !== "pending") continue;
     items.push({
       id: `booking-${booking.id}`,
@@ -84,22 +88,28 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
   const [readIds, setReadIds] = useState<string[]>(loadReadIds);
   const [stockAlerts, setStockAlerts] = useState<InventoryItem[]>([]);
+  const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
       setStockAlerts([]);
+      setPendingBookings([]);
       setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
-    listInventoryAlerts(undefined, 20)
-      .then((alerts) => {
-        if (!cancelled) setStockAlerts(alerts);
-      })
-      .catch(() => {
-        // Notifications are ancillary; a failed fetch must not break the shell.
+    Promise.all([
+      listInventoryAlerts(undefined, 20).catch(() => [] as InventoryItem[]),
+      listBookings({ status: "pending", pageSize: 5 })
+        .then((result) => result.bookings)
+        .catch(() => [] as Booking[]),
+    ])
+      .then(([alerts, bookings]) => {
+        if (cancelled) return;
+        setStockAlerts(alerts);
+        setPendingBookings(bookings);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -122,16 +132,18 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markAllRead = useCallback(() => {
-    setReadIds(deriveNotifications(stockAlerts).map((n) => n.id));
-  }, [stockAlerts]);
+    setReadIds(
+      deriveNotifications(stockAlerts, pendingBookings).map((n) => n.id),
+    );
+  }, [stockAlerts, pendingBookings]);
 
   const notifications = useMemo(
     () =>
-      deriveNotifications(stockAlerts).map((n) => ({
+      deriveNotifications(stockAlerts, pendingBookings).map((n) => ({
         ...n,
         read: readIds.includes(n.id),
       })),
-    [stockAlerts, readIds]
+    [stockAlerts, pendingBookings, readIds]
   );
 
   const unreadCount = useMemo(

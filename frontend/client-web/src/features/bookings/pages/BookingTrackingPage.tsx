@@ -1,47 +1,73 @@
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { toast } from "sonner";
 
 import { OrderTrackingView } from "@/features/orders/components/OrderTrackingView";
-import { nextOrderStep } from "@/features/orders/lib/journey";
+import { ErrorState } from "@/components/common/ErrorState";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useBookingsStore } from "../hooks/useBookingsStore";
-import { useAuth } from "@/hooks/useAuth";
-import { mockUsers } from "@/data/mock-users";
-import type { AuthUser } from "@/types/auth";
-import { humanize } from "@/lib/status";
 
 export function BookingTrackingPage() {
   const { id } = useParams<{ id: string }>();
-  const { getBooking, setStatus, assignBooking } = useBookingsStore();
-  const { user } = useAuth();
+  const { getBooking, loadBooking, loading, error } = useBookingsStore();
 
   const booking = id ? getBooking(id) : undefined;
-  const next = booking ? nextOrderStep(booking.status) : null;
+  const [loadAttempted, setLoadAttempted] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const simulateNext = () => {
-    if (!booking) return;
-    const step = nextOrderStep(booking.status);
-    if (!step) return;
-    const actor: Pick<AuthUser, "id" | "fullName"> = user ?? {
-      id: "USR-001",
-      fullName: "Juan Dela Cruz",
-    };
-    if (step.viaAssignment) {
-      const admin = mockUsers.find(
-        (u) => u.role === "ADMIN" && u.status === "active"
-      );
-      if (admin) {
-        assignBooking(
-          booking.id,
-          { id: admin.id, fullName: admin.fullName },
-          actor
-        );
-      } else {
-        toast.error("No active admin available to assign.");
-      }
+  useEffect(() => {
+    if (!id || getBooking(id)) {
+      setLoadAttempted(true);
       return;
     }
-    setStatus(booking.id, step.status, actor);
-  };
+    let cancelled = false;
+    setLoadError(null);
+    void loadBooking(id)
+      .then((result) => {
+        if (!cancelled && !result) {
+          setLoadError("Could not load booking. Please try again.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadAttempted(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, loadBooking]);
+
+  if (!booking) {
+    if (loading || !loadAttempted) {
+      return (
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-[420px] w-full" />
+        </div>
+      );
+    }
+    const displayError = loadError ?? error;
+    if (displayError) {
+      return (
+        <ErrorState
+          title="Could not load booking"
+          message={displayError}
+          onRetry={() => {
+            setLoadError(null);
+            setLoadAttempted(false);
+            if (id) {
+              void loadBooking(id)
+                .then((result) => {
+                  if (!result) {
+                    setLoadError("Could not load booking. Please try again.");
+                  }
+                })
+                .finally(() => setLoadAttempted(true));
+            }
+          }}
+        />
+      );
+    }
+  }
 
   return (
     <OrderTrackingView
@@ -88,9 +114,6 @@ export function BookingTrackingPage() {
         { label: "Branch", value: booking?.branchName ?? "—" },
         { label: "Pickup", value: booking?.pickupDate ?? "—" },
       ]}
-      onSimulateNext={simulateNext}
-      nextStepLabel={next ? humanize(next.status) : null}
-      isDone={!next || booking?.status === "ready_for_delivery"}
     />
   );
 }
