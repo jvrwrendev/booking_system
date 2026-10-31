@@ -98,6 +98,11 @@ function generatePublicId(prefix: string): string {
   return `${prefix}-${randomBytes(4).toString("hex").toUpperCase()}`;
 }
 
+function branchNameForUser(name: string): string {
+  const trimmed = name.trim();
+  return /\bbranch\b/i.test(trimmed) ? trimmed : `${trimmed} Branch`;
+}
+
 export async function login(
   input: LoginDto,
   meta: LoginMeta,
@@ -170,20 +175,33 @@ export async function register(input: RegisterDto): Promise<RegisterResult> {
   const agentId = input.role === "AGENT" ? generatePublicId("AGT") : null;
   const branchId = input.role === "BRANCH" ? generatePublicId("BR") : null;
 
-  const account = await prisma.user.create({
-    data: {
-      name: input.name,
-      email: input.email,
-      passwordHash,
-      role: input.role,
-      contactNumber: input.contactNumber,
-      address: input.address,
-      avatar: input.avatar,
-      agentId,
-      branchId,
-      emailVerified: null,
-    },
-    select: PUBLIC_USER_SELECT,
+  const account = await prisma.$transaction(async (tx) => {
+    // Branch accounts own a real branch record. Without this row, branch
+    // orders (and branch inventory) cannot be created for the account.
+    if (branchId) {
+      await tx.branch.create({
+        data: {
+          id: branchId,
+          name: branchNameForUser(input.name),
+        },
+      });
+    }
+
+    return tx.user.create({
+      data: {
+        name: input.name,
+        email: input.email,
+        passwordHash,
+        role: input.role,
+        contactNumber: input.contactNumber,
+        address: input.address,
+        avatar: input.avatar,
+        agentId,
+        branchId,
+        emailVerified: null,
+      },
+      select: PUBLIC_USER_SELECT,
+    });
   });
 
   // Issue a single-use, time-limited six-digit code. Only its argon2 hash is

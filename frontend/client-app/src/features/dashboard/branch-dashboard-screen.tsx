@@ -148,11 +148,15 @@ export function BranchDashboardScreen() {
   const counts = useMemo(
     () => ({
       pending: orders.filter((o) => o.status === "pending").length,
-      processing: orders.filter(
-        (o) => o.status === "processing" || o.status === "assigned",
+      processing: orders.filter((o) =>
+        ["accepted", "assigned", "admin_accepted", "processing"].includes(
+          o.status,
+        ),
       ).length,
       ready: orders.filter((o) => o.status === "ready").length,
-      completed: orders.filter((o) => o.status === "completed").length,
+      completed: orders.filter((o) =>
+        ["completed", "ready_for_delivery"].includes(o.status),
+      ).length,
     }),
     [orders],
   );

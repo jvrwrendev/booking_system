@@ -16,6 +16,8 @@ function toneFor(status: string) {
       return "warning" as const;
     case "accepted":
     case "ACCEPTED":
+    case "admin_accepted":
+    case "ADMIN_ACCEPTED":
     case "processing":
     case "PROCESSING":
       return "info" as const;
@@ -27,6 +29,8 @@ function toneFor(status: string) {
       return "info" as const;
     case "completed":
     case "COMPLETED":
+    case "ready_for_delivery":
+    case "READY_FOR_DELIVERY":
       return "success" as const;
     case "cancelled":
     case "rejected":

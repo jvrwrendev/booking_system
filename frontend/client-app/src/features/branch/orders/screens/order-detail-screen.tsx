@@ -38,8 +38,12 @@ export function OrderDetailScreen() {
       );
       setOrder(o);
       if (!o) setError("Order not found.");
-    } catch {
-      setError("Failed to load order.");
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error && loadError.message
+          ? loadError.message
+          : "Failed to load order.",
+      );
     } finally {
       setLoading(false);
     }

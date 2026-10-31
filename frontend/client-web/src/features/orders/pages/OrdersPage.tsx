@@ -9,6 +9,7 @@ import { AssignedAdminCell } from "@/components/common/AssignedAdminCell";
 import { EmptyState } from "@/components/common/EmptyState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
+  BRANCH_ORDER_STATUS_OPTIONS,
   getStatusVariant,
   humanize,
   ORDER_STATUS_OPTIONS,
@@ -65,7 +66,12 @@ function withinPreset(dateStr: string, preset: DatePreset): boolean {
   }
 }
 
-function branchManager(branchId?: string | null): string {
+/**
+ * Agent bookings do not carry a branch-manager snapshot yet, so they fall
+ * back to the existing branch fixture. Branch orders use their own API-backed
+ * `branchManager` snapshot instead.
+ */
+function agentBranchManager(branchId?: string | null): string {
   if (!branchId) return "—";
   const branch = mockBranches.find((br) => br.id === branchId);
   return branch?.manager ?? "—";
@@ -75,7 +81,12 @@ export function OrdersPage() {
   const { user } = useAuth();
   const { isSuperAdmin } = usePermissions();
   const { bookings } = useBookingsStore();
-  const { orders } = useBranchOrdersStore();
+  const {
+    orders,
+    loading: branchOrdersLoading,
+    error: branchOrdersError,
+    refresh: refreshBranchOrders,
+  } = useBranchOrdersStore();
   const { myAgentOrders, myBranchOrders } = useMyOrders();
   const [agentStatus, setAgentStatus] = useState("all");
   const [branchStatus, setBranchStatus] = useState("all");
@@ -140,7 +151,9 @@ export function OrdersPage() {
     {
       id: "branchManager",
       header: "Branch Manager",
-      cell: (b) => <span className="text-sm">{branchManager(b.branchId)}</span>,
+      cell: (b) => (
+        <span className="text-sm">{agentBranchManager(b.branchId)}</span>
+      ),
       hideOnMobile: true,
     },
     {
@@ -231,7 +244,7 @@ export function OrdersPage() {
     {
       id: "branchManager",
       header: "Branch Manager",
-      cell: (o) => <span className="text-sm">{branchManager(o.branchId)}</span>,
+      cell: (o) => <span className="text-sm">{o.branchManager ?? "—"}</span>,
       hideOnMobile: true,
     },
     {
@@ -342,12 +355,13 @@ export function OrdersPage() {
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All statuses</SelectItem>
-{ORDER_STATUS_OPTIONS.map((option) => (
-  <SelectItem key={option.value} value={option.value}>
-    {option.label}
-  </SelectItem>
-))}
+                    {ORDER_STATUS_OPTIONS.filter(
+                      (option) => option.value !== "all",
+                    ).map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <CalendarRange className="hidden h-4 w-4 text-muted-foreground sm:block" />
@@ -391,8 +405,11 @@ export function OrdersPage() {
             data={filteredBranchOrders}
             columns={branchColumns}
             searchPlaceholder="Search by order no., branch..."
-            searchKeys={["reference", "branchName"]}
+            searchKeys={["reference", "branchName", "branchManager"]}
             rowKey={(o) => o.id}
+            loading={branchOrdersLoading}
+            error={branchOrdersError}
+            onRetry={() => void refreshBranchOrders()}
             toolbar={
               <>
                 <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
@@ -401,12 +418,13 @@ export function OrdersPage() {
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All statuses</SelectItem>
-{ORDER_STATUS_OPTIONS.map((option) => (
-  <SelectItem key={option.value} value={option.value}>
-    {option.label}
-  </SelectItem>
-))}
+                    {BRANCH_ORDER_STATUS_OPTIONS.filter(
+                      (option) => option.value !== "all",
+                    ).map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <CalendarRange className="hidden h-4 w-4 text-muted-foreground sm:block" />

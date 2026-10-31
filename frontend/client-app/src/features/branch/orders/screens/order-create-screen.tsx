@@ -140,19 +140,28 @@ export function OrderCreateScreen() {
 
   const onConfirm = async () => {
     if (submitting || cart.items.length === 0) return;
+    if (!branchId) {
+      setError(
+        "Your account is not linked to a branch. Contact an administrator.",
+      );
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
       const order = await createBranchOrder({
         branchId,
-        branchName,
         items: cart.items,
         notes: notes.trim() || undefined,
       });
       cart.clear();
       setConfirmedReference(order.reference);
-    } catch {
-      setError("Failed to create order. Please try again.");
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error && submitError.message
+          ? submitError.message
+          : "Failed to create order. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }

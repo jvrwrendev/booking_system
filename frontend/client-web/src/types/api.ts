@@ -415,6 +415,99 @@ export interface ApplyBookingDiscountPayloadDto {
 }
 
 /* ------------------------------------------------------------------ */
+/* Branch order wire types                                             */
+/* ------------------------------------------------------------------ */
+
+export type BranchOrderStatusDto =
+  | "PENDING"
+  | "ACCEPTED"
+  | "ASSIGNED"
+  | "ADMIN_ACCEPTED"
+  | "PROCESSING"
+  | "READY"
+  | "COMPLETED"
+  | "READY_FOR_DELIVERY"
+  | "REJECTED";
+
+export interface BranchOrderItemDto {
+  id: string;
+  productId: string | null;
+  productName: string;
+  sku: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+}
+
+export interface BranchOrderStatusHistoryDto {
+  id: string;
+  from: string;
+  to: string;
+  label: string;
+  timestamp: string;
+  by: string;
+}
+
+export interface BranchOrderDto {
+  id: string;
+  reference: string;
+  branchId: string;
+  branchName: string;
+  branchManager: string | null;
+  branchContact: string | null;
+  branchAddress: string | null;
+  orderDate: string;
+  items: BranchOrderItemDto[];
+  totalQuantity: number;
+  subtotal: number;
+  discount: number;
+  totalAmount: number;
+  status: BranchOrderStatusDto;
+  notes: string | null;
+  assignedAdminId: string | null;
+  assignedAdminName: string | null;
+  assignedById: string | null;
+  assignedByName: string | null;
+  assignmentDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  statusHistory: BranchOrderStatusHistoryDto[];
+}
+
+export interface ListBranchOrdersResponseDto {
+  branchOrders: BranchOrderDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface BranchOrderItemPayloadDto {
+  productId: string;
+  quantity: number;
+}
+
+export interface CreateBranchOrderPayloadDto {
+  branchId?: string;
+  orderDate?: string;
+  items: BranchOrderItemPayloadDto[];
+  discount?: number;
+  notes?: string;
+}
+
+export type UpdateBranchOrderPayloadDto = Partial<CreateBranchOrderPayloadDto>;
+
+export interface AssignBranchOrderPayloadDto {
+  adminId: string;
+  note?: string;
+}
+
+export interface ApplyBranchOrderDiscountPayloadDto {
+  discount: number;
+  note?: string;
+}
+
+/* ------------------------------------------------------------------ */
 /* Reports wire types                                                  */
 /* ------------------------------------------------------------------ */
 

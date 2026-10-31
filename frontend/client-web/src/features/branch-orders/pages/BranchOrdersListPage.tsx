@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Eye, Filter, MoreHorizontal, ShoppingCart } from "lucide-react";
 
@@ -7,9 +7,9 @@ import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
 import { EmptyState } from "@/components/common/EmptyState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
+  BRANCH_ORDER_STATUS_OPTIONS,
   getStatusVariant,
   humanize,
-  ORDER_STATUS_OPTIONS,
 } from "@/lib/status";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,22 +26,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { useBranchOrdersStore } from "../hooks/useBranchOrdersStore";
+import { useBranchOrderList } from "../hooks/useBranchOrderList";
+import { useBookingLookups } from "@/features/bookings/hooks/useBookingLookups";
 import type { BranchOrder } from "@/types/branch-order";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export function BranchOrdersListPage() {
-  const { orders } = useBranchOrdersStore();
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-
-  const filtered = useMemo(
-    () =>
-      orders.filter((o) => {
-        if (statusFilter !== "all" && o.status !== statusFilter) return false;
-        return true;
-      }),
-    [orders, statusFilter]
-  );
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
+  const { branches } = useBookingLookups();
+  const {
+    branchOrders,
+    total,
+    loading,
+    error,
+    refresh,
+    searchInput,
+    setSearchInput,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+  } = useBranchOrderList({ status: statusFilter, branchId: branchFilter });
 
   const columns: DataTableColumn<BranchOrder>[] = [
     {
@@ -135,23 +141,53 @@ export function BranchOrdersListPage() {
       />
 
       <DataTable<BranchOrder>
-        data={filtered}
+        data={branchOrders}
         columns={columns}
         searchPlaceholder="Search by order no., branch..."
         searchKeys={["reference", "branchName"]}
         rowKey={(o) => o.id}
+        loading={loading}
+        error={error}
+        onRetry={() => void refresh()}
+        serverMode={{
+          search: searchInput,
+          onSearchChange: setSearchInput,
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
         toolbar={
           <>
             <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[150px]">
+              <SelectTrigger
+                aria-label="Filter by status"
+                className="h-9 w-full sm:w-[150px]"
+              >
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                {ORDER_STATUS_OPTIONS.map((option) => (
+                {BRANCH_ORDER_STATUS_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={branchFilter} onValueChange={setBranchFilter}>
+              <SelectTrigger
+                aria-label="Filter by branch"
+                className="h-9 w-full sm:w-[190px]"
+              >
+                <SelectValue placeholder="Branch" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All branches</SelectItem>
+                {branches.map((branch) => (
+                  <SelectItem key={branch.id} value={branch.id}>
+                    {branch.name}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -11,6 +11,7 @@ import { productsModule } from "./modules/products/products.module.js";
 import { suppliersModule } from "./modules/suppliers/suppliers.module.js";
 import { inventoryModule } from "./modules/inventory/inventory.module.js";
 import { bookingsModule } from "./modules/bookings/bookings.module.js";
+import { branchOrdersModule } from "./modules/branch-orders/branch-orders.module.js";
 import { reportsModule } from "./modules/reports/reports.module.js";
 import { registerModules } from "./app.module.js";
 import { authenticateUnlessPublic } from "./middleware/auth.middleware.js";
@@ -96,6 +97,7 @@ export function createApp(): Express {
     suppliersModule,
     inventoryModule,
     bookingsModule,
+    branchOrdersModule,
     reportsModule,
   ]);
 

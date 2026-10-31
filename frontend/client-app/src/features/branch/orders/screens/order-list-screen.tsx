@@ -33,8 +33,12 @@ export function OrderListScreen() {
     try {
       const list = await listOrdersForBranch(branchId);
       setOrders(list);
-    } catch {
-      setError("Failed to load orders.");
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error && loadError.message
+          ? loadError.message
+          : "Failed to load orders.",
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);

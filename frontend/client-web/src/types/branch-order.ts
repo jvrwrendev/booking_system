@@ -25,6 +25,9 @@ export interface BranchOrder {
   reference: string;
   branchId: string;
   branchName: string;
+  branchManager?: string | null;
+  branchContact?: string | null;
+  branchAddress?: string | null;
   orderDate: string;
   items: BranchOrderItem[];
   totalQuantity: number;
@@ -33,6 +36,7 @@ export interface BranchOrder {
   totalAmount: number;
   status: BranchOrderStatus;
   createdAt: string;
+  updatedAt?: string;
   notes?: string;
   assignedAdminId?: string | null;
   assignedAdminName?: string | null;

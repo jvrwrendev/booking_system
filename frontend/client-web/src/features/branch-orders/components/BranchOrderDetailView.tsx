@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BadgePercent, CheckCircle2, History, RefreshCw, ShieldAlert, ShoppingCart, UserCheck, XCircle } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/common/PageHeader";
 import { ActivityTimeline } from "@/components/common/ActivityTimeline";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -13,20 +14,19 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DescriptionList, DetailRow } from "@/components/common/DescriptionList";
 import { OrderItemsTable } from "@/components/common/OrderItemsTable";
 import { NotFound } from "@/components/common/NotFound";
+import { ErrorState } from "@/components/common/ErrorState";
 
 import { useBranchOrdersStore } from "@/features/branch-orders/hooks/useBranchOrdersStore";
+import { useBookingLookups } from "@/features/bookings/hooks/useBookingLookups";
 import { AssignmentDialog } from "@/features/bookings/components/AssignmentDialog";
 import { DiscountDialog } from "@/features/orders/components/DiscountDialog";
 import { branchOrderTimeline } from "@/features/orders/lib/orderHistory";
-import { mockBranches } from "@/data/mock-branches";
-import { mockUsers } from "@/data/mock-users";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import type { BranchOrderStatus } from "@/types/branch-order";
 
 const TERMINAL_STATUSES = [
-  "completed",
   "ready_for_delivery",
   "rejected",
 ] as BranchOrderStatus[];
@@ -93,19 +93,55 @@ export function BranchOrderDetailView({
 }: BranchOrderDetailViewProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getOrder, setStatus, assignOrder, reassignOrder, applyDiscount } =
-    useBranchOrdersStore();
+  const {
+    getOrder,
+    loadOrder,
+    loading,
+    error,
+    setStatus,
+    assignOrder,
+    reassignOrder,
+    applyDiscount,
+  } = useBranchOrdersStore();
   const { user } = useAuth();
   const { isSuperAdmin } = usePermissions();
+  const { admins } = useBookingLookups(isSuperAdmin);
 
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [discountOpen, setDiscountOpen] = useState(false);
+  const [loadAttempted, setLoadAttempted] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const order = id ? getOrder(id) : undefined;
 
+  useEffect(() => {
+    if (!id || getOrder(id)) {
+      setLoadAttempted(true);
+      return;
+    }
+    let cancelled = false;
+    setLoadError(null);
+    void loadOrder(id)
+      .then((result) => {
+        if (!cancelled && !result) {
+          setLoadError("Could not load branch order. Please try again.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadAttempted(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // The id is the load trigger; the store cache is checked at effect time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, loadOrder]);
+
   if (!order) {
+    const waiting = loading || !loadAttempted;
+    const displayError = loadError ?? error;
     return (
       <div className="space-y-4">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
@@ -114,19 +150,48 @@ export function BranchOrderDetailView({
             {backLabel}
           </Link>
         </Button>
-        <NotFound
-          title="Branch order not found"
-          message="The branch order you are looking for does not exist."
-          backHref={backHref}
-          backLabel={backLabel}
-        />
+        {waiting ? (
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-64" />
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Skeleton className="h-64 lg:col-span-2" />
+              <Skeleton className="h-64" />
+            </div>
+          </div>
+        ) : displayError ? (
+          <ErrorState
+            title="Could not load branch order"
+            message={displayError}
+            onRetry={() => {
+              setLoadError(null);
+              setLoadAttempted(false);
+              if (id) {
+                void loadOrder(id)
+                  .then((result) => {
+                    if (!result) {
+                      setLoadError(
+                        "Could not load branch order. Please try again.",
+                      );
+                    }
+                  })
+                  .finally(() => setLoadAttempted(true));
+              }
+            }}
+          />
+        ) : (
+          <NotFound
+            title="Branch order not found"
+            message="The branch order you are looking for does not exist."
+            backHref={backHref}
+            backLabel={backLabel}
+          />
+        )}
       </div>
     );
   }
 
-  const branch = mockBranches.find((b) => b.id === order.branchId);
   const assignedUser = order.assignedAdminId
-    ? mockUsers.find((u) => u.id === order.assignedAdminId)
+    ? admins.find((u) => u.id === order.assignedAdminId)
     : undefined;
   const isAssignedToMe = !!user?.id && order.assignedAdminId === user.id;
   const canProcess = isAssignedToMe;
@@ -135,6 +200,10 @@ export function BranchOrderDetailView({
   const nextAction = canProcess ? NEXT_ACTION[order.status] : undefined;
   const timeline = branchOrderTimeline(order);
   const isTerminal = TERMINAL_STATUSES.includes(order.status);
+  const canReassign =
+    isSuperAdmin &&
+    !!order.assignedAdminId &&
+    !["completed", "ready_for_delivery", "rejected"].includes(order.status);
 
   const applyAction = () => {
     if (!pendingAction || !user) return;
@@ -206,7 +275,7 @@ export function BranchOrderDetailView({
                     Assign to Admin
                   </Button>
                 )}
-              {isSuperAdmin && order.assignedAdminId && !isTerminal && (
+              {canReassign && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -332,9 +401,13 @@ export function BranchOrderDetailView({
               <DescriptionList
                 columns={1}
                 items={[
-                  { label: "Branch", value: branch?.name ?? order.branchName },
-                  { label: "Contact", value: branch?.contactNumber ?? "—" },
-                  { label: "Address", value: branch?.address ?? "—" },
+                  { label: "Branch", value: order.branchName },
+                  {
+                    label: "Branch manager",
+                    value: order.branchManager ?? "—",
+                  },
+                  { label: "Contact", value: order.branchContact ?? "—" },
+                  { label: "Address", value: order.branchAddress ?? "—" },
                 ]}
               />
             </CardContent>
@@ -433,7 +506,7 @@ export function BranchOrderDetailView({
             assignedByName: order.assignedByName,
             assignmentDate: order.assignmentDate,
           }}
-          admins={mockUsers}
+          admins={admins}
           currentUser={user}
           onAssign={(admin, by) => {
             if (order.assignedAdminId) {

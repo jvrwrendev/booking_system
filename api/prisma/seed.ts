@@ -210,7 +210,20 @@ async function seedBranches() {
     });
   }
 
-  console.log(`Seeded ${catalog.branches.length} branches`);
+  // The demo branch account is seeded before this function runs, but its
+  // branch record is not part of the catalog. Keep the two linked so the
+  // account can create branch orders and inventory records.
+  await prisma.branch.upsert({
+    where: { id: "BR-DEMO0001" },
+    update: { name: "Demo Branch" },
+    create: {
+      id: "BR-DEMO0001",
+      name: "Demo Branch",
+      status: "ACTIVE",
+    },
+  });
+
+  console.log(`Seeded ${catalog.branches.length + 1} branches`);
 }
 
 async function seedSuppliers(): Promise<Map<string, string>> {

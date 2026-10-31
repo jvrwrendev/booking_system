@@ -114,6 +114,7 @@ export function getStatusVariant(status: string): StatusVariant {
 export const ORDER_STATUS_OPTIONS: StatusOption[] = [
   { value: "all", label: "All statuses" },
   { value: "pending", label: "Pending" },
+  { value: "accepted", label: "Accepted" },
   { value: "assigned", label: "Assigned" },
   { value: "admin_accepted", label: "Admin accepted" },
   { value: "confirmed", label: "Confirmed" },
@@ -123,6 +124,20 @@ export const ORDER_STATUS_OPTIONS: StatusOption[] = [
   { value: "completed", label: "Completed" },
   { value: "rejected", label: "Rejected" },
   { value: "cancelled", label: "Cancelled" },
+];
+
+/** Branch orders do not use the booking-only confirmed/cancelled states. */
+export const BRANCH_ORDER_STATUS_OPTIONS: StatusOption[] = [
+  { value: "all", label: "All statuses" },
+  { value: "pending", label: "Pending" },
+  { value: "accepted", label: "Accepted" },
+  { value: "assigned", label: "Assigned" },
+  { value: "admin_accepted", label: "Admin accepted" },
+  { value: "processing", label: "Processing" },
+  { value: "ready", label: "Ready" },
+  { value: "completed", label: "Completed" },
+  { value: "ready_for_delivery", label: "Ready for delivery" },
+  { value: "rejected", label: "Rejected" },
 ];
 
 export const STOCK_STATUS_OPTIONS: StatusOption[] = [
