@@ -229,7 +229,7 @@ export function BranchOrderDetailView({
   const canReassign =
     isAdminUser &&
     !!order.assignedAdminId &&
-    !["completed", "rejected"].includes(order.status);
+    order.status === "assigned";
   const canAssignAdmin =
     isAdminUser && order.status === "accepted" && !order.assignedAdminId;
 

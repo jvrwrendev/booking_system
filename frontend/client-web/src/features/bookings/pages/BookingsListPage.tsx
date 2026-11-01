@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, Filter, MoreHorizontal, Route } from "lucide-react";
+import {
+  Eye,
+  Filter,
+  MoreHorizontal,
+  Route,
+  ShoppingCart,
+  Store,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
@@ -19,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
   DropdownMenu,
@@ -27,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import { CompletedBranchOrdersTable } from "../components/CompletedBranchOrdersTable";
 import { useBookingList } from "../hooks/useBookingList";
 import { useBookingLookups } from "../hooks/useBookingLookups";
 import type { Booking } from "@/types/booking";
@@ -197,104 +206,123 @@ export function BookingsListPage() {
         breadcrumbs={[{ label: "Operations" }, { label: "Bookings" }]}
       />
 
-      <DataTable<Booking>
-        data={bookings}
-        columns={columns}
-        searchPlaceholder="Search by reference, customer..."
-        rowKey={(b) => b.id}
-        loading={loading}
-        error={error}
-        onRetry={refresh}
-        serverMode={{
-          search: searchInput,
-          onSearchChange: setSearchInput,
-          page,
-          pageSize,
-          total,
-          onPageChange: setPage,
-          onPageSizeChange: setPageSize,
-        }}
-        toolbar={
-          <>
-            <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger
-                aria-label="Filter by status"
-                className="h-9 w-full sm:w-[150px]"
-              >
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                {ORDER_STATUS_OPTIONS.filter(
-                  (option) => option.value !== "all",
-                ).map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger
-                aria-label="Filter by branch"
-                className="h-9 w-full sm:w-[170px]"
-              >
-                <SelectValue placeholder="Branch" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All branches</SelectItem>
-                {branches.map((branch) => (
-                  <SelectItem key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={agentFilter} onValueChange={setAgentFilter}>
-              <SelectTrigger
-                aria-label="Filter by agent"
-                className="h-9 w-full sm:w-[160px]"
-              >
-                <SelectValue placeholder="Agent" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All agents</SelectItem>
-                {agents
-                  .filter((agent) => agent.agentId)
-                  .map((agent) => (
-                    <SelectItem
-                      key={agent.id}
-                      value={agent.agentId ?? agent.id}
+      <Tabs defaultValue="bookings" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="bookings" className="gap-2">
+            <ShoppingCart className="h-4 w-4" aria-hidden />
+            Bookings
+          </TabsTrigger>
+          <TabsTrigger value="branch-orders" className="gap-2">
+            <Store className="h-4 w-4" aria-hidden />
+            Completed Branch Orders
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="bookings" className="space-y-4">
+          <DataTable<Booking>
+            data={bookings}
+            columns={columns}
+            searchPlaceholder="Search by reference, customer..."
+            rowKey={(b) => b.id}
+            loading={loading}
+            error={error}
+            onRetry={refresh}
+            serverMode={{
+              search: searchInput,
+              onSearchChange: setSearchInput,
+              page,
+              pageSize,
+              total,
+              onPageChange: setPage,
+              onPageSizeChange: setPageSize,
+            }}
+            toolbar={
+              <>
+                <Filter className="hidden h-4 w-4 text-muted-foreground sm:block" />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger
+                    aria-label="Filter by status"
+                    className="h-9 w-full sm:w-[150px]"
+                  >
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {ORDER_STATUS_OPTIONS.filter(
+                      (option) => option.value !== "all",
+                    ).map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={branchFilter} onValueChange={setBranchFilter}>
+                  <SelectTrigger
+                    aria-label="Filter by branch"
+                    className="h-9 w-full sm:w-[170px]"
+                  >
+                    <SelectValue placeholder="Branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All branches</SelectItem>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={agentFilter} onValueChange={setAgentFilter}>
+                  <SelectTrigger
+                    aria-label="Filter by agent"
+                    className="h-9 w-full sm:w-[160px]"
+                  >
+                    <SelectValue placeholder="Agent" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All agents</SelectItem>
+                    {agents
+                      .filter((agent) => agent.agentId)
+                      .map((agent) => (
+                        <SelectItem
+                          key={agent.id}
+                          value={agent.agentId ?? agent.id}
+                        >
+                          {agent.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {isSuperAdmin && (
+                  <Select
+                    value={assignedFilter}
+                    onValueChange={(value) =>
+                      setAssignedFilter(value as AssignmentFilter)
+                    }
+                  >
+                    <SelectTrigger
+                      aria-label="Filter by assignment"
+                      className="h-9 w-full sm:w-[160px]"
                     >
-                      {agent.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            {isSuperAdmin && (
-              <Select
-                value={assignedFilter}
-                onValueChange={(value) =>
-                  setAssignedFilter(value as AssignmentFilter)
-                }
-              >
-                <SelectTrigger
-                  aria-label="Filter by assignment"
-                  className="h-9 w-full sm:w-[160px]"
-                >
-                  <SelectValue placeholder="Assignment" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All assignments</SelectItem>
-                  <SelectItem value="assigned">Assigned</SelectItem>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </>
-        }
-      />
+                      <SelectValue placeholder="Assignment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All assignments</SelectItem>
+                      <SelectItem value="assigned">Assigned</SelectItem>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </>
+            }
+          />
+        </TabsContent>
+
+        <TabsContent value="branch-orders" className="space-y-4">
+          <CompletedBranchOrdersTable />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

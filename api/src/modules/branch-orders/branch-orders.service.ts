@@ -135,15 +135,6 @@ const LOCKED_STATUSES = new Set<BranchOrderStatus>([
   "REJECTED",
 ]);
 
-const ASSIGNABLE_STATUSES = new Set<BranchOrderStatus>([
-  "ACCEPTED",
-  "ASSIGNED",
-  "ADMIN_ACCEPTED",
-  "REVIEW_ORDER",
-  "PROCESSING",
-  "READY",
-]);
-
 const DISCOUNT_EDITABLE_STATUSES = new Set<BranchOrderStatus>([
   "ACCEPTED",
   "REVIEW_ORDER",
@@ -841,14 +832,20 @@ export async function assignBranchOrder(
     assertBranchScope(order, actor);
     assertNotTerminal(order);
 
-    if (!ASSIGNABLE_STATUSES.has(order.status)) {
+    const isReassign = Boolean(order.assignedAdminId);
+    if (isReassign) {
+      if (order.status !== "ASSIGNED") {
+        throw Errors.conflict(
+          "Only assigned branch orders can be reassigned",
+        );
+      }
+    } else if (order.status !== "ACCEPTED") {
       throw Errors.conflict(
         "Branch order must be accepted before it can be assigned",
       );
     }
 
     const admin = await resolveAdmin(tx, input.adminId);
-    const isReassign = Boolean(order.assignedAdminId);
     const nextStatus =
       order.status === "ACCEPTED" ? "ASSIGNED" : order.status;
 
