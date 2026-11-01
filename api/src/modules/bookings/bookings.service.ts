@@ -2,6 +2,16 @@ import { randomUUID } from "node:crypto";
 import type { BookingStatus, Prisma, Role } from "@prisma/client";
 import { Prisma as PrismaNamespace } from "@prisma/client";
 import { Errors } from "../../lib/app-error.js";
+import {
+  assignmentActionLabel,
+  createdActionLabel,
+  discountActionLabel,
+  historyLabel,
+  statusActionLabel,
+  unassignedActionLabel,
+  updatedActionLabel,
+  withHistoryNote,
+} from "../../lib/order-history.js";
 import { prisma } from "../../lib/prisma.js";
 import {
   commitOrderStockInTransaction,
@@ -178,7 +188,11 @@ function toBookingView(booking: BookingRecord): BookingView {
       id: entry.id,
       from: entry.fromStatus?.toLowerCase() ?? "",
       to: entry.toStatus.toLowerCase(),
-      label: entry.label,
+      label: historyLabel({
+        label: entry.label,
+        byName: entry.byName,
+        toStatus: entry.toStatus,
+      }),
       timestamp: entry.createdAt,
       by: entry.byName,
     })),
@@ -410,20 +424,6 @@ function assertStatusChangeAllowed(
   assertAssignedActor(booking, actor);
 }
 
-function statusActionLabel(status: BookingStatus, actorName: string): string {
-  switch (status) {
-    case "ACCEPTED":
-    case "ADMIN_ACCEPTED":
-      return `${actorName} accepted`;
-    case "REVIEW_ORDER":
-      return "Reviewed order";
-    case "COMPLETED":
-      return `${actorName} completed the order`;
-    default:
-      return STATUS_LABELS[status];
-  }
-}
-
 async function resolveAdmin(
   tx: Prisma.TransactionClient,
   adminId: string,
@@ -579,7 +579,7 @@ export async function createBooking(
           statusHistory: {
             create: {
               toStatus: "PENDING",
-              label: "Order created",
+              label: createdActionLabel(actor.name),
               byName: actor.name,
             },
           },
@@ -694,7 +694,7 @@ export async function updateBooking(
           create: {
             fromStatus: booking.status,
             toStatus: booking.status,
-            label: "Order details updated",
+            label: updatedActionLabel(actor.name),
             byName: actor.name,
           },
         },
@@ -777,7 +777,10 @@ export async function updateBookingStatus(
           create: {
             fromStatus: booking.status,
             toStatus: input.status,
-            label: input.note || statusActionLabel(input.status, actor.name),
+            label: withHistoryNote(
+              statusActionLabel(input.status, actor.name),
+              input.note,
+            ),
             byName: actor.name,
           },
         },
@@ -818,9 +821,10 @@ export async function assignBooking(
           create: {
             fromStatus: booking.status,
             toStatus: nextStatus,
-            label:
-              input.note ||
-              `${isReassign ? "Reassigned" : "Assigned"} to ${admin.name}`,
+            label: withHistoryNote(
+              assignmentActionLabel(actor.name, admin.name, isReassign),
+              input.note,
+            ),
             byName: actor.name,
           },
         },
@@ -862,7 +866,7 @@ export async function unassignBooking(
           create: {
             fromStatus: booking.status,
             toStatus: nextStatus,
-            label: "Unassigned",
+            label: unassignedActionLabel(actor.name),
             byName: actor.name,
           },
         },
@@ -896,10 +900,10 @@ export async function applyBookingDiscount(
           create: {
             fromStatus: booking.status,
             toStatus: booking.status,
-            label:
-              input.discount === 0
-                ? "Discount removed"
-                : input.note || `Discount applied: ${input.discount}`,
+            label: withHistoryNote(
+              discountActionLabel(actor.name, input.discount),
+              input.note,
+            ),
             byName: actor.name,
           },
         },

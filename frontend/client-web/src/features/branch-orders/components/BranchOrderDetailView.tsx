@@ -41,6 +41,11 @@ const TERMINAL_STATUSES = [
   "rejected",
 ] as BranchOrderStatus[];
 
+const DISCOUNT_EDITABLE_STATUSES = new Set<BranchOrderStatus>([
+  "accepted",
+  "review_order",
+]);
+
 interface PendingAction {
   target: BranchOrderStatus;
   label: string;
@@ -216,7 +221,8 @@ export function BranchOrderDetailView({
     user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const isAssignedToMe = !!user?.id && order.assignedAdminId === user.id;
   const canProcess = isAssignedToMe || isSuperAdmin;
-  const canEditDiscount = isAdminUser;
+  const canEditDiscount =
+    isAdminUser && DISCOUNT_EDITABLE_STATUSES.has(order.status);
   const nextAction = canProcess ? NEXT_ACTION[order.status] : undefined;
   const timeline = branchOrderTimeline(order);
   const isTerminal = TERMINAL_STATUSES.includes(order.status);
@@ -296,7 +302,7 @@ export function BranchOrderDetailView({
               {canAssignAdmin && (
                 <Button size="sm" onClick={() => setAssignmentOpen(true)}>
                   <UserCheck className="h-4 w-4" aria-hidden />
-                  Assign to Admin
+                  Assign Punch
                 </Button>
               )}
               {canReassign && (
@@ -401,19 +407,18 @@ export function BranchOrderDetailView({
               <span className="text-xs text-muted-foreground">
                 {order.totalQuantity} units
               </span>
-              {canEditDiscount &&
-                !["ready_for_delivery", "rejected"].includes(order.status) && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setDiscountOpen(true)}
-                  >
-                    <BadgePercent className="h-4 w-4" aria-hidden />
-                    {order.discount > 0 ? "Edit discount" : "Add discount"}
-                  </Button>
-                )}
+              {canEditDiscount && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setDiscountOpen(true)}
+                >
+                  <BadgePercent className="h-4 w-4" aria-hidden />
+                  {order.discount > 0 ? "Edit discount" : "Add discount"}
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">

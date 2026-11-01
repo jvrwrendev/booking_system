@@ -2,6 +2,16 @@ import { randomUUID } from "node:crypto";
 import type { BranchOrderStatus, Prisma, Role } from "@prisma/client";
 import { Prisma as PrismaNamespace } from "@prisma/client";
 import { Errors } from "../../lib/app-error.js";
+import {
+  assignmentActionLabel,
+  createdActionLabel,
+  discountActionLabel,
+  historyLabel,
+  statusActionLabel,
+  unassignedActionLabel,
+  updatedActionLabel,
+  withHistoryNote,
+} from "../../lib/order-history.js";
 import { prisma } from "../../lib/prisma.js";
 import {
   commitOrderStockInTransaction,
@@ -134,6 +144,11 @@ const ASSIGNABLE_STATUSES = new Set<BranchOrderStatus>([
   "READY",
 ]);
 
+const DISCOUNT_EDITABLE_STATUSES = new Set<BranchOrderStatus>([
+  "ACCEPTED",
+  "REVIEW_ORDER",
+]);
+
 const DELETABLE_STATUSES = new Set<BranchOrderStatus>([
   "PENDING",
   "ACCEPTED",
@@ -183,7 +198,11 @@ function toBranchOrderView(order: BranchOrderRecord): BranchOrderView {
       id: entry.id,
       from: entry.fromStatus?.toLowerCase() ?? "",
       to: entry.toStatus.toLowerCase(),
-      label: entry.label,
+      label: historyLabel({
+        label: entry.label,
+        byName: entry.byName,
+        toStatus: entry.toStatus,
+      }),
       timestamp: entry.createdAt,
       by: entry.byName,
     })),
@@ -436,23 +455,6 @@ function assertStatusChangeAllowed(
   assertAssignedActor(order, actor);
 }
 
-function statusActionLabel(
-  status: BranchOrderStatus,
-  actorName: string,
-): string {
-  switch (status) {
-    case "ACCEPTED":
-    case "ADMIN_ACCEPTED":
-      return `${actorName} accepted`;
-    case "REVIEW_ORDER":
-      return "Reviewed order";
-    case "COMPLETED":
-      return `${actorName} completed the order`;
-    default:
-      return STATUS_LABELS[status];
-  }
-}
-
 async function resolveAdmin(
   tx: Prisma.TransactionClient,
   adminId: string,
@@ -617,7 +619,7 @@ export async function createBranchOrder(
           statusHistory: {
             create: {
               toStatus: "PENDING",
-              label: "Order created",
+              label: createdActionLabel(actor.name),
               byName: actor.name,
             },
           },
@@ -723,7 +725,7 @@ export async function updateBranchOrder(
           create: {
             fromStatus: order.status,
             toStatus: order.status,
-            label: "Order details updated",
+            label: updatedActionLabel(actor.name),
             byName: actor.name,
           },
         },
@@ -814,7 +816,10 @@ export async function updateBranchOrderStatus(
           create: {
             fromStatus: order.status,
             toStatus: input.status,
-            label: input.note || statusActionLabel(input.status, actor.name),
+            label: withHistoryNote(
+              statusActionLabel(input.status, actor.name),
+              input.note,
+            ),
             byName: actor.name,
           },
         },
@@ -860,9 +865,10 @@ export async function assignBranchOrder(
           create: {
             fromStatus: order.status,
             toStatus: nextStatus,
-            label:
-              input.note ||
-              `${isReassign ? "Reassigned" : "Assigned"} to ${admin.name}`,
+            label: withHistoryNote(
+              assignmentActionLabel(actor.name, admin.name, isReassign),
+              input.note,
+            ),
             byName: actor.name,
           },
         },
@@ -905,7 +911,7 @@ export async function unassignBranchOrder(
           create: {
             fromStatus: order.status,
             toStatus: "ACCEPTED",
-            label: "Unassigned",
+            label: unassignedActionLabel(actor.name),
             byName: actor.name,
           },
         },
@@ -926,6 +932,11 @@ export async function applyBranchOrderDiscount(
     const order = await mustGetBranchOrder(id, tx);
     assertBranchScope(order, actor);
     assertNotTerminal(order);
+    if (!DISCOUNT_EDITABLE_STATUSES.has(order.status)) {
+      throw Errors.conflict(
+        "Discount can only be changed when the order is accepted or under review",
+      );
+    }
 
     const subtotal = Number(order.subtotal);
     if (input.discount > subtotal) {
@@ -941,10 +952,10 @@ export async function applyBranchOrderDiscount(
           create: {
             fromStatus: order.status,
             toStatus: order.status,
-            label:
-              input.discount === 0
-                ? "Discount removed"
-                : input.note || `Discount applied: ${input.discount}`,
+            label: withHistoryNote(
+              discountActionLabel(actor.name, input.discount),
+              input.note,
+            ),
             byName: actor.name,
           },
         },
