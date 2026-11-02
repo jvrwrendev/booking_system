@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { TextInput, View } from "react-native";
 import { Search } from "lucide-react-native";
 import { cn } from "@/lib/utils";
@@ -16,10 +16,15 @@ export function SearchInput({
   placeholder = "Search...",
   className,
 }: SearchInputProps) {
+  const [focused, setFocused] = useState(false);
+
   return (
     <View
       className={cn(
-        "flex-row items-center h-11 rounded-md border border-border bg-background px-3",
+        "flex-row items-center h-11 rounded-md border bg-background px-3",
+        focused
+          ? "border-field-focus"
+          : "border-field hover:border-field-hover",
         className,
       )}
     >
@@ -33,6 +38,8 @@ export function SearchInput({
         autoCapitalize="none"
         autoCorrect={false}
         returnKeyType="search"
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
       />
     </View>
   );

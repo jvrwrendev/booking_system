@@ -84,7 +84,9 @@ export function Select<T extends string = string>({
       <View
         className={cn(
           "rounded-md border bg-background px-3 min-h-[44px] justify-center",
-          error ? "border-danger" : "border-border",
+          error
+            ? "border-danger"
+            : "border-field hover:border-field-hover focus-within:border-field-focus",
         )}
       >
         <ChipGroup options={options} value={value} onChange={onChange} />

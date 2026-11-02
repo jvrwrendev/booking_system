@@ -233,16 +233,14 @@ export function OtpInput({
                     removeWebFocusRing,
                   ]}
                   className={cn(
-                    "rounded-2xl border-2 bg-background font-bold text-foreground shadow-sm outline-none",
+                    "rounded-2xl border-2 bg-background font-bold text-foreground outline-none",
                     hasError
                       ? "border-danger/70 bg-danger/5"
-                      : isComplete
-                        ? "border-primary/50 bg-primary/5"
-                        : isFocused
-                          ? "border-primary bg-background"
-                          : digit
-                            ? "border-foreground/25"
-                            : "border-border",
+                      : isFocused
+                        ? "border-field-focus bg-background"
+                        : isComplete
+                          ? "border-field bg-primary/5"
+                          : "border-field",
                     editable ? "" : "opacity-50",
                   )}
                 />

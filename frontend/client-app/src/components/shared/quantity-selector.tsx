@@ -38,7 +38,7 @@ export function QuantitySelector({
   return (
     <View
       className={cn(
-        "flex-row items-center rounded-md border border-border bg-background overflow-hidden",
+        "flex-row items-center rounded-md border border-field bg-background overflow-hidden",
         disabled && "opacity-50",
         className,
       )}
@@ -50,7 +50,7 @@ export function QuantitySelector({
       >
         <Minus size={16} color={atMin ? "#CBD5E1" : "#0F172A"} />
       </Pressable>
-      <View className="flex-1 items-center justify-center h-10 border-x border-border">
+      <View className="flex-1 items-center justify-center h-10 border-x border-field">
         <Text weight="semibold">{value}</Text>
       </View>
       <Pressable

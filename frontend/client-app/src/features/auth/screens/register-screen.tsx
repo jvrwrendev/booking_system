@@ -219,7 +219,7 @@ export function RegisterScreen() {
               >
                 Account Role
               </Text>
-              <View className="flex-row rounded-lg border border-border p-1">
+              <View className="flex-row rounded-lg border border-field p-1">
                 {roleOptions.map((option) => {
                   const selected = role === option.value;
                   return (
@@ -230,7 +230,7 @@ export function RegisterScreen() {
                       accessibilityState={{ checked: selected, selected }}
                       className={cn(
                         "flex-1 flex-row items-center justify-center gap-2 rounded-md py-2.5",
-                        selected ? "border border-border" : "border-transparent"
+                        selected ? "border border-field" : "border-transparent"
                       )}
                     >
                       {option.value === "AGENT" ? (

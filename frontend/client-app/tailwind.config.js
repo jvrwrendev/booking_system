@@ -7,6 +7,11 @@ module.exports = {
       colors: {
         border: "#E5E7EB",
         input: "#E5E7EB",
+        field: {
+          DEFAULT: "#9CA3AF",
+          hover: "#6B7280",
+          focus: "#4B5563",
+        },
         ring: "#0F172A",
         background: "#FFFFFF",
         foreground: "#0F172A",

@@ -268,7 +268,7 @@ export function LoginScreen() {
                     "h-5 w-5 items-center justify-center rounded-md border",
                     rememberMe
                       ? "border-primary bg-primary"
-                      : "border-input bg-background"
+                      : "border-field bg-background"
                   )}
                 >
                   {rememberMe ? (

@@ -376,7 +376,11 @@ function OptionField({
         disabled={disabled}
         className={`min-h-[44px] flex-row items-center justify-between rounded-md border bg-background px-3 ${
           disabled ? "opacity-60" : ""
-        } ${error ? "border-danger" : "border-border"}`}
+        } ${
+          error
+            ? "border-danger"
+            : "border-field hover:border-field-hover active:border-field-focus"
+        }`}
       >
         <Text
           variant="small"

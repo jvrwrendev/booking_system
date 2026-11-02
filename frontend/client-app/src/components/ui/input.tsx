@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   TextInput,
   View,
@@ -49,6 +49,8 @@ export function Input({
   style,
   ...rest
 }: InputProps) {
+  const [focused, setFocused] = useState(false);
+
   return (
     <View className={cn("w-full", containerClassName)}>
       {label && (
@@ -63,8 +65,10 @@ export function Input({
         className={cn(
           "flex-row items-center rounded-md border bg-background px-3",
           error
-            ? "border-danger focus-within:border-danger"
-            : "border-border hover:border-primary focus-within:border-primary",
+            ? "border-danger"
+            : focused
+              ? "border-field-focus"
+              : "border-field hover:border-field-hover",
           multiline ? "py-2" : sizeClass[size],
           rest.editable === false && "opacity-60"
         )}
@@ -74,6 +78,14 @@ export function Input({
           {...rest}
           ref={inputRef}
           multiline={multiline}
+          onFocus={(event) => {
+            setFocused(true);
+            rest.onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            rest.onBlur?.(event);
+          }}
           accessibilityState={{ disabled: rest.editable === false }}
           placeholderTextColor="#94A3B8"
           style={[
