@@ -14,18 +14,11 @@ import {
   FormFooter,
 } from "@/components/common/FormPageLayout";
 import { AddressSelector } from "@/components/common/AddressSelector";
-import { NameSuffixSelect } from "@/components/common/NameSuffixSelect";
-import { PasswordInput } from "@/components/common/PasswordInput";
 
 import type { Customer, CustomerFormValues } from "@/types/customer";
-import { mockAgents } from "@/data/mock-agents";
-import { computeFullName, emptyAddress } from "@/lib/utils";
-import {
-  hasErrors,
-  isBlank,
-  validatePersonFields,
-  type FieldErrors,
-} from "@/lib/validation";
+import { emptyAddress } from "@/lib/utils";
+import { hasErrors, isBlank, type FieldErrors } from "@/lib/validation";
+import { useAgentsStore } from "@/features/agents/hooks/useAgentsStore";
 
 interface CustomerFormProps {
   initial?: Customer;
@@ -37,12 +30,10 @@ interface CustomerFormProps {
 }
 
 type CustomerField =
-  | "firstName"
-  | "lastName"
-  | "email"
-  | "password"
-  | "confirmPassword"
-  | "assignedAgentId";
+  | "fullName"
+  | "contactNumber"
+  | "assignedAgentId"
+  | "address";
 
 export function CustomerForm({
   initial,
@@ -52,74 +43,60 @@ export function CustomerForm({
   hideFooter = false,
   formId,
 }: CustomerFormProps) {
+  const { agents } = useAgentsStore();
   const [values, setValues] = useState<CustomerFormValues>(
     initial
       ? {
-          firstName: initial.firstName,
-          middleName: initial.middleName,
-          lastName: initial.lastName,
-          suffix: initial.suffix,
-          email: initial.email,
-          password: initial.password,
-          confirmPassword: initial.password,
+          fullName: initial.fullName,
           contactNumber: initial.contactNumber,
+          gender: initial.gender,
           addressParts: initial.addressParts,
           assignedAgentId: initial.assignedAgentId,
+          notes: initial.notes,
           status: initial.status,
         }
       : {
-          firstName: "",
-          middleName: "",
-          lastName: "",
-          suffix: "",
-          email: "",
-          password: "",
-          confirmPassword: "",
+          fullName: "",
           contactNumber: "",
+          gender: "",
           addressParts: emptyAddress(),
           assignedAgentId: "",
+          notes: "",
           status: "active",
-        }
+        },
   );
   const [errors, setErrors] = useState<FieldErrors<CustomerField>>({});
   const formRef = useRef<HTMLFormElement>(null);
 
-  const previewName = computeFullName(
-    values.firstName,
-    values.middleName,
-    values.lastName,
-    values.suffix
-  );
-
-  /** Clears a field's message as soon as the user edits it. */
   const update = <K extends keyof CustomerFormValues>(
     key: K,
-    value: CustomerFormValues[K]
+    value: CustomerFormValues[K],
   ) => {
-    setValues((v) => ({ ...v, [key]: value }));
-    setErrors((e) => ({ ...e, [key]: undefined }));
+    setValues((previous) => ({ ...previous, [key]: value }));
+    setErrors((previous) => ({ ...previous, [key]: undefined }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
 
-    const nextErrors = validatePersonFields({
-      firstName: values.firstName,
-      lastName: values.lastName,
-      email: values.email,
-      password: values.password,
-      confirmPassword: values.confirmPassword,
-      requirePassword: !initial,
-    });
+    const nextErrors: FieldErrors<CustomerField> = {};
 
-    // A blank password while editing means "leave it unchanged".
-    if (initial && !values.password) {
-      delete nextErrors.password;
-      delete nextErrors.confirmPassword;
+    if (isBlank(values.fullName)) {
+      nextErrors.fullName = "Full name is required.";
     }
-
+    if (isBlank(values.contactNumber)) {
+      nextErrors.contactNumber = "Contact number is required.";
+    }
     if (isBlank(values.assignedAgentId)) {
       nextErrors.assignedAgentId = "Assign an agent to this customer.";
+    }
+    if (
+      isBlank(values.addressParts.street) ||
+      isBlank(values.addressParts.barangay.name) ||
+      isBlank(values.addressParts.city.name) ||
+      isBlank(values.addressParts.region.name)
+    ) {
+      nextErrors.address = "Complete the customer's address.";
     }
 
     setErrors(nextErrors);
@@ -144,101 +121,60 @@ export function CustomerForm({
       noValidate
     >
       <FormSection
-        title="Personal information"
-        description="The customer's legal name and primary contact details."
+        title="Customer information"
+        description="The customer's name and primary contact details."
       >
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <FormField
-            label="First name"
-            required
-            htmlFor="firstName"
-            error={errors.firstName}
-          >
-            <Input
-              id="firstName"
-              value={values.firstName}
-              onChange={(e) => update("firstName", e.target.value)}
-              placeholder="Ricardo"
-              autoComplete="given-name"
-              aria-invalid={!!errors.firstName}
-              className="h-10"
-            />
-          </FormField>
-          <FormField label="Middle name" optional htmlFor="middleName">
-            <Input
-              id="middleName"
-              value={values.middleName}
-              onChange={(e) => update("middleName", e.target.value)}
-              placeholder="Middle name"
-              autoComplete="additional-name"
-              className="h-10"
-            />
-          </FormField>
-          <FormField
-            label="Last name"
-            required
-            htmlFor="lastName"
-            error={errors.lastName}
-          >
-            <Input
-              id="lastName"
-              value={values.lastName}
-              onChange={(e) => update("lastName", e.target.value)}
-              placeholder="Bautista"
-              autoComplete="family-name"
-              aria-invalid={!!errors.lastName}
-              className="h-10"
-            />
-          </FormField>
-          <FormField label="Suffix" optional htmlFor="suffix">
-            <NameSuffixSelect
-              id="suffix"
-              value={values.suffix}
-              onChange={(suffix) => update("suffix", suffix)}
-            />
-          </FormField>
-        </div>
-
-        {previewName && (
-          <p className="text-xs text-muted-foreground">
-            Full name will appear as{" "}
-            <span className="font-medium text-foreground">{previewName}</span>
-          </p>
-        )}
-
         <div className="grid gap-5 sm:grid-cols-2">
           <FormField
-            label="Email"
+            label="Full name"
             required
-            htmlFor="email"
-            hint="Used for signing in and notifications."
-            error={errors.email}
+            htmlFor="fullName"
+            error={errors.fullName}
           >
             <Input
-              id="email"
-              type="email"
-              value={values.email}
-              onChange={(e) => update("email", e.target.value)}
-              placeholder="customer@email.com"
-              autoComplete="email"
-              aria-invalid={!!errors.email}
+              id="fullName"
+              value={values.fullName}
+              onChange={(event) => update("fullName", event.target.value)}
+              placeholder="Ricardo Bautista"
+              autoComplete="name"
+              aria-invalid={!!errors.fullName}
               className="h-10"
             />
           </FormField>
           <FormField
             label="Contact number"
-            optional
+            required
             htmlFor="contactNumber"
             hint="Include country code, e.g. +63 9XX XXX XXXX."
+            error={errors.contactNumber}
           >
             <Input
               id="contactNumber"
               value={values.contactNumber}
-              onChange={(e) => update("contactNumber", e.target.value)}
+              onChange={(event) => update("contactNumber", event.target.value)}
               placeholder="+63 9XX XXX XXXX"
               autoComplete="tel"
+              aria-invalid={!!errors.contactNumber}
               className="h-10"
             />
+          </FormField>
+          <FormField label="Gender" optional htmlFor="gender">
+            <Select
+              value={values.gender || "unspecified"}
+              onValueChange={(value) =>
+                update("gender", value === "unspecified" ? "" : value)
+              }
+            >
+              <SelectTrigger id="gender" className="h-10">
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unspecified">Not specified</SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
           </FormField>
         </div>
       </FormSection>
@@ -251,68 +187,26 @@ export function CustomerForm({
           value={values.addressParts}
           onChange={(addressParts) => update("addressParts", addressParts)}
         />
-      </FormSection>
-
-      <FormSection
-        title="Security"
-        description={
-          initial
-            ? "Leave blank to keep the current password."
-            : "Set a password for the new customer account."
-        }
-      >
-        <div className="grid gap-5 sm:grid-cols-2">
-          <FormField
-            label="Password"
-            required={!initial}
-            htmlFor="password"
-            hint="At least 8 characters."
-            error={errors.password}
-          >
-            <PasswordInput
-              id="password"
-              value={values.password}
-              onChange={(e) => update("password", e.target.value)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-              aria-invalid={!!errors.password}
-              className="h-10"
-            />
-          </FormField>
-          <FormField
-            label="Confirm password"
-            required={!initial}
-            htmlFor="confirmPassword"
-            error={errors.confirmPassword}
-          >
-            <PasswordInput
-              id="confirmPassword"
-              value={values.confirmPassword}
-              onChange={(e) => update("confirmPassword", e.target.value)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-              aria-invalid={!!errors.confirmPassword}
-              className="h-10"
-            />
-          </FormField>
-        </div>
+        {errors.address && (
+          <p className="text-xs font-medium text-destructive">{errors.address}</p>
+        )}
       </FormSection>
 
       <FormSection
         title="Assignment & status"
-        description="Assign a sales agent and control account access."
+        description="Assign a sales agent and control this customer's account."
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <FormField
             label="Assigned agent"
             required
             htmlFor="assignedAgentId"
-            hint="Only active agents are listed."
+            hint="Choose the agent who owns this customer."
             error={errors.assignedAgentId}
           >
             <Select
               value={values.assignedAgentId}
-              onValueChange={(v) => update("assignedAgentId", v)}
+              onValueChange={(value) => update("assignedAgentId", value)}
             >
               <SelectTrigger
                 id="assignedAgentId"
@@ -322,24 +216,20 @@ export function CustomerForm({
                 <SelectValue placeholder="Select an agent" />
               </SelectTrigger>
               <SelectContent>
-                {mockAgents
-                  .filter((a) => a.status === "active")
-                  .map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.fullName}
-                    </SelectItem>
-                  ))}
+                {agents.map((agent) => (
+                  <SelectItem key={agent.id} value={agent.id}>
+                    {agent.fullName}
+                    {agent.status !== "active" ? ` (${agent.status})` : ""}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Account status" htmlFor="status">
+          <FormField label="Status" htmlFor="status">
             <Select
               value={values.status}
-              onValueChange={(v) =>
-                setValues((s) => ({
-                  ...s,
-                  status: v as Customer["status"],
-                }))
+              onValueChange={(value) =>
+                update("status", value as Customer["status"])
               }
             >
               <SelectTrigger id="status" className="h-10">
@@ -352,6 +242,16 @@ export function CustomerForm({
             </Select>
           </FormField>
         </div>
+
+        <FormField label="Notes" optional htmlFor="notes">
+          <Input
+            id="notes"
+            value={values.notes}
+            onChange={(event) => update("notes", event.target.value)}
+            placeholder="Optional notes about this customer"
+            className="h-10"
+          />
+        </FormField>
       </FormSection>
 
       {!hideFooter && (

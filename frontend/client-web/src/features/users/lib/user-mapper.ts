@@ -31,7 +31,7 @@ export function toAuthUser(dto: PublicUserDto): AuthUser {
     id: dto.id,
     fullName: dto.name,
     email: dto.email,
-    role: dto.role,
+    role: dto.role as AuthUser["role"],
     status: STATUS_TO_UI[dto.status],
     createdAt: dto.createdAt,
   };

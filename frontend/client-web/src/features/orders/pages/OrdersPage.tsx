@@ -21,10 +21,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMyOrders } from "../hooks/useMyOrders";
 import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
 import { useBranchOrdersStore } from "@/features/branch-orders/hooks/useBranchOrdersStore";
+import { useBranchesStore } from "@/features/branches/hooks/useBranchesStore";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 
-import { mockBranches } from "@/data/mock-branches";
 import { Booking } from "@/types/booking";
 import { BranchOrder } from "@/types/branch-order";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -66,17 +66,6 @@ function withinPreset(dateStr: string, preset: DatePreset): boolean {
   }
 }
 
-/**
- * Agent bookings do not carry a branch-manager snapshot yet, so they fall
- * back to the existing branch fixture. Branch orders use their own API-backed
- * `branchManager` snapshot instead.
- */
-function agentBranchManager(branchId?: string | null): string {
-  if (!branchId) return "—";
-  const branch = mockBranches.find((br) => br.id === branchId);
-  return branch?.manager ?? "—";
-}
-
 export function OrdersPage() {
   const { user } = useAuth();
   const { isSuperAdmin } = usePermissions();
@@ -88,6 +77,7 @@ export function OrdersPage() {
     refresh: refreshBranchOrders,
   } = useBranchOrdersStore();
   const { myAgentOrders, myBranchOrders } = useMyOrders();
+  const { branches } = useBranchesStore();
   const [agentStatus, setAgentStatus] = useState("all");
   const [branchStatus, setBranchStatus] = useState("all");
   const [agentDate, setAgentDate] = useState<DatePreset>("all");
@@ -152,7 +142,9 @@ export function OrdersPage() {
       id: "branchManager",
       header: "Branch Manager",
       cell: (b) => (
-        <span className="text-sm">{agentBranchManager(b.branchId)}</span>
+        <span className="text-sm">
+          {branches.find((branch) => branch.id === b.branchId)?.manager ?? "—"}
+        </span>
       ),
       hideOnMobile: true,
     },

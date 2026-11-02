@@ -29,7 +29,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 
 export function BranchesListPage() {
   const { can } = usePermissions();
-  const { branches } = useBranchesStore();
+  const { branches, loading, error, refresh } = useBranchesStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editing, setEditing] = useState<Branch | null>(null);
 
@@ -165,6 +165,9 @@ export function BranchesListPage() {
         searchPlaceholder="Search branches..."
         searchKeys={["name", "code", "manager", "address", "email"]}
         rowKey={(b) => b.id}
+        loading={loading}
+        error={error}
+        onRetry={refresh}
         toolbar={
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[140px]">

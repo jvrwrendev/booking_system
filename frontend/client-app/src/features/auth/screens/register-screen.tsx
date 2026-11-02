@@ -14,7 +14,6 @@ import {
   AlertCircle,
   ArrowLeft,
   Building2,
-  Camera,
   Eye,
   EyeOff,
   Lock,
@@ -27,11 +26,9 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { cn, validateEmail } from "@/lib/utils";
-import { pickProfileImage } from "@/lib/image-picker";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar } from "@/components/ui/avatar";
 import { APP_FULL_NAME, BUSINESS_NAME } from "@/constants";
 import type { Role } from "@/types/role";
 import type { RootStackParamList } from "@/app/navigation/types";
@@ -61,7 +58,7 @@ export function RegisterScreen() {
 
   const [role, setRole] = useState<Role>("AGENT");
   const [name, setName] = useState("");
-  const [avatar, setAvatar] = useState<string | undefined>(undefined);
+  const [ownerName, setOwnerName] = useState("");
   const [email, setEmail] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [address, setAddress] = useState("");
@@ -78,6 +75,10 @@ export function RegisterScreen() {
 
   const nameError =
     submitted && !name.trim() ? `${nameLabel} is required.` : undefined;
+  const ownerNameError =
+    submitted && role === "BRANCH" && !ownerName.trim()
+      ? "Owner's full name is required."
+      : undefined;
   const emailError = submitted ? validateEmail(email) : undefined;
   const contactError =
     submitted && !contactNumber.trim()
@@ -98,6 +99,7 @@ export function RegisterScreen() {
 
   const canSubmit =
     Boolean(name.trim()) &&
+    (role !== "BRANCH" || Boolean(ownerName.trim())) &&
     validateEmail(email) === undefined &&
     Boolean(contactNumber.trim()) &&
     (role === "AGENT" || Boolean(address.trim())) &&
@@ -111,18 +113,6 @@ export function RegisterScreen() {
     setRole(value);
     setSubmitted(false);
     setError(null);
-  };
-
-  const onChangePhoto = async () => {
-    const { uri, error: pickError } = await pickProfileImage();
-    if (pickError) {
-      setError(pickError);
-      return;
-    }
-    if (uri) {
-      setError(null);
-      setAvatar(uri);
-    }
   };
 
   const onSubmit = async () => {
@@ -139,12 +129,12 @@ export function RegisterScreen() {
     const result = await register({
       role,
       name: name.trim(),
+      ownerName: role === "BRANCH" ? ownerName.trim() : undefined,
       email: email.trim(),
       contactNumber: contactNumber.trim(),
       address: address.trim(),
       password,
       confirmPassword,
-      avatar: role === "AGENT" ? avatar : undefined,
     });
     setSubmitting(false);
 
@@ -259,54 +249,6 @@ export function RegisterScreen() {
               </View>
             </View>
 
-            {/* Profile Photo (agents) */}
-            {role === "AGENT" ? (
-              <View className="mb-6 items-center">
-                <View className="relative">
-                  <Avatar
-                    name={name || "?"}
-                    size="xl"
-                    uri={avatar}
-                    className="border border-border"
-                  />
-                  <Pressable
-                    onPress={() => {
-                      void onChangePhoto();
-                    }}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel="Add profile photo"
-                    className="absolute -bottom-1 -right-1 h-9 w-9 items-center justify-center rounded-full border border-border bg-background active:bg-accent/10"
-                  >
-                    <Camera size={15} color={PRIMARY_ICON} />
-                  </Pressable>
-                </View>
-                <View className="mt-3 flex-row items-center gap-2">
-                  <Button
-                    label={avatar ? "Change photo" : "Add photo"}
-                    variant="outline"
-                    size="sm"
-                    disabled={submitting}
-                    onPress={() => {
-                      void onChangePhoto();
-                    }}
-                  />
-                  {avatar ? (
-                    <Button
-                      label="Remove"
-                      variant="ghost"
-                      size="sm"
-                      disabled={submitting}
-                      onPress={() => setAvatar(undefined)}
-                    />
-                  ) : null}
-                </View>
-                <Text variant="small" tone="muted" className="mt-2 text-center">
-                  Optional — you can add it later from your profile.
-                </Text>
-              </View>
-            ) : null}
-
             {/* Form Section */}
             <View className="gap-4">
               <Input
@@ -335,6 +277,25 @@ export function RegisterScreen() {
                   )
                 }
               />
+
+              {role === "BRANCH" && (
+                <Input
+                  size="control"
+                  label="Owner's full name"
+                  accessibilityLabel="Owner's full name"
+                  value={ownerName}
+                  onChangeText={(value) => {
+                    setOwnerName(value);
+                    resetFeedback();
+                  }}
+                  error={ownerNameError}
+                  autoCapitalize="words"
+                  textContentType="name"
+                  autoComplete="name"
+                  placeholder="Juan Dela Cruz"
+                  leftIcon={<UserRound size={18} color={MUTED_ICON} />}
+                />
+              )}
 
               <Input
                 size="control"

@@ -24,13 +24,15 @@ import {
 
 import type { Agent } from "@/types/agent";
 import { useAgentsStore } from "../hooks/useAgentsStore";
+import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
 import { AgentEditDialog } from "../components/AgentEditDialog";
 import { formatDate, initials } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function AgentsListPage() {
   const { can } = usePermissions();
-  const { agents } = useAgentsStore();
+  const { agents, loading, error, refresh } = useAgentsStore();
+  const { bookings } = useBookingsStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editing, setEditing] = useState<Agent | null>(null);
 
@@ -42,6 +44,14 @@ export function AgentsListPage() {
       }),
     [agents, statusFilter]
   );
+
+  const bookingCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const booking of bookings) {
+      counts.set(booking.agentId, (counts.get(booking.agentId) ?? 0) + 1);
+    }
+    return counts;
+  }, [bookings]);
 
   const columns: DataTableColumn<Agent>[] = [
     {
@@ -90,7 +100,9 @@ export function AgentsListPage() {
     {
       id: "bookings",
       header: "Bookings",
-      cell: (a) => <span className="font-medium">{a.totalBookings}</span>,
+      cell: (a) => (
+        <span className="font-medium">{bookingCounts.get(a.id) ?? 0}</span>
+      ),
       sortable: true,
       sortKey: "totalBookings",
     },
@@ -164,6 +176,9 @@ export function AgentsListPage() {
         searchPlaceholder="Search agents..."
         searchKeys={["fullName", "email", "contactNumber", "address"]}
         rowKey={(a) => a.id}
+        loading={loading}
+        error={error}
+        onRetry={refresh}
         toolbar={
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[140px]">

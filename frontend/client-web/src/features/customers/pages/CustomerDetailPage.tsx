@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Edit, Mail, MapPin, Phone, User } from "lucide-react";
+import { ArrowLeft, Edit, MapPin, Phone, User } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { getStatusVariant, humanize } from "@/lib/status";
 import { PageHeader } from "@/components/common/PageHeader";
 import { NotFound } from "@/components/common/NotFound";
+import { Spinner } from "@/components/ui/spinner";
 import { DescriptionList } from "@/components/common/DescriptionList";
 
 import { useCustomersStore } from "../hooks/useCustomersStore";
@@ -19,12 +20,21 @@ import { usePermissions } from "@/hooks/usePermissions";
 
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { getCustomer } = useCustomersStore();
+  const { getCustomer, loading } = useCustomersStore();
   const { can } = usePermissions();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
 
   const customer = id ? getCustomer(id) : undefined;
+
+  if (loading && !customer) {
+    return (
+      <div className="flex min-h-[240px] items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
   if (!customer) {
     return <NotFound title="Customer not found" backHref="/customers" />;
   }
@@ -43,7 +53,7 @@ export function CustomerDetailPage() {
 
       <PageHeader
         title={customer.fullName}
-        description={customer.email}
+        description={customer.contactNumber || "Customer record"}
         breadcrumbs={[
           { label: "People" },
           { label: "Customers", href: "/customers" },
@@ -79,10 +89,6 @@ export function CustomerDetailPage() {
             </div>
             <Separator />
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                {customer.email}
-              </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-muted-foreground" />
                 {customer.contactNumber || "—"}

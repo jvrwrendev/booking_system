@@ -170,6 +170,26 @@ async function mustGetCustomer(
   return customer;
 }
 
+async function mustGetCustomerById(id: string): Promise<CustomerRecord> {
+  const customer = await prisma.customer.findUnique({
+    where: { id },
+    select: CUSTOMER_SELECT,
+  });
+
+  if (!customer) throw Errors.notFound("Customer not found");
+  return customer;
+}
+
+async function resolveAgent(agentId: string): Promise<{ id: string; name: string }> {
+  const agent = await prisma.user.findFirst({
+    where: { id: agentId, role: "AGENT" },
+    select: { id: true, name: true },
+  });
+
+  if (!agent) throw Errors.badRequest("Assigned agent was not found");
+  return agent;
+}
+
 export async function listCustomers(
   agentId: string,
   query: ListCustomersQueryDto,
@@ -203,11 +223,52 @@ export async function listCustomers(
   };
 }
 
+export async function listAllCustomers(
+  query: ListCustomersQueryDto,
+): Promise<ListCustomersResult> {
+  const where: Prisma.CustomerWhereInput = {};
+
+  if (query.agentId) where.agentId = query.agentId;
+  if (query.status) where.status = query.status;
+
+  if (query.search) {
+    where.OR = [
+      { fullName: { contains: query.search, mode: "insensitive" } },
+      { contactNumber: { contains: query.search, mode: "insensitive" } },
+      { agentName: { contains: query.search, mode: "insensitive" } },
+      { address: { contains: query.search, mode: "insensitive" } },
+    ];
+  }
+
+  const [customers, total] = await Promise.all([
+    prisma.customer.findMany({
+      where,
+      select: CUSTOMER_SELECT,
+      orderBy: { createdAt: "desc" },
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+    }),
+    prisma.customer.count({ where }),
+  ]);
+
+  return {
+    customers: customers.map(toCustomerView),
+    total,
+    page: query.page,
+    pageSize: query.pageSize,
+    totalPages: Math.ceil(total / query.pageSize),
+  };
+}
+
 export async function getCustomerById(
   agentId: string,
   id: string,
 ): Promise<CustomerView> {
   return toCustomerView(await mustGetCustomer(agentId, id));
+}
+
+export async function getCustomerByIdAsAdmin(id: string): Promise<CustomerView> {
+  return toCustomerView(await mustGetCustomerById(id));
 }
 
 export async function createCustomer(
@@ -232,6 +293,7 @@ export async function createCustomer(
         addressParts: input.addressParts as Prisma.InputJsonValue,
         agentId,
         agentName,
+        status: input.status ?? "ACTIVE",
         notes: input.notes || null,
       },
       select: CUSTOMER_SELECT,
@@ -278,6 +340,73 @@ export async function updateCustomer(
   }
   if (input.gender !== undefined) data.gender = input.gender || null;
   if (input.notes !== undefined) data.notes = input.notes || null;
+  if (input.status !== undefined) data.status = input.status;
+  if (input.addressParts !== undefined) {
+    data.address = buildAddress(input.addressParts);
+    data.addressParts = input.addressParts as Prisma.InputJsonValue;
+  }
+
+  try {
+    const updated = await prisma.customer.update({
+      where: { id },
+      data,
+      select: CUSTOMER_SELECT,
+    });
+    return toCustomerView(updated);
+  } catch (error) {
+    if (isUniqueCustomerError(error)) {
+      throw Errors.conflict(
+        "A customer with the same name and contact number already exists",
+      );
+    }
+    throw error;
+  }
+}
+
+export async function createCustomerAsAdmin(
+  input: CreateCustomerDto,
+): Promise<CustomerView> {
+  if (!input.assignedAgentId) {
+    throw Errors.badRequest("Assign an agent to this customer");
+  }
+
+  const agent = await resolveAgent(input.assignedAgentId);
+  return createCustomer(agent.id, agent.name, input);
+}
+
+export async function updateCustomerAsAdmin(
+  id: string,
+  input: UpdateCustomerDto,
+): Promise<CustomerView> {
+  const existing = await mustGetCustomerById(id);
+
+  if (input.addressParts) {
+    assertMindanaoAddress(input.addressParts);
+  }
+
+  const agent =
+    input.assignedAgentId && input.assignedAgentId !== existing.agentId
+      ? await resolveAgent(input.assignedAgentId)
+      : { id: existing.agentId, name: existing.agentName };
+
+  const nextFullName = input.fullName ?? existing.fullName;
+  const nextContactNumber = input.contactNumber ?? existing.contactNumber;
+
+  await assertNotDuplicate(agent.id, nextFullName, nextContactNumber, id);
+
+  const data: Prisma.CustomerUncheckedUpdateInput = {};
+
+  if (input.fullName !== undefined) data.fullName = input.fullName;
+  if (input.contactNumber !== undefined) {
+    data.contactNumber = input.contactNumber;
+  }
+  if (input.gender !== undefined) data.gender = input.gender || null;
+  if (input.notes !== undefined) data.notes = input.notes || null;
+  if (input.status !== undefined) data.status = input.status;
+  if (input.assignedAgentId !== undefined) {
+    data.agentId = agent.id;
+    data.agentName = agent.name;
+  }
   if (input.addressParts !== undefined) {
     data.address = buildAddress(input.addressParts);
     data.addressParts = input.addressParts as Prisma.InputJsonValue;

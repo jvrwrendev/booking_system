@@ -4,7 +4,6 @@ import { UserRoundPen } from "lucide-react";
 import { FormDialog } from "@/components/common/FormDialog";
 import { CustomerForm } from "./CustomerForm";
 import { useCustomersStore } from "../hooks/useCustomersStore";
-import { computeFullName } from "@/lib/utils";
 import type { Customer } from "@/types/customer";
 
 interface CustomerEditDialogProps {
@@ -23,20 +22,11 @@ export function CustomerEditDialog({
   const { updateCustomer } = useCustomersStore();
   const [saving, setSaving] = useState(false);
 
-  const fullName = customer
-    ? computeFullName(
-        customer.firstName,
-        customer.middleName,
-        customer.lastName,
-        customer.suffix
-      )
-    : "";
-
   return (
     <FormDialog
       open={!!customer}
       onOpenChange={onOpenChange}
-      title={`Edit ${fullName || "customer"}`}
+      title={`Edit ${customer?.fullName ?? "customer"}`}
       description="Update this customer's contact details, address and assigned agent."
       icon={<UserRoundPen className="h-4 w-4" aria-hidden />}
       formId="customer-edit-form"
@@ -48,11 +38,16 @@ export function CustomerEditDialog({
           formId="customer-edit-form"
           initial={customer}
           hideFooter
-          onSubmit={(data) => {
+          onSubmit={async (data) => {
             setSaving(true);
-            updateCustomer(customer.id, data);
-            setSaving(false);
-            onOpenChange(false);
+            try {
+              await updateCustomer(customer.id, data);
+              onOpenChange(false);
+            } catch {
+              // The store already surfaced the API error.
+            } finally {
+              setSaving(false);
+            }
           }}
           onCancel={() => onOpenChange(false)}
         />

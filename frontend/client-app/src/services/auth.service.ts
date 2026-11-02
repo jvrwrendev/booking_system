@@ -82,12 +82,12 @@ export async function registerRequest(
       method: "POST",
       body: {
         name: credentials.name.trim(),
+        ownerName: credentials.ownerName?.trim() || undefined,
         email: credentials.email.trim().toLowerCase(),
         password: credentials.password,
         role: credentials.role,
         contactNumber: credentials.contactNumber.trim() || undefined,
         address: credentials.address.trim() || undefined,
-        avatar: credentials.avatar || undefined,
       },
     });
     return { success: true, user: toAuthUser(data.user) };

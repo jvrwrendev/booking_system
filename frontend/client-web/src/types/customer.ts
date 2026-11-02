@@ -2,34 +2,28 @@ import type { AddressParts } from "@/lib/utils";
 
 export interface Customer {
   id: string;
-  firstName: string;
-  middleName: string;
-  lastName: string;
-  suffix: string;
   fullName: string;
-  email: string;
-  password: string;
   contactNumber: string;
+  gender: string;
   address: string;
   addressParts: AddressParts;
   assignedAgentId: string;
   assignedAgentName: string;
   totalBookings: number;
   totalPurchases: number;
+  notes: string;
   status: "active" | "inactive";
   registeredDate: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CustomerFormValues {
-  firstName: string;
-  middleName: string;
-  lastName: string;
-  suffix: string;
-  email: string;
-  password: string;
-  confirmPassword?: string;
+  fullName: string;
   contactNumber: string;
+  gender: string;
   addressParts: AddressParts;
   assignedAgentId: string;
+  notes: string;
   status: "active" | "inactive";
 }

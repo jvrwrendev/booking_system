@@ -21,6 +21,40 @@ export interface UserActor {
 const isSuperAdmin = (actor: UserActor): boolean =>
   actor.role === "SUPER_ADMIN";
 
+type AddressPartsInput = {
+  street: string;
+  barangay: { name: string };
+  city: { name: string };
+  province: { name: string };
+  region: { name: string };
+};
+
+function hasAddress(parts: AddressPartsInput | null | undefined): boolean {
+  if (!parts) return false;
+
+  return [
+    parts.street,
+    parts.barangay.name,
+    parts.city.name,
+    parts.region.name,
+  ].some((part) => part.trim().length > 0);
+}
+
+function buildAddress(parts: AddressPartsInput | null | undefined): string {
+  if (!parts) return "";
+
+  return [
+    parts.street,
+    parts.barangay.name,
+    parts.city.name,
+    parts.province.name,
+    parts.region.name,
+  ]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
 function isUniqueConstraintError(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002"
@@ -108,6 +142,15 @@ export async function createUser(
         passwordHash: await hashPassword(input.password),
         role: input.role,
         status: input.status,
+        contactNumber: input.contactNumber || null,
+        address:
+          input.addressParts && hasAddress(input.addressParts)
+            ? buildAddress(input.addressParts) || null
+            : null,
+        addressParts:
+          input.addressParts && hasAddress(input.addressParts)
+            ? (input.addressParts as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
       },
       select: PUBLIC_USER_SELECT,
     });
@@ -140,10 +183,18 @@ export async function updateUser(
     );
   }
 
+  const { addressParts, ...rest } = input;
+  const data: Prisma.UserUpdateInput = { ...rest };
+
+  if (addressParts !== undefined && hasAddress(addressParts)) {
+    data.addressParts = addressParts as Prisma.InputJsonValue;
+    data.address = buildAddress(addressParts) || null;
+  }
+
   try {
     return await prisma.user.update({
       where: { id },
-      data: input,
+      data,
       select: PUBLIC_USER_SELECT,
     });
   } catch (error) {

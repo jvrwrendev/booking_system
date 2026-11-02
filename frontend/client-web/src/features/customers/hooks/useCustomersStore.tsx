@@ -1,106 +1,135 @@
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { mockCustomers } from "@/data/mock-customers";
+
+import { ApiError } from "@/lib/api-client";
 import type { Customer, CustomerFormValues } from "@/types/customer";
-import { mockAgents } from "@/data/mock-agents";
-import { computeFullName, formatAddress } from "@/lib/utils";
+import {
+  createCustomer as createCustomerRequest,
+  listAllCustomers,
+  setCustomerStatus,
+  updateCustomer as updateCustomerRequest,
+} from "../services/customers.service";
 
 interface CustomersContextValue {
   customers: Customer[];
-  addCustomer: (data: CustomerFormValues) => Customer;
-  updateCustomer: (id: string, data: CustomerFormValues) => void;
-  toggleStatus: (id: string, status: Customer["status"]) => void;
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+  addCustomer: (data: CustomerFormValues) => Promise<Customer>;
+  updateCustomer: (id: string, data: CustomerFormValues) => Promise<Customer>;
+  toggleStatus: (id: string, status: Customer["status"]) => Promise<void>;
   getCustomer: (id: string) => Customer | undefined;
 }
 
 const CustomersContext = createContext<CustomersContextValue | null>(null);
 
-function nextId(existing: Customer[]): string {
-  const max = existing
-    .map((c) => Number(c.id.replace("CUS-", "")))
-    .filter((n) => !Number.isNaN(n))
-    .reduce((acc, n) => Math.max(acc, n), 0);
-  return `CUS-${String(max + 1).padStart(3, "0")}`;
+function messageFor(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? error.message : fallback;
 }
 
 export function CustomersProvider({ children }: { children: ReactNode }) {
-  const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setCustomers(await listAllCustomers());
+    } catch (err) {
+      setError(messageFor(err, "Could not load customers."));
+      setCustomers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const addCustomer = useCallback(async (data: CustomerFormValues) => {
+    try {
+      const created = await createCustomerRequest(data);
+      setCustomers((previous) => [created, ...previous]);
+      toast.success("Customer added", {
+        description: `${created.fullName} has been added.`,
+      });
+      return created;
+    } catch (err) {
+      toast.error("Could not add customer", {
+        description: messageFor(err, "Please try again."),
+      });
+      throw err;
+    }
+  }, []);
+
+  const updateCustomer = useCallback(
+    async (id: string, data: CustomerFormValues) => {
+      try {
+        const updated = await updateCustomerRequest(id, data);
+        setCustomers((previous) =>
+          previous.map((customer) =>
+            customer.id === updated.id ? updated : customer,
+          ),
+        );
+        toast.success("Customer updated", {
+          description: `${updated.fullName} was saved.`,
+        });
+        return updated;
+      } catch (err) {
+        toast.error("Could not update customer", {
+          description: messageFor(err, "Please try again."),
+        });
+        throw err;
+      }
+    },
+    [],
+  );
+
+  const toggleStatus = useCallback(
+    async (id: string, status: Customer["status"]) => {
+      try {
+        const updated = await setCustomerStatus(id, status);
+        setCustomers((previous) =>
+          previous.map((customer) =>
+            customer.id === updated.id ? updated : customer,
+          ),
+        );
+        toast.success("Customer status updated", {
+          description: `${updated.fullName} is now ${updated.status}.`,
+        });
+      } catch (err) {
+        toast.error("Could not update customer status", {
+          description: messageFor(err, "Please try again."),
+        });
+        throw err;
+      }
+    },
+    [],
+  );
 
   const value = useMemo<CustomersContextValue>(
     () => ({
       customers,
-      addCustomer: (data) => {
-        const agent = mockAgents.find((a) => a.id === data.assignedAgentId);
-        const fullName = computeFullName(data.firstName, data.middleName, data.lastName, data.suffix);
-        const address = formatAddress(data.addressParts);
-        const customer: Customer = {
-          id: nextId(customers),
-          firstName: data.firstName,
-          middleName: data.middleName,
-          lastName: data.lastName,
-          suffix: data.suffix,
-          fullName,
-          email: data.email,
-          password: data.password,
-          contactNumber: data.contactNumber,
-          address,
-          addressParts: data.addressParts,
-          assignedAgentId: data.assignedAgentId,
-          assignedAgentName: agent?.fullName ?? "",
-          status: data.status,
-          totalBookings: 0,
-          totalPurchases: 0,
-          registeredDate: new Date().toISOString(),
-        };
-        setCustomers((prev) => [customer, ...prev]);
-        toast.success("Customer added", {
-          description: `${fullName} has been added.`,
-        });
-        return customer;
-      },
-      updateCustomer: (id, data) => {
-        const agent = mockAgents.find((a) => a.id === data.assignedAgentId);
-        const fullName = computeFullName(data.firstName, data.middleName, data.lastName, data.suffix);
-        const address = formatAddress(data.addressParts);
-        setCustomers((prev) =>
-          prev.map((c) =>
-            c.id === id
-              ? {
-                  ...c,
-                  firstName: data.firstName,
-                  middleName: data.middleName,
-                  lastName: data.lastName,
-                  suffix: data.suffix,
-                  fullName,
-                  email: data.email,
-                  password: data.password,
-                  contactNumber: data.contactNumber,
-                  address,
-                  addressParts: data.addressParts,
-                  assignedAgentId: data.assignedAgentId,
-                  assignedAgentName: agent?.fullName ?? "",
-                  status: data.status,
-                }
-              : c
-          )
-        );
-        toast.success("Customer updated");
-      },
-      toggleStatus: (id, status) => {
-        setCustomers((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, status } : c))
-        );
-        toast.success("Customer status updated");
-      },
-      getCustomer: (id) => customers.find((c) => c.id === id),
+      loading,
+      error,
+      refresh,
+      addCustomer,
+      updateCustomer,
+      toggleStatus,
+      getCustomer: (id) => customers.find((customer) => customer.id === id),
     }),
-    [customers]
+    [customers, loading, error, refresh, addCustomer, updateCustomer, toggleStatus],
   );
 
   return (

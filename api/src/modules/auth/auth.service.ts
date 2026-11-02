@@ -174,6 +174,8 @@ export async function register(input: RegisterDto): Promise<RegisterResult> {
   const passwordHash = await hashPassword(input.password);
   const agentId = input.role === "AGENT" ? generatePublicId("AGT") : null;
   const branchId = input.role === "BRANCH" ? generatePublicId("BR") : null;
+  const ownerName =
+    input.role === "BRANCH" ? (input.ownerName ?? null) : null;
 
   const account = await prisma.$transaction(async (tx) => {
     // Branch accounts own a real branch record. Without this row, branch
@@ -183,13 +185,14 @@ export async function register(input: RegisterDto): Promise<RegisterResult> {
         data: {
           id: branchId,
           name: branchNameForUser(input.name),
+          manager: ownerName,
         },
       });
     }
 
     return tx.user.create({
       data: {
-        name: input.name,
+        name: ownerName ?? input.name,
         email: input.email,
         passwordHash,
         role: input.role,

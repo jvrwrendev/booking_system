@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { getStatusVariant, humanize } from "@/lib/status";
 import { PageHeader } from "@/components/common/PageHeader";
 import { NotFound } from "@/components/common/NotFound";
+import { Spinner } from "@/components/ui/spinner";
 import { DescriptionList } from "@/components/common/DescriptionList";
 
 import { useAgentsStore } from "../hooks/useAgentsStore";
@@ -21,7 +22,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 
 export function AgentDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { getAgent } = useAgentsStore();
+  const { getAgent, loading } = useAgentsStore();
   const { customers } = useCustomersStore();
   const { bookings } = useBookingsStore();
   const { can } = usePermissions();
@@ -29,6 +30,15 @@ export function AgentDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
 
   const agent = id ? getAgent(id) : undefined;
+
+  if (loading && !agent) {
+    return (
+      <div className="flex min-h-[240px] items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
   if (!agent) {
     return <NotFound title="Agent not found" backHref="/agents" />;
   }
@@ -105,7 +115,7 @@ export function AgentDetailPage() {
                 { label: "Date joined", value: formatDate(agent.dateJoined) },
                 {
                   label: "Total bookings",
-                  value: String(agent.totalBookings),
+                  value: String(agentBookings.length),
                 },
               ]}
             />

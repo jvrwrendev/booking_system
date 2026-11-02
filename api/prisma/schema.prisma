@@ -103,9 +103,11 @@ model User {
   emailVerified              DateTime?               @map("email_verified")
   contactNumber              String?
   address                    String?
+  addressParts               Json?
   avatar                     String?
   agentId                    String?                 @unique
   branchId                   String?                 @unique
+  branch                     Branch?                 @relation("BranchAccount", fields: [branchId], references: [id], onDelete: SetNull)
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
   sessions                   Session[]
@@ -184,16 +186,21 @@ model Category {
 }
 
 model Branch {
-  id           String                 @id
-  name         String
-  code         String?                @unique
-  status       BranchStatus           @default(ACTIVE)
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-  inventory    InventoryStock[]
-  transactions InventoryTransaction[]
-  bookings     Booking[]
-  branchOrders BranchOrder[]
+  id            String                 @id
+  name          String
+  code          String?                @unique
+  manager       String?
+  contactNumber String?
+  address       String?
+  addressParts  Json?
+  status        BranchStatus           @default(ACTIVE)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  account       User?                  @relation("BranchAccount")
+  inventory     InventoryStock[]
+  transactions  InventoryTransaction[]
+  bookings      Booking[]
+  branchOrders  BranchOrder[]
 
   @@map("branches")
 }

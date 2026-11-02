@@ -87,8 +87,8 @@ export function BranchForm({
           name: initial.name,
           code: initial.code,
           email: initial.email,
-          password: initial.password,
-          confirmPassword: initial.password,
+          password: "",
+          confirmPassword: "",
           manager: initial.manager,
           contactNumber: initial.contactNumber,
           addressParts: initial.addressParts,
@@ -109,6 +109,10 @@ export function BranchForm({
   const [errors, setErrors] = useState<FieldErrors<BranchField>>({});
   const formRef = useRef<HTMLFormElement>(null);
 
+  // Branches created before branch accounts existed have no email yet, so
+  // saving one also needs a password to create its login.
+  const requiresPassword = !initial || !initial.email;
+
   /** Clears a field's message as soon as the user edits it. */
   const update = <K extends keyof BranchFormValues>(
     key: K,
@@ -121,10 +125,10 @@ export function BranchForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const nextErrors = validateBranch(values, !initial);
+    const nextErrors = validateBranch(values, requiresPassword);
 
-    // A blank password while editing means "leave it unchanged".
-    if (initial && !values.password) {
+    // A blank password while editing an existing account means "leave it unchanged".
+    if (initial?.email && !values.password) {
       delete nextErrors.password;
       delete nextErrors.confirmPassword;
     }
@@ -272,15 +276,15 @@ export function BranchForm({
       <FormSection
         title="Security"
         description={
-          initial
+          initial?.email
             ? "Leave blank to keep the current password."
-            : "Set a password for the new branch account."
+            : "Set a password for the branch account."
         }
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <FormField
             label="Password"
-            required={!initial}
+            required={requiresPassword}
             htmlFor="password"
             hint="At least 8 characters."
             error={errors.password}
@@ -297,7 +301,7 @@ export function BranchForm({
           </FormField>
           <FormField
             label="Confirm password"
-            required={!initial}
+            required={requiresPassword}
             htmlFor="confirmPassword"
             error={errors.confirmPassword}
           >

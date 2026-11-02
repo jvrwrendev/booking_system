@@ -39,15 +39,18 @@ import {
 
 import type { AuthUser } from "@/types/auth";
 import { useUsersStore } from "../hooks/useUsersStore";
+import { UserAddDialog } from "../components/UserAddDialog";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { formatStatus } from "../lib/user-mapper";
 import { formatDate, initials } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const MIN_PASSWORD_LENGTH = 8;
 
 export function UsersListPage() {
   const { user: currentUser } = useAuth();
+  const { can } = usePermissions();
   const {
     users,
     total,
@@ -67,6 +70,7 @@ export function UsersListPage() {
     refresh,
   } = useUsersStore();
 
+  const [addOpen, setAddOpen] = useState(false);
   const [passwordTarget, setPasswordTarget] = useState<AuthUser | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AuthUser | null>(null);
 
@@ -190,12 +194,12 @@ export function UsersListPage() {
         description="Manage system administrators and their roles."
         breadcrumbs={[{ label: "Administration" }, { label: "Users" }]}
         actions={
-          <Button asChild>
-            <Link to="/users/add">
+          can("users.manage") ? (
+            <Button type="button" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4" />
               Add Admin
-            </Link>
-          </Button>
+            </Button>
+          ) : undefined
         }
       />
 
@@ -259,6 +263,8 @@ export function UsersListPage() {
           </>
         }
       />
+
+      <UserAddDialog open={addOpen} onOpenChange={setAddOpen} />
 
       <SetPasswordDialog
         user={passwordTarget}

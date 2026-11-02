@@ -1,98 +1,128 @@
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { mockAgents } from "@/data/mock-agents";
+
+import { ApiError } from "@/lib/api-client";
 import type { Agent, AgentFormValues } from "@/types/agent";
-import { computeFullName, formatAddress } from "@/lib/utils";
+import {
+  createAgent as createAgentRequest,
+  listAgents,
+  setAgentStatus,
+  updateAgent as updateAgentRequest,
+} from "../services/agents.service";
 
 interface AgentsContextValue {
   agents: Agent[];
-  addAgent: (data: AgentFormValues) => Agent;
-  updateAgent: (id: string, data: AgentFormValues) => void;
-  toggleStatus: (id: string, status: Agent["status"]) => void;
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+  addAgent: (data: AgentFormValues) => Promise<Agent>;
+  updateAgent: (id: string, data: AgentFormValues) => Promise<Agent>;
+  toggleStatus: (id: string, status: Agent["status"]) => Promise<void>;
   getAgent: (id: string) => Agent | undefined;
 }
 
 const AgentsContext = createContext<AgentsContextValue | null>(null);
 
-function nextId(existing: Agent[]): string {
-  const max = existing
-    .map((a) => Number(a.id.replace("AGT-", "")))
-    .filter((n) => !Number.isNaN(n))
-    .reduce((acc, n) => Math.max(acc, n), 0);
-  return `AGT-${String(max + 1).padStart(3, "0")}`;
+function messageFor(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? error.message : fallback;
 }
 
 export function AgentsProvider({ children }: { children: ReactNode }) {
-  const [agents, setAgents] = useState<Agent[]>(mockAgents);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setAgents(await listAgents());
+    } catch (err) {
+      setError(messageFor(err, "Could not load agents."));
+      setAgents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const addAgent = useCallback(async (data: AgentFormValues) => {
+    try {
+      const created = await createAgentRequest(data);
+      setAgents((previous) => [created, ...previous]);
+      toast.success("Agent added", {
+        description: `${created.fullName} has been added.`,
+      });
+      return created;
+    } catch (err) {
+      toast.error("Could not add agent", {
+        description: messageFor(err, "Please try again."),
+      });
+      throw err;
+    }
+  }, []);
+
+  const updateAgent = useCallback(async (id: string, data: AgentFormValues) => {
+    try {
+      const updated = await updateAgentRequest(id, data);
+      setAgents((previous) =>
+        previous.map((agent) => (agent.id === updated.id ? updated : agent)),
+      );
+      toast.success("Agent updated", {
+        description: `${updated.fullName} was saved.`,
+      });
+      return updated;
+    } catch (err) {
+      toast.error("Could not update agent", {
+        description: messageFor(err, "Please try again."),
+      });
+      throw err;
+    }
+  }, []);
+
+  const toggleStatus = useCallback(
+    async (id: string, status: Agent["status"]) => {
+      try {
+        const updated = await setAgentStatus(id, status);
+        setAgents((previous) =>
+          previous.map((agent) => (agent.id === updated.id ? updated : agent)),
+        );
+        toast.success("Agent status updated", {
+          description: `${updated.fullName} is now ${updated.status}.`,
+        });
+      } catch (err) {
+        toast.error("Could not update agent status", {
+          description: messageFor(err, "Please try again."),
+        });
+        throw err;
+      }
+    },
+    [],
+  );
 
   const value = useMemo<AgentsContextValue>(
     () => ({
       agents,
-      addAgent: (data) => {
-        const fullName = computeFullName(data.firstName, data.middleName, data.lastName, data.suffix);
-        const address = formatAddress(data.addressParts);
-        const agent: Agent = {
-          id: nextId(agents),
-          firstName: data.firstName,
-          middleName: data.middleName,
-          lastName: data.lastName,
-          suffix: data.suffix,
-          fullName,
-          email: data.email,
-          password: data.password,
-          contactNumber: data.contactNumber,
-          address,
-          addressParts: data.addressParts,
-          status: data.status,
-          totalBookings: 0,
-          dateJoined: new Date().toISOString(),
-        };
-        setAgents((prev) => [agent, ...prev]);
-        toast.success("Agent added", {
-          description: `${fullName} has been added.`,
-        });
-        return agent;
-      },
-      updateAgent: (id, data) => {
-        const fullName = computeFullName(data.firstName, data.middleName, data.lastName, data.suffix);
-        const address = formatAddress(data.addressParts);
-        setAgents((prev) =>
-          prev.map((a) =>
-            a.id === id
-              ? {
-                  ...a,
-                  firstName: data.firstName,
-                  middleName: data.middleName,
-                  lastName: data.lastName,
-                  suffix: data.suffix,
-                  fullName,
-                  email: data.email,
-                  password: data.password,
-                  contactNumber: data.contactNumber,
-                  address,
-                  addressParts: data.addressParts,
-                  status: data.status,
-                }
-              : a
-          )
-        );
-        toast.success("Agent updated");
-      },
-      toggleStatus: (id, status) => {
-        setAgents((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, status } : a))
-        );
-        toast.success("Agent status updated");
-      },
-      getAgent: (id) => agents.find((a) => a.id === id),
+      loading,
+      error,
+      refresh,
+      addAgent,
+      updateAgent,
+      toggleStatus,
+      getAgent: (id) => agents.find((agent) => agent.id === id),
     }),
-    [agents]
+    [agents, loading, error, refresh, addAgent, updateAgent, toggleStatus],
   );
 
   return (

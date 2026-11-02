@@ -23,7 +23,20 @@ export interface ApiFailure {
 export type ApiEnvelope<T> = ApiSuccess<T> | ApiFailure;
 
 export type AccountStatusDto = "ACTIVE" | "INACTIVE" | "SUSPENDED";
-export type RoleDto = "SUPER_ADMIN" | "ADMIN";
+export type RoleDto = "SUPER_ADMIN" | "ADMIN" | "AGENT" | "BRANCH";
+
+export interface AddressRefDto {
+  code: string;
+  name: string;
+}
+
+export interface AddressPartsDto {
+  street: string;
+  barangay: AddressRefDto;
+  city: AddressRefDto;
+  province: AddressRefDto;
+  region: AddressRefDto;
+}
 
 /** `api/src/lib/user-select.ts` — `PUBLIC_USER_SELECT`. */
 export interface PublicUserDto {
@@ -32,6 +45,13 @@ export interface PublicUserDto {
   email: string;
   role: RoleDto;
   status: AccountStatusDto;
+  emailVerified: string | null;
+  contactNumber: string | null;
+  address: string | null;
+  addressParts?: AddressPartsDto | null;
+  avatar: string | null;
+  agentId: string | null;
+  branchId: string | null;
   /** JSON date string. */
   createdAt: string;
   /** JSON date string. */
@@ -69,6 +89,8 @@ export interface CreateUserPayloadDto {
   password: string;
   role: RoleDto;
   status: AccountStatusDto;
+  contactNumber?: string | null;
+  addressParts?: AddressPartsDto | null;
 }
 
 export type UpdateUserPayloadDto = Partial<{
@@ -76,12 +98,96 @@ export type UpdateUserPayloadDto = Partial<{
   email: string;
   role: RoleDto;
   status: AccountStatusDto;
+  contactNumber: string | null;
+  addressParts: AddressPartsDto | null;
 }>;
 
 export interface ChangePasswordPayloadDto {
   currentPassword: string;
   newPassword: string;
 }
+
+/* ------------------------------------------------------------------ */
+/* Customer and branch wire types                                      */
+/* ------------------------------------------------------------------ */
+
+export type CustomerStatusDto = "ACTIVE" | "INACTIVE";
+export type BranchStatusDto = "ACTIVE" | "INACTIVE";
+
+export interface CustomerDto {
+  id: string;
+  fullName: string;
+  contactNumber: string;
+  gender: string | null;
+  address: string;
+  addressParts: AddressPartsDto;
+  assignedAgentId: string;
+  assignedAgentName: string;
+  status: "active" | "inactive";
+  totalBookings: number;
+  totalPurchases: number;
+  notes: string | null;
+  registeredDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListCustomersResponseDto {
+  customers: CustomerDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface CreateCustomerPayloadDto {
+  fullName: string;
+  contactNumber: string;
+  gender?: string | null;
+  addressParts: AddressPartsDto;
+  assignedAgentId?: string;
+  status?: CustomerStatusDto;
+  notes?: string | null;
+}
+
+export type UpdateCustomerPayloadDto = Partial<CreateCustomerPayloadDto>;
+
+export interface BranchDto {
+  id: string;
+  name: string;
+  code: string;
+  email: string;
+  manager: string;
+  contactNumber: string;
+  address: string;
+  addressParts: AddressPartsDto | null;
+  totalProducts: number;
+  totalStock: number;
+  status: "active" | "inactive";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListBranchesResponseDto {
+  branches: BranchDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface CreateBranchPayloadDto {
+  name: string;
+  code: string;
+  email: string;
+  password: string;
+  manager?: string;
+  contactNumber?: string;
+  addressParts?: AddressPartsDto;
+  status: BranchStatusDto;
+}
+
+export type UpdateBranchPayloadDto = Partial<CreateBranchPayloadDto>;
 
 /* ------------------------------------------------------------------ */
 /* Catalog and inventory wire types                                    */

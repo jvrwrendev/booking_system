@@ -39,12 +39,12 @@ export interface LoginCredentials {
 export interface RegisterCredentials {
   role: Role;
   name: string;
+  ownerName?: string;
   email: string;
   contactNumber: string;
   address: string;
   password: string;
   confirmPassword: string;
-  avatar?: string;
 }
 
 export interface UpdateProfileInput {

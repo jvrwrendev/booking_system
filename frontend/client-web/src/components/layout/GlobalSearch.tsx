@@ -60,12 +60,16 @@ export function GlobalSearch() {
       }));
 
     const customerHits: SearchResult[] = customers
-      .filter((c) => c.fullName.toLowerCase().includes(q))
+      .filter(
+        (c) =>
+          c.fullName.toLowerCase().includes(q) ||
+          c.contactNumber.toLowerCase().includes(q),
+      )
       .slice(0, MAX_PER_GROUP)
       .map((c) => ({
         id: c.id,
         title: c.fullName,
-        subtitle: c.email,
+        subtitle: c.contactNumber,
         href: `/customers/${c.id}`,
         icon: Users,
       }));

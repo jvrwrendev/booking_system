@@ -14,14 +14,15 @@ import {
   FormFooter,
 } from "@/components/common/FormPageLayout";
 import { AddressSelector } from "@/components/common/AddressSelector";
-import { NameSuffixSelect } from "@/components/common/NameSuffixSelect";
 import { PasswordInput } from "@/components/common/PasswordInput";
 
 import type { Agent, AgentFormValues } from "@/types/agent";
-import { computeFullName, emptyAddress } from "@/lib/utils";
+import { emptyAddress } from "@/lib/utils";
 import {
   hasErrors,
-  validatePersonFields,
+  isBlank,
+  isEmail,
+  MIN_PASSWORD_LENGTH,
   type FieldErrors,
 } from "@/lib/validation";
 
@@ -34,13 +35,7 @@ interface AgentFormProps {
   formId?: string;
 }
 
-type AgentField =
-  | "firstName"
-  | "middleName"
-  | "lastName"
-  | "email"
-  | "password"
-  | "confirmPassword";
+type AgentField = "fullName" | "email" | "password" | "confirmPassword";
 
 export function AgentForm({
   initial,
@@ -53,66 +48,64 @@ export function AgentForm({
   const [values, setValues] = useState<AgentFormValues>(
     initial
       ? {
-          firstName: initial.firstName,
-          middleName: initial.middleName,
-          lastName: initial.lastName,
-          suffix: initial.suffix,
+          fullName: initial.fullName,
           email: initial.email,
-          password: initial.password,
-          confirmPassword: initial.password,
+          password: "",
+          confirmPassword: "",
           contactNumber: initial.contactNumber,
           addressParts: initial.addressParts,
           status: initial.status,
         }
       : {
-          firstName: "",
-          middleName: "",
-          lastName: "",
-          suffix: "",
+          fullName: "",
           email: "",
           password: "",
           confirmPassword: "",
           contactNumber: "",
           addressParts: emptyAddress(),
           status: "active",
-        }
+        },
   );
   const [errors, setErrors] = useState<FieldErrors<AgentField>>({});
   const formRef = useRef<HTMLFormElement>(null);
 
-  const previewName = computeFullName(
-    values.firstName,
-    values.middleName,
-    values.lastName,
-    values.suffix
-  );
-
-  /** Clears a field's message as soon as the user edits it. */
   const update = <K extends keyof AgentFormValues>(
     key: K,
-    value: AgentFormValues[K]
+    value: AgentFormValues[K],
   ) => {
-    setValues((v) => ({ ...v, [key]: value }));
-    setErrors((e) => ({ ...e, [key]: undefined }));
+    setValues((previous) => ({ ...previous, [key]: value }));
+    setErrors((previous) => ({ ...previous, [key]: undefined }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
 
-    const nextErrors = validatePersonFields({
-      firstName: values.firstName,
-      lastName: values.lastName,
-      email: values.email,
-      password: values.password,
-      confirmPassword: values.confirmPassword,
-      // Editing keeps the existing password unless a new one is typed.
-      requirePassword: !initial,
-    });
+    const nextErrors: FieldErrors<AgentField> = {};
 
-    // A blank password while editing means "leave it unchanged".
-    if (initial && !values.password) {
-      delete nextErrors.password;
-      delete nextErrors.confirmPassword;
+    if (isBlank(values.fullName)) {
+      nextErrors.fullName = "Full name is required.";
+    }
+    if (isBlank(values.email)) {
+      nextErrors.email = "Email is required.";
+    } else if (!isEmail(values.email)) {
+      nextErrors.email = "Enter a valid email address.";
+    }
+    if (!initial) {
+      if (isBlank(values.password)) {
+        nextErrors.password = "Password is required.";
+      } else if (values.password.length < MIN_PASSWORD_LENGTH) {
+        nextErrors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+      }
+      if (values.confirmPassword !== values.password) {
+        nextErrors.confirmPassword = "Passwords do not match.";
+      }
+    } else if (values.password) {
+      if (values.password.length < MIN_PASSWORD_LENGTH) {
+        nextErrors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+      }
+      if (values.confirmPassword !== values.password) {
+        nextErrors.confirmPassword = "Passwords do not match.";
+      }
     }
 
     setErrors(nextErrors);
@@ -138,83 +131,22 @@ export function AgentForm({
     >
       <FormSection
         title="Personal information"
-        description="The agent's legal name and primary contact details."
+        description="The agent's name and primary contact details."
       >
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <FormField
-            label="First name"
-            required
-            htmlFor="firstName"
-            error={errors.firstName}
-          >
-            <Input
-              id="firstName"
-              value={values.firstName}
-              onChange={(e) => update("firstName", e.target.value)}
-              placeholder="Roberto"
-              autoComplete="given-name"
-              aria-invalid={!!errors.firstName}
-              className="h-10"
-            />
-          </FormField>
-          <FormField label="Middle name" optional htmlFor="middleName">
-            <Input
-              id="middleName"
-              value={values.middleName}
-              onChange={(e) => update("middleName", e.target.value)}
-              placeholder="Middle name"
-              autoComplete="additional-name"
-              className="h-10"
-            />
-          </FormField>
-          <FormField
-            label="Last name"
-            required
-            htmlFor="lastName"
-            error={errors.lastName}
-          >
-            <Input
-              id="lastName"
-              value={values.lastName}
-              onChange={(e) => update("lastName", e.target.value)}
-              placeholder="Garcia"
-              autoComplete="family-name"
-              aria-invalid={!!errors.lastName}
-              className="h-10"
-            />
-          </FormField>
-          <FormField label="Suffix" optional htmlFor="suffix">
-            <NameSuffixSelect
-              id="suffix"
-              value={values.suffix}
-              onChange={(suffix) => update("suffix", suffix)}
-            />
-          </FormField>
-        </div>
-
-        {previewName && (
-          <p className="text-xs text-muted-foreground">
-            Full name will appear as{" "}
-            <span className="font-medium text-foreground">{previewName}</span>
-          </p>
-        )}
-
         <div className="grid gap-5 sm:grid-cols-2">
           <FormField
-            label="Email"
+            label="Full name"
             required
-            htmlFor="email"
-            hint="Used for signing in and notifications."
-            error={errors.email}
+            htmlFor="fullName"
+            error={errors.fullName}
           >
             <Input
-              id="email"
-              type="email"
-              value={values.email}
-              onChange={(e) => update("email", e.target.value)}
-              placeholder="agent@agrivet.ph"
-              autoComplete="email"
-              aria-invalid={!!errors.email}
+              id="fullName"
+              value={values.fullName}
+              onChange={(event) => update("fullName", event.target.value)}
+              placeholder="Roberto Garcia"
+              autoComplete="name"
+              aria-invalid={!!errors.fullName}
               className="h-10"
             />
           </FormField>
@@ -227,9 +159,27 @@ export function AgentForm({
             <Input
               id="contactNumber"
               value={values.contactNumber}
-              onChange={(e) => update("contactNumber", e.target.value)}
+              onChange={(event) => update("contactNumber", event.target.value)}
               placeholder="+63 9XX XXX XXXX"
               autoComplete="tel"
+              className="h-10"
+            />
+          </FormField>
+          <FormField
+            label="Email"
+            required
+            htmlFor="email"
+            hint="Used for signing in and notifications."
+            error={errors.email}
+          >
+            <Input
+              id="email"
+              type="email"
+              value={values.email}
+              onChange={(event) => update("email", event.target.value)}
+              placeholder="agent@agrivet.ph"
+              autoComplete="email"
+              aria-invalid={!!errors.email}
               className="h-10"
             />
           </FormField>
@@ -265,7 +215,7 @@ export function AgentForm({
             <PasswordInput
               id="password"
               value={values.password}
-              onChange={(e) => update("password", e.target.value)}
+              onChange={(event) => update("password", event.target.value)}
               placeholder="••••••••"
               autoComplete="new-password"
               aria-invalid={!!errors.password}
@@ -280,8 +230,10 @@ export function AgentForm({
           >
             <PasswordInput
               id="confirmPassword"
-              value={values.confirmPassword}
-              onChange={(e) => update("confirmPassword", e.target.value)}
+              value={values.confirmPassword ?? ""}
+              onChange={(event) =>
+                update("confirmPassword", event.target.value)
+              }
               placeholder="••••••••"
               autoComplete="new-password"
               aria-invalid={!!errors.confirmPassword}
@@ -299,8 +251,8 @@ export function AgentForm({
           <FormField label="Status" htmlFor="status">
             <Select
               value={values.status}
-              onValueChange={(v) =>
-                setValues((s) => ({ ...s, status: v as Agent["status"] }))
+              onValueChange={(value) =>
+                update("status", value as Agent["status"])
               }
             >
               <SelectTrigger id="status" className="h-10">

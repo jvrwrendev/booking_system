@@ -10,6 +10,7 @@ export const PUBLIC_USER_SELECT = {
   emailVerified: true,
   contactNumber: true,
   address: true,
+  addressParts: true,
   avatar: true,
   agentId: true,
   branchId: true,
@@ -30,6 +31,7 @@ export interface PublicUser {
   emailVerified: Date | null;
   contactNumber: string | null;
   address: string | null;
+  addressParts: Prisma.JsonValue | null;
   avatar: string | null;
   agentId: string | null;
   branchId: string | null;

@@ -1,97 +1,141 @@
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { mockBranches } from "@/data/mock-branches";
+
+import { ApiError } from "@/lib/api-client";
 import type { Branch, BranchFormValues } from "@/types/branch";
-import { formatAddress } from "@/lib/utils";
+import {
+  createBranch as createBranchRequest,
+  listAllBranches,
+  setBranchStatus,
+  updateBranch as updateBranchRequest,
+} from "../services/branches.service";
 
 interface BranchesContextValue {
   branches: Branch[];
-  addBranch: (data: BranchFormValues) => Branch;
-  updateBranch: (id: string, data: BranchFormValues) => void;
-  toggleStatus: (id: string, status: Branch["status"]) => void;
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+  addBranch: (data: BranchFormValues) => Promise<Branch>;
+  updateBranch: (id: string, data: BranchFormValues) => Promise<Branch>;
+  toggleStatus: (id: string, status: Branch["status"]) => Promise<void>;
   getBranch: (id: string) => Branch | undefined;
 }
 
 const BranchesContext = createContext<BranchesContextValue | null>(null);
 
-function nextId(existing: Branch[]): string {
-  const max = existing
-    .map((b) => Number(b.id.replace("BR-", "")))
-    .filter((n) => !Number.isNaN(n))
-    .reduce((acc, n) => Math.max(acc, n), 0);
-  return `BR-${String(max + 1).padStart(3, "0")}`;
+function messageFor(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? error.message : fallback;
 }
 
 export function BranchesProvider({ children }: { children: ReactNode }) {
-  const [branches, setBranches] = useState<Branch[]>(mockBranches);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setBranches(await listAllBranches());
+    } catch (err) {
+      setError(messageFor(err, "Could not load branches."));
+      setBranches([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const addBranch = useCallback(async (data: BranchFormValues) => {
+    try {
+      const created = await createBranchRequest(data);
+      setBranches((previous) => [created, ...previous]);
+      toast.success("Branch added", {
+        description: `${created.name} has been added.`,
+      });
+      return created;
+    } catch (err) {
+      toast.error("Could not add branch", {
+        description: messageFor(err, "Please try again."),
+      });
+      throw err;
+    }
+  }, []);
+
+  const updateBranch = useCallback(
+    async (id: string, data: BranchFormValues) => {
+      try {
+        const updated = await updateBranchRequest(id, data);
+        setBranches((previous) =>
+          previous.map((branch) =>
+            branch.id === updated.id ? updated : branch,
+          ),
+        );
+        toast.success("Branch updated", {
+          description: `${updated.name} was saved.`,
+        });
+        return updated;
+      } catch (err) {
+        toast.error("Could not update branch", {
+          description: messageFor(err, "Please try again."),
+        });
+        throw err;
+      }
+    },
+    [],
+  );
+
+  const toggleStatus = useCallback(
+    async (id: string, status: Branch["status"]) => {
+      try {
+        const updated = await setBranchStatus(id, status);
+        setBranches((previous) =>
+          previous.map((branch) =>
+            branch.id === updated.id ? updated : branch,
+          ),
+        );
+        toast.success("Branch status updated", {
+          description: `${updated.name} is now ${updated.status}.`,
+        });
+      } catch (err) {
+        toast.error("Could not update branch status", {
+          description: messageFor(err, "Please try again."),
+        });
+        throw err;
+      }
+    },
+    [],
+  );
 
   const value = useMemo<BranchesContextValue>(
     () => ({
       branches,
-      addBranch: (data) => {
-        const address = formatAddress(data.addressParts);
-        const branch: Branch = {
-          id: nextId(branches),
-          name: data.name,
-          code: data.code,
-          email: data.email,
-          password: data.password,
-          manager: data.manager,
-          contactNumber: data.contactNumber,
-          address,
-          addressParts: data.addressParts,
-          status: data.status,
-          totalProducts: 0,
-          totalStock: 0,
-          createdAt: new Date().toISOString(),
-        };
-        setBranches((prev) => [branch, ...prev]);
-        toast.success("Branch added", {
-          description: `${branch.name} has been added.`,
-        });
-        return branch;
-      },
-      updateBranch: (id, data) => {
-        const address = formatAddress(data.addressParts);
-        setBranches((prev) =>
-          prev.map((b) =>
-            b.id === id
-              ? {
-                  ...b,
-                  name: data.name,
-                  code: data.code,
-                  email: data.email,
-                  password: data.password,
-                  manager: data.manager,
-                  contactNumber: data.contactNumber,
-                  address,
-                  addressParts: data.addressParts,
-                  status: data.status,
-                }
-              : b
-          )
-        );
-        toast.success("Branch updated");
-      },
-      toggleStatus: (id, status) => {
-        setBranches((prev) =>
-          prev.map((b) => (b.id === id ? { ...b, status } : b))
-        );
-        toast.success("Branch status updated");
-      },
-      getBranch: (id) => branches.find((b) => b.id === id),
+      loading,
+      error,
+      refresh,
+      addBranch,
+      updateBranch,
+      toggleStatus,
+      getBranch: (id) => branches.find((branch) => branch.id === id),
     }),
-    [branches]
+    [branches, loading, error, refresh, addBranch, updateBranch, toggleStatus],
   );
 
   return (
-    <BranchesContext.Provider value={value}>{children}</BranchesContext.Provider>
+    <BranchesContext.Provider value={value}>
+      {children}
+    </BranchesContext.Provider>
   );
 }
 

@@ -5,7 +5,6 @@ export interface Branch {
   name: string;
   code: string;
   email: string;
-  password: string;
   manager: string;
   contactNumber: string;
   address: string;
@@ -14,6 +13,7 @@ export interface Branch {
   totalStock: number;
   status: "active" | "inactive";
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface BranchFormValues {

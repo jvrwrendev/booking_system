@@ -15,12 +15,12 @@ import { DetailRow } from "@/components/common/DescriptionList";
 import { NotFound } from "@/components/common/NotFound";
 
 import { useBookingsStore } from "@/features/bookings/hooks/useBookingsStore";
+import { useCustomersStore } from "@/features/customers/hooks/useCustomersStore";
+import { useAgentsStore } from "@/features/agents/hooks/useAgentsStore";
 import { useBookingLookups } from "@/features/bookings/hooks/useBookingLookups";
 import { AssignmentDialog } from "@/features/bookings/components/AssignmentDialog";
 import { DiscountDialog } from "../components/DiscountDialog";
 import { bookingTimeline } from "../lib/orderHistory";
-import { mockCustomers } from "@/data/mock-customers";
-import { mockAgents } from "@/data/mock-agents";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
@@ -58,6 +58,8 @@ export function AgentOrderDetailPage() {
   const navigate = useNavigate();
   const { getBooking, setStatus, assignBooking, reassignBooking, applyDiscount } =
     useBookingsStore();
+  const { customers } = useCustomersStore();
+  const { agents } = useAgentsStore();
   const { user } = useAuth();
   const { role, isSuperAdmin } = usePermissions();
   const isAdminUser = role === "ADMIN" || role === "SUPER_ADMIN";
@@ -90,8 +92,12 @@ export function AgentOrderDetailPage() {
     );
   }
 
-  const customer = mockCustomers.find((c) => c.id === booking.customerId);
-  const agent = mockAgents.find((a) => a.id === booking.agentId);
+  const customer = booking.customerId
+    ? customers.find((c) => c.id === booking.customerId)
+    : undefined;
+  const agent = booking.agentId
+    ? agents.find((a) => a.id === booking.agentId)
+    : undefined;
   const assignedUser = booking.assignedAdminId
     ? admins.find((u) => u.id === booking.assignedAdminId)
     : undefined;
@@ -308,7 +314,6 @@ export function AgentOrderDetailPage() {
                 label={customer?.fullName ?? booking.customerName}
               />
               <InfoLine icon={Phone} label={customer?.contactNumber ?? "—"} />
-              <InfoLine icon={Mail} label={customer?.email ?? "—"} />
               <InfoLine icon={MapPin} label={customer?.address ?? "—"} />
             </CardContent>
           </Card>

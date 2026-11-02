@@ -1,7 +1,7 @@
 import type { AgentLocation, LocationStatus } from "../types";
 
 /**
- * Mock location seeds keyed to the existing agents in `mock-agents`.
+ * Mock location seeds used by the location tracking demo.
  *
  * Coordinates are placed in each agent's registered city so the "All
  * Locations" map reads as a real Philippine territory spread rather than a

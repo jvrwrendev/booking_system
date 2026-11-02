@@ -20,9 +20,9 @@ import {
 
 export const customersRouter = Router();
 
-// Customers are owned by the authenticated agent. Administrators do not use
-// this module; they continue to rely on booking-level customer snapshots.
-customersRouter.use(requireRole("AGENT"));
+// Agents manage only their own customers. Administrators can manage every
+// customer and assign records to an agent.
+customersRouter.use(requireRole("ADMIN", "AGENT"));
 
 customersRouter.get(
   "/",

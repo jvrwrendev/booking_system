@@ -4,7 +4,6 @@ import { UserCog } from "lucide-react";
 import { FormDialog } from "@/components/common/FormDialog";
 import { AgentForm } from "./AgentForm";
 import { useAgentsStore } from "../hooks/useAgentsStore";
-import { computeFullName } from "@/lib/utils";
 import type { Agent } from "@/types/agent";
 
 interface AgentEditDialogProps {
@@ -20,20 +19,11 @@ export function AgentEditDialog({ agent, onOpenChange }: AgentEditDialogProps) {
   const { updateAgent } = useAgentsStore();
   const [saving, setSaving] = useState(false);
 
-  const fullName = agent
-    ? computeFullName(
-        agent.firstName,
-        agent.middleName,
-        agent.lastName,
-        agent.suffix
-      )
-    : "";
-
   return (
     <FormDialog
       open={!!agent}
       onOpenChange={onOpenChange}
-      title={`Edit ${fullName || "agent"}`}
+      title={`Edit ${agent?.fullName ?? "agent"}`}
       description="Update this agent's contact details, address and account status."
       icon={<UserCog className="h-4 w-4" aria-hidden />}
       formId="agent-edit-form"
@@ -45,11 +35,16 @@ export function AgentEditDialog({ agent, onOpenChange }: AgentEditDialogProps) {
           formId="agent-edit-form"
           initial={agent}
           hideFooter
-          onSubmit={(data) => {
+          onSubmit={async (data) => {
             setSaving(true);
-            updateAgent(agent.id, data);
-            setSaving(false);
-            onOpenChange(false);
+            try {
+              await updateAgent(agent.id, data);
+              onOpenChange(false);
+            } catch {
+              // The store already surfaced the API error.
+            } finally {
+              setSaving(false);
+            }
           }}
           onCancel={() => onOpenChange(false)}
         />

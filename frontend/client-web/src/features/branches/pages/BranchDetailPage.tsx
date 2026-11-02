@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { getStatusVariant, humanize } from "@/lib/status";
 import { PageHeader } from "@/components/common/PageHeader";
 import { NotFound } from "@/components/common/NotFound";
+import { Spinner } from "@/components/ui/spinner";
 import { DescriptionList } from "@/components/common/DescriptionList";
 
 import { useBranchesStore } from "../hooks/useBranchesStore";
@@ -18,12 +19,21 @@ import { usePermissions } from "@/hooks/usePermissions";
 
 export function BranchDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { getBranch } = useBranchesStore();
+  const { getBranch, loading } = useBranchesStore();
   const { can } = usePermissions();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
 
   const branch = id ? getBranch(id) : undefined;
+
+  if (loading && !branch) {
+    return (
+      <div className="flex min-h-[240px] items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
   if (!branch) {
     return <NotFound title="Branch not found" backHref="/branches" />;
   }

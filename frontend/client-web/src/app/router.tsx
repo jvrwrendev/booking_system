@@ -45,7 +45,6 @@ import { BranchDetailPage } from "@/features/branches/pages/BranchDetailPage";
 import { BranchesProvider } from "@/features/branches/hooks/useBranchesStore";
 
 import { UsersListPage } from "@/features/users/pages/UsersListPage";
-import { UserAddPage } from "@/features/users/pages/UserAddPage";
 import { UserEditPage } from "@/features/users/pages/UserEditPage";
 import { UsersProvider } from "@/features/users/hooks/useUsersStore";
 import { ReportsPage } from "@/features/reports/pages/ReportsPage";
@@ -298,14 +297,6 @@ export const router = createBrowserRouter([
         element: (
           <PermissionRoute permission="users.view">
             <UsersListPage />
-          </PermissionRoute>
-        ),
-      },
-      {
-        path: "users/add",
-        element: (
-          <PermissionRoute permission="users.manage">
-            <UserAddPage />
           </PermissionRoute>
         ),
       },

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, Mail, MapPin, MoreHorizontal, Pencil, Phone, Plus } from "lucide-react";
+import { Eye, MapPin, MoreHorizontal, Pencil, Phone, Plus } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/common/DataTable";
@@ -32,7 +32,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 
 export function CustomersListPage() {
   const { can } = usePermissions();
-  const { customers, toggleStatus } = useCustomersStore();
+  const { customers, toggleStatus, loading, error, refresh } = useCustomersStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [addOpen, setAddOpen] = useState(false);
   const [statusTarget, setStatusTarget] = useState<Customer | null>(null);
@@ -63,7 +63,9 @@ export function CustomersListPage() {
             >
               {c.fullName}
             </Link>
-            <div className="text-xs text-muted-foreground">{c.email}</div>
+            <div className="text-xs text-muted-foreground">
+              {c.contactNumber || "No contact number"}
+            </div>
           </div>
         </div>
       ),
@@ -74,15 +76,9 @@ export function CustomersListPage() {
       id: "contact",
       header: "Contact",
       cell: (c) => (
-        <div className="space-y-1 text-xs">
-          <div className="flex items-center gap-1.5">
-            <Phone className="h-3 w-3 text-muted-foreground" />
-            {c.contactNumber || "—"}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Mail className="h-3 w-3 text-muted-foreground" />
-            <span className="truncate">{c.email}</span>
-          </div>
+        <div className="flex items-center gap-1.5 text-xs">
+          <Phone className="h-3 w-3 text-muted-foreground" />
+          {c.contactNumber || "—"}
         </div>
       ),
       className: "hidden md:table-cell",
@@ -206,8 +202,11 @@ export function CustomersListPage() {
         data={filtered}
         columns={columns}
         searchPlaceholder="Search customers..."
-        searchKeys={["fullName", "email", "contactNumber", "address"]}
+        searchKeys={["fullName", "contactNumber", "address", "assignedAgentName"]}
         rowKey={(c) => c.id}
+        loading={loading}
+        error={error}
+        onRetry={refresh}
         toolbar={
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-[140px]">

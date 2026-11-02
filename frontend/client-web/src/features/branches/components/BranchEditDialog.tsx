@@ -38,11 +38,16 @@ export function BranchEditDialog({
           formId="branch-edit-form"
           initial={branch}
           hideFooter
-          onSubmit={(data) => {
+          onSubmit={async (data) => {
             setSaving(true);
-            updateBranch(branch.id, data);
-            setSaving(false);
-            onOpenChange(false);
+            try {
+              await updateBranch(branch.id, data);
+              onOpenChange(false);
+            } catch {
+              // The store already surfaced the API error.
+            } finally {
+              setSaving(false);
+            }
           }}
           onCancel={() => onOpenChange(false)}
         />
