@@ -1,11 +1,11 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { Animated, Easing, View } from "react-native";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { Text } from "@/components/ui/text";
 import { APP_FULL_NAME, BUSINESS_NAME } from "@/constants";
 
 export function SplashScreen() {
-  const opacity = useRef(new Animated.Value(0)).current;
+  const [opacity] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const anim = Animated.timing(opacity, {

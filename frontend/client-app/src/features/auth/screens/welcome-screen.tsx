@@ -1,5 +1,5 @@
 import React from "react";
-import { View, useWindowDimensions } from "react-native";
+import { View } from "react-native";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -14,8 +14,6 @@ const CONTENT_MAX_WIDTH = 420;
 export function WelcomeScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { height } = useWindowDimensions();
-
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-background">
       <View

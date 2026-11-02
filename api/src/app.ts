@@ -6,6 +6,7 @@ import { env } from "./config/env.js";
 import { sendSuccess } from "./lib/api-response.js";
 import { authModule } from "./modules/auth/auth.module.js";
 import { usersModule } from "./modules/users/users.module.js";
+import { customersModule } from "./modules/customers/customers.module.js";
 import { categoriesModule } from "./modules/categories/categories.module.js";
 import { productsModule } from "./modules/products/products.module.js";
 import { suppliersModule } from "./modules/suppliers/suppliers.module.js";
@@ -92,6 +93,7 @@ export function createApp(): Express {
   registerModules(app, [
     authModule,
     usersModule,
+    customersModule,
     categoriesModule,
     productsModule,
     suppliersModule,

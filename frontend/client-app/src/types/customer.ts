@@ -2,12 +2,7 @@ import type { AddressParts } from "./auth";
 
 export interface Customer {
   id: string;
-  firstName: string;
-  middleName: string;
-  lastName: string;
-  suffix: string;
   fullName: string;
-  email: string;
   contactNumber: string;
   gender?: string;
   address: string;
@@ -22,11 +17,7 @@ export interface Customer {
 }
 
 export interface CustomerFormValues {
-  firstName: string;
-  middleName: string;
-  lastName: string;
-  suffix: string;
-  email: string;
+  fullName: string;
   contactNumber: string;
   gender?: string;
   addressParts: AddressParts;

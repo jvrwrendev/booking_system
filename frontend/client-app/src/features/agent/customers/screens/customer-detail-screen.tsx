@@ -1,12 +1,23 @@
 import React, { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Mail, MapPin, Phone, UserRound } from "lucide-react-native";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { ArrowLeft, MapPin, Phone, UserRound } from "lucide-react-native";
+import {
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
-import { getCustomerForAgent, updateCustomerForAgent } from "@/services/customer.service";
+import {
+  getCustomerForAgent,
+  updateCustomerForAgent,
+} from "@/services/customer.service";
+import { ApiError } from "@/lib/api-client";
+import { isMindanaoRegion } from "@/lib/psgc-api";
+import type { AddressParts } from "@/types/auth";
 import type { Customer } from "@/types/customer";
+import { AddressSelector } from "@/components/shared/address-selector";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { Card } from "@/components/ui/card";
@@ -15,6 +26,21 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { AgentStackParamList } from "@/app/navigation/types";
+
+const EMPTY_ADDRESS: AddressParts = {
+  street: "",
+  barangay: { code: "", name: "" },
+  city: { code: "", name: "" },
+  province: { code: "", name: "" },
+  region: { code: "", name: "" },
+};
+
+interface CustomerEditForm {
+  fullName: string;
+  contactNumber: string;
+  gender: string;
+  addressParts: AddressParts;
+}
 
 export function CustomerDetailScreen() {
   const navigation =
@@ -27,19 +53,11 @@ export function CustomerDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    firstName: "",
-    middleName: "",
-    lastName: "",
-    suffix: "",
-    email: "",
+  const [form, setForm] = useState<CustomerEditForm>({
+    fullName: "",
     contactNumber: "",
     gender: "",
-    street: "",
-    barangay: "",
-    city: "",
-    province: "",
-    region: "",
+    addressParts: EMPTY_ADDRESS,
   });
 
   const agentId = user?.agentId ?? "";
@@ -51,18 +69,10 @@ export function CustomerDetailScreen() {
       setCustomer(c);
       if (c) {
         setForm({
-          firstName: c.firstName,
-          middleName: c.middleName,
-          lastName: c.lastName,
-          suffix: c.suffix,
-          email: c.email,
+          fullName: c.fullName,
           contactNumber: c.contactNumber,
           gender: c.gender ?? "",
-          street: c.addressParts.street,
-          barangay: c.addressParts.barangay.name,
-          city: c.addressParts.city.name,
-          province: c.addressParts.province.name,
-          region: c.addressParts.region.name,
+          addressParts: c.addressParts,
         });
       }
       if (!c) setError("Customer not found.");
@@ -73,26 +83,34 @@ export function CustomerDetailScreen() {
     }
   }, [route.params.customerId, agentId]);
 
+  const addressComplete =
+    Boolean(form.addressParts.street.trim()) &&
+    Boolean(form.addressParts.barangay.name.trim()) &&
+    Boolean(form.addressParts.city.name.trim()) &&
+    Boolean(form.addressParts.province.name.trim()) &&
+    Boolean(form.addressParts.region.name.trim()) &&
+    isMindanaoRegion(form.addressParts.region);
+
+  const canSave =
+    Boolean(form.fullName.trim()) &&
+    Boolean(form.contactNumber.trim()) &&
+    addressComplete &&
+    !saving;
+
   const onSave = async () => {
-    if (saving || !customer) return;
+    if (!canSave || !customer) return;
     setSaving(true);
+    setError(null);
     try {
       const updated = await updateCustomerForAgent(
         customer.id,
         {
-          firstName: form.firstName.trim(),
-          middleName: form.middleName.trim(),
-          lastName: form.lastName.trim(),
-          suffix: form.suffix.trim(),
-          email: form.email.trim(),
+          fullName: form.fullName.trim(),
           contactNumber: form.contactNumber.trim(),
-          gender: form.gender,
+          gender: form.gender || undefined,
           addressParts: {
-            street: form.street.trim(),
-            barangay: { code: "", name: form.barangay.trim() },
-            city: { code: "", name: form.city.trim() },
-            province: { code: "", name: form.province.trim() },
-            region: { code: "", name: form.region.trim() },
+            ...form.addressParts,
+            street: form.addressParts.street.trim(),
           },
         },
         agentId,
@@ -103,23 +121,26 @@ export function CustomerDetailScreen() {
       } else {
         setError("Failed to update customer.");
       }
-    } catch {
-      setError("Failed to update customer.");
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Failed to update customer.",
+      );
     } finally {
       setSaving(false);
     }
   };
 
   React.useEffect(() => {
+    // The loader owns its async state; this keeps the screen in sync on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-secondary">
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ padding: 24 }}
-      >
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
         <Pressable
           onPress={() => navigation.goBack()}
           hitSlop={8}
@@ -160,21 +181,41 @@ export function CustomerDetailScreen() {
                 variant={editing ? "outline" : "secondary"}
                 size="control"
                 fullWidth
-                onPress={() => setEditing((e) => !e)}
+                onPress={() => {
+                  setError(null);
+                  if (editing && customer) {
+                    setForm({
+                      fullName: customer.fullName,
+                      contactNumber: customer.contactNumber,
+                      gender: customer.gender ?? "",
+                      addressParts: customer.addressParts,
+                    });
+                  }
+                  setEditing((current) => !current);
+                }}
               />
             </View>
 
             {editing ? (
               <Card className="mt-4 gap-4">
-                <Input label="First name" size="control" value={form.firstName} onChangeText={(v) => setForm({ ...form, firstName: v })} />
-                <Input label="Middle name" size="control" value={form.middleName} onChangeText={(v) => setForm({ ...form, middleName: v })} />
-                <Input label="Last name" size="control" value={form.lastName} onChangeText={(v) => setForm({ ...form, lastName: v })} />
-                <Input label="Suffix" size="control" value={form.suffix} onChangeText={(v) => setForm({ ...form, suffix: v })} />
-                <Input label="Email" size="control" autoCapitalize="none" value={form.email} onChangeText={(v) => setForm({ ...form, email: v })} />
-                <Input label="Contact number" size="control" keyboardType="phone-pad" value={form.contactNumber} onChangeText={(v) => setForm({ ...form, contactNumber: v })} />
+                <Input
+                  label="Full name"
+                  size="control"
+                  value={form.fullName}
+                  onChangeText={(fullName) => setForm({ ...form, fullName })}
+                />
+                <Input
+                  label="Contact number"
+                  size="control"
+                  keyboardType="phone-pad"
+                  value={form.contactNumber}
+                  onChangeText={(contactNumber) =>
+                    setForm({ ...form, contactNumber })
+                  }
+                />
                 <View>
                   <Text variant="label" tone="muted" className="mb-2">
-                    GENDER
+                    GENDER (OPTIONAL)
                   </Text>
                   <View className="flex-row gap-3">
                     {["Male", "Female", "Other"].map((option) => {
@@ -189,7 +230,12 @@ export function CustomerDetailScreen() {
                               : "border-border bg-background"
                           }`}
                         >
-                          <Text weight="semibold" className={selected ? "text-primary" : "text-foreground"}>
+                          <Text
+                            weight="semibold"
+                            className={
+                              selected ? "text-primary" : "text-foreground"
+                            }
+                          >
                             {option}
                           </Text>
                         </Pressable>
@@ -197,16 +243,33 @@ export function CustomerDetailScreen() {
                     })}
                   </View>
                 </View>
-                <Input label="Street" size="control" value={form.street} onChangeText={(v) => setForm({ ...form, street: v })} />
-                <Input label="Barangay" size="control" value={form.barangay} onChangeText={(v) => setForm({ ...form, barangay: v })} />
-                <Input label="City / Municipality" size="control" value={form.city} onChangeText={(v) => setForm({ ...form, city: v })} />
-                <Input label="Province" size="control" value={form.province} onChangeText={(v) => setForm({ ...form, province: v })} />
-                <Input label="Region" size="control" value={form.region} onChangeText={(v) => setForm({ ...form, region: v })} />
+
+                <AddressSelector
+                  value={form.addressParts}
+                  onChange={(addressParts) =>
+                    setForm({ ...form, addressParts })
+                  }
+                  disabled={saving}
+                />
+
+                {!addressComplete ? (
+                  <Text variant="small" tone="danger">
+                    Complete the address and select a region within Mindanao.
+                  </Text>
+                ) : null}
+
+                {error ? (
+                  <Text variant="small" tone="danger">
+                    {error}
+                  </Text>
+                ) : null}
+
                 <Button
                   label="Save Changes"
                   size="control"
                   fullWidth
                   loading={saving}
+                  disabled={!canSave}
                   onPress={() => {
                     void onSave();
                   }}
@@ -215,10 +278,6 @@ export function CustomerDetailScreen() {
             ) : null}
 
             <Card className="mt-6 gap-4">
-              <View className="flex-row items-center gap-3">
-                <Mail size={16} color="#64748B" />
-                <Text className="flex-1">{customer.email}</Text>
-              </View>
               <View className="flex-row items-center gap-3">
                 <Phone size={16} color="#64748B" />
                 <Text className="flex-1">{customer.contactNumber}</Text>

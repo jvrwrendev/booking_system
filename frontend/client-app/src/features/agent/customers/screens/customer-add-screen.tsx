@@ -9,70 +9,80 @@ import {
   type TextInputInstance,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  AlertCircle,
-  ArrowLeft,
-  Building2,
-  Mail,
-  MapPin,
-  Phone,
-  UserRound,
-} from "lucide-react-native";
+import { AlertCircle, ArrowLeft, Phone, UserRound } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { createCustomerForAgent } from "@/services/customer.service";
-import { validateEmail } from "@/lib/utils";
+import { ApiError } from "@/lib/api-client";
+import { isMindanaoRegion } from "@/lib/psgc-api";
+import type { AddressParts } from "@/types/auth";
+import { AddressSelector } from "@/components/shared/address-selector";
+import { SuccessDialog } from "@/components/shared/success-dialog";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { AgentStackParamList } from "@/app/navigation/types";
 
 const MUTED_ICON = "#64748B";
+const CONTACT_PATTERN = /^[0-9+()\-\s]{7,30}$/;
+
+const EMPTY_ADDRESS: AddressParts = {
+  street: "",
+  barangay: { code: "", name: "" },
+  city: { code: "", name: "" },
+  province: { code: "", name: "" },
+  region: { code: "", name: "" },
+};
+
+function validateContactNumber(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return "Contact number is required.";
+  if (!CONTACT_PATTERN.test(trimmed)) {
+    return "Enter a valid contact number.";
+  }
+  return undefined;
+}
 
 export function CustomerAddScreen() {
   const { user } = useAuth();
   const navigation =
     useNavigation<NativeStackNavigationProp<AgentStackParamList>>();
 
-  const [firstName, setFirstName] = useState("");
-  const [middleName, setMiddleName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [suffix, setSuffix] = useState("");
-  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [contactNumber, setContactNumber] = useState("");
-  const [street, setStreet] = useState("");
-  const [barangay, setBarangay] = useState("");
-  const [city, setCity] = useState("");
-  const [province, setProvince] = useState("");
-  const [region, setRegion] = useState("");
   const [gender, setGender] = useState<string>("");
+  const [addressParts, setAddressParts] = useState<AddressParts>(EMPTY_ADDRESS);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  const lastNameRef = useRef<TextInputInstance>(null);
-  const emailRef = useRef<TextInputInstance>(null);
   const contactRef = useRef<TextInputInstance>(null);
 
-  const firstNameError =
-    submitted && !firstName.trim() ? "First name is required." : undefined;
-  const lastNameError =
-    submitted && !lastName.trim() ? "Last name is required." : undefined;
-  const emailError = submitted ? validateEmail(email) : undefined;
-  const contactError =
-    submitted && !contactNumber.trim()
-      ? "Contact number is required."
-      : undefined;
-  const addressError = submitted && !street.trim() && !city.trim()
-    ? "Please enter a street and city."
+  const fullNameError =
+    submitted && !fullName.trim() ? "Full name is required." : undefined;
+  const contactError = submitted
+    ? validateContactNumber(contactNumber)
     : undefined;
 
+  const addressComplete =
+    Boolean(addressParts.street.trim()) &&
+    Boolean(addressParts.barangay.name.trim()) &&
+    Boolean(addressParts.city.name.trim()) &&
+    Boolean(addressParts.province.name.trim()) &&
+    Boolean(addressParts.region.name.trim()) &&
+    isMindanaoRegion(addressParts.region);
+
+  const addressError =
+    submitted && !addressComplete
+      ? "Complete the address and select a region within Mindanao."
+      : undefined;
+
   const canSubmit =
-    Boolean(firstName.trim()) &&
-    Boolean(lastName.trim()) &&
-    validateEmail(email) === undefined &&
-    Boolean(contactNumber.trim()) &&
+    Boolean(fullName.trim()) &&
+    validateContactNumber(contactNumber) === undefined &&
+    addressComplete &&
     !submitting;
 
   const onSubmit = async () => {
@@ -89,27 +99,24 @@ export function CustomerAddScreen() {
     try {
       await createCustomerForAgent(
         {
-          firstName: firstName.trim(),
-          middleName: middleName.trim(),
-          lastName: lastName.trim(),
-          suffix: suffix.trim(),
-          email: email.trim(),
+          fullName: fullName.trim(),
           contactNumber: contactNumber.trim(),
+          gender: gender || undefined,
           addressParts: {
-            street: street.trim(),
-            barangay: { code: "", name: barangay.trim() },
-            city: { code: "", name: city.trim() },
-            province: { code: "", name: province.trim() },
-            region: { code: "", name: region.trim() },
+            ...addressParts,
+            street: addressParts.street.trim(),
           },
-          gender,
         },
         user?.agentId ?? "",
         user?.fullName ?? "Agent",
       );
-      navigation.goBack();
-    } catch {
-      setError("Failed to add customer. Please try again.");
+      setSuccess(true);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Failed to add customer. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -153,59 +160,16 @@ export function CustomerAddScreen() {
               <View className="gap-5">
                 <Input
                   size="control"
-                  label="First name"
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  error={firstNameError}
-                  placeholder="Juan"
+                  label="Full name"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  error={fullNameError}
+                  placeholder="Juan Dela Cruz"
                   leftIcon={<UserRound size={18} color={MUTED_ICON} />}
-                  returnKeyType="next"
-                  onSubmitEditing={() => lastNameRef.current?.focus()}
-                />
-                <Input
-                  size="control"
-                  label="Middle name (optional)"
-                  value={middleName}
-                  onChangeText={setMiddleName}
-                  placeholder="Santos"
-                  returnKeyType="next"
-                  onSubmitEditing={() => lastNameRef.current?.focus()}
-                />
-                <Input
-                  inputRef={lastNameRef}
-                  size="control"
-                  label="Last name"
-                  value={lastName}
-                  onChangeText={setLastName}
-                  error={lastNameError}
-                  placeholder="Dela Cruz"
-                  returnKeyType="next"
-                  onSubmitEditing={() => emailRef.current?.focus()}
-                />
-                <Input
-                  size="control"
-                  label="Suffix (optional)"
-                  value={suffix}
-                  onChangeText={setSuffix}
-                  placeholder="Jr."
-                  returnKeyType="next"
-                  onSubmitEditing={() => emailRef.current?.focus()}
-                />
-                <Input
-                  inputRef={emailRef}
-                  size="control"
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  error={emailError}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  placeholder="juan@example.com"
-                  leftIcon={<Mail size={18} color={MUTED_ICON} />}
                   returnKeyType="next"
                   onSubmitEditing={() => contactRef.current?.focus()}
                 />
+
                 <Input
                   inputRef={contactRef}
                   size="control"
@@ -216,58 +180,28 @@ export function CustomerAddScreen() {
                   keyboardType="phone-pad"
                   placeholder="+63 900 000 0000"
                   leftIcon={<Phone size={18} color={MUTED_ICON} />}
-                  returnKeyType="next"
+                  returnKeyType="done"
                 />
 
                 <View>
                   <Text variant="label" tone="muted" className="mb-3">
                     ADDRESS
                   </Text>
-                  <View className="gap-5">
-                    <Input
-                      size="control"
-                      label="Street"
-                      value={street}
-                      onChangeText={setStreet}
-                      error={addressError}
-                      placeholder="123 Rizal St"
-                      leftIcon={<MapPin size={18} color={MUTED_ICON} />}
-                    />
-                    <Input
-                      size="control"
-                      label="Barangay"
-                      value={barangay}
-                      onChangeText={setBarangay}
-                      placeholder="Barangay name"
-                    />
-                    <Input
-                      size="control"
-                      label="City / Municipality"
-                      value={city}
-                      onChangeText={setCity}
-                      placeholder="City name"
-                      leftIcon={<Building2 size={18} color={MUTED_ICON} />}
-                    />
-                    <Input
-                      size="control"
-                      label="Province"
-                      value={province}
-                      onChangeText={setProvince}
-                      placeholder="Province name"
-                    />
-                    <Input
-                      size="control"
-                      label="Region"
-                      value={region}
-                      onChangeText={setRegion}
-                      placeholder="Region name"
-                    />
-                  </View>
+                  <AddressSelector
+                    value={addressParts}
+                    onChange={setAddressParts}
+                    disabled={submitting}
+                  />
+                  {addressError ? (
+                    <Text variant="small" tone="danger" className="mt-2">
+                      {addressError}
+                    </Text>
+                  ) : null}
                 </View>
 
                 <View>
                   <Text variant="label" tone="muted" className="mb-2">
-                    GENDER
+                    GENDER (OPTIONAL)
                   </Text>
                   <View className="flex-row gap-3">
                     {["Male", "Female", "Other"].map((option) => {
@@ -286,7 +220,9 @@ export function CustomerAddScreen() {
                         >
                           <Text
                             weight="semibold"
-                            className={selected ? "text-primary" : "text-foreground"}
+                            className={
+                              selected ? "text-primary" : "text-foreground"
+                            }
                           >
                             {option}
                           </Text>
@@ -318,7 +254,7 @@ export function CustomerAddScreen() {
                     void onSubmit();
                   }}
                   loading={submitting}
-                  disabled={!canSubmit}
+                  disabled={submitting}
                   fullWidth
                 />
               </View>
@@ -326,6 +262,17 @@ export function CustomerAddScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <SuccessDialog
+        visible={success}
+        title="Customer added"
+        description="The customer has been saved successfully."
+        confirmLabel="Done"
+        onConfirm={() => {
+          setSuccess(false);
+          navigation.goBack();
+        }}
+      />
     </SafeAreaView>
   );
 }

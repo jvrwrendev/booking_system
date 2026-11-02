@@ -1,109 +1,113 @@
+import { ApiError, request } from "@/lib/api-client";
+import type { AddressParts } from "@/types/auth";
 import type { Customer, CustomerFormValues } from "@/types/customer";
-import { mockCustomers } from "./mock/customers";
-import { sleep } from "@/lib/utils";
-import { NETWORK_DELAY_MS } from "@/constants";
 
-let customersState: Customer[] = [...mockCustomers];
-
-function genId(): string {
-  const max = customersState.reduce((acc, c) => {
-    const num = parseInt(c.id.replace(/[^0-9]/g, ""), 10);
-    return Number.isFinite(num) && num > acc ? num : acc;
-  }, 0);
-  return `CUS-${String(max + 1).padStart(3, "0")}`;
+interface ApiCustomer {
+  id: string;
+  fullName: string;
+  contactNumber: string;
+  gender: string | null;
+  address: string;
+  addressParts: AddressParts;
+  assignedAgentId: string;
+  assignedAgentName: string;
+  status: "active" | "inactive";
+  totalBookings: number;
+  totalPurchases: number;
+  notes: string | null;
+  registeredDate: string;
 }
 
-function buildFullName(c: CustomerFormValues): string {
-  return [c.firstName, c.middleName, c.lastName, c.suffix]
-    .filter((p) => p && p.trim())
-    .join(" ");
+interface ListCustomersResponse {
+  customers: ApiCustomer[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
-function buildAddress(c: CustomerFormValues): string {
-  return [
-    c.addressParts.street,
-    c.addressParts.barangay.name,
-    c.addressParts.city.name,
-    c.addressParts.province.name,
-    c.addressParts.region.name,
-  ]
-    .filter((p) => p && p.trim())
-    .join(", ");
+function toCustomer(customer: ApiCustomer): Customer {
+  return {
+    id: customer.id,
+    fullName: customer.fullName,
+    contactNumber: customer.contactNumber,
+    gender: customer.gender ?? undefined,
+    address: customer.address,
+    addressParts: customer.addressParts,
+    assignedAgentId: customer.assignedAgentId,
+    assignedAgentName: customer.assignedAgentName,
+    totalBookings: customer.totalBookings,
+    totalPurchases: customer.totalPurchases,
+    status: customer.status,
+    registeredDate: customer.registeredDate,
+    notes: customer.notes ?? undefined,
+  };
 }
 
+function toPayload(values: CustomerFormValues) {
+  return {
+    fullName: values.fullName.trim(),
+    contactNumber: values.contactNumber.trim(),
+    gender: values.gender?.trim() || undefined,
+    addressParts: values.addressParts,
+    notes: values.notes?.trim() || undefined,
+  };
+}
+
+/**
+ * The API scopes customers to the authenticated agent, so the legacy agentId
+ * argument is kept only to avoid changing existing call sites.
+ */
 export async function listCustomersForAgent(
-  agentId: string,
+  _agentId?: string,
 ): Promise<Customer[]> {
-  await sleep(NETWORK_DELAY_MS);
-  return customersState.filter((c) => c.assignedAgentId === agentId);
+  const result = await request<ListCustomersResponse>(
+    "/customers?page=1&pageSize=200",
+  );
+  return result.customers.map(toCustomer);
 }
 
 export async function getCustomerForAgent(
   id: string,
-  agentId: string,
+  _agentId?: string,
 ): Promise<Customer | null> {
-  await sleep(NETWORK_DELAY_MS);
-  const customer = customersState.find((c) => c.id === id);
-  if (!customer) return null;
-  if (customer.assignedAgentId !== agentId) return null;
-  return customer;
+  try {
+    const { customer } = await request<{ customer: ApiCustomer }>(
+      `/customers/${encodeURIComponent(id)}`,
+    );
+    return toCustomer(customer);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
 }
 
 export async function createCustomerForAgent(
   values: CustomerFormValues,
-  agentId: string,
-  agentName: string,
+  _agentId?: string,
+  _agentName?: string,
 ): Promise<Customer> {
-  await sleep(NETWORK_DELAY_MS);
-  const customer: Customer = {
-    id: genId(),
-    firstName: values.firstName,
-    middleName: values.middleName,
-    lastName: values.lastName,
-    suffix: values.suffix,
-    fullName: buildFullName(values),
-    email: values.email,
-    contactNumber: values.contactNumber,
-    gender: values.gender,
-    address: buildAddress(values),
-    addressParts: values.addressParts,
-    assignedAgentId: agentId,
-    assignedAgentName: agentName,
-    totalBookings: 0,
-    totalPurchases: 0,
-    status: "active",
-    registeredDate: new Date().toISOString(),
-    notes: values.notes ?? "",
-  };
-  customersState = [customer, ...customersState];
-  return customer;
+  const { customer } = await request<{ customer: ApiCustomer }>(
+    "/customers",
+    {
+      method: "POST",
+      body: toPayload(values),
+    },
+  );
+  return toCustomer(customer);
 }
 
 export async function updateCustomerForAgent(
   id: string,
   values: CustomerFormValues,
-  agentId: string,
+  _agentId?: string,
 ): Promise<Customer | null> {
-  await sleep(NETWORK_DELAY_MS);
-  const index = customersState.findIndex(
-    (c) => c.id === id && c.assignedAgentId === agentId,
+  const { customer } = await request<{ customer: ApiCustomer }>(
+    `/customers/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: toPayload(values),
+    },
   );
-  if (index === -1) return null;
-  const existing = customersState[index];
-  const updated: Customer = {
-    ...existing,
-    firstName: values.firstName,
-    middleName: values.middleName,
-    lastName: values.lastName,
-    suffix: values.suffix,
-    fullName: buildFullName(values),
-    email: values.email,
-    contactNumber: values.contactNumber,
-    gender: values.gender,
-    address: buildAddress(values),
-    addressParts: values.addressParts,
-    notes: values.notes ?? existing.notes,
-  };
-  customersState = customersState.map((c) => (c.id === id ? updated : c));
-  return updated;
+  return toCustomer(customer);
 }

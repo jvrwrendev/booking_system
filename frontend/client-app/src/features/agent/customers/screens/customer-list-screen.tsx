@@ -59,7 +59,6 @@ export function CustomerListScreen() {
     if (!q) return true;
     return (
       c.fullName.toLowerCase().includes(q) ||
-      c.email.toLowerCase().includes(q) ||
       c.contactNumber.toLowerCase().includes(q)
     );
   });
@@ -100,7 +99,7 @@ export function CustomerListScreen() {
                 size="control"
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Search by name, email, or contact"
+                placeholder="Search by name or contact number"
                 autoCapitalize="none"
                 autoCorrect={false}
                 leftIcon={<Search size={18} color="#64748B" />}
