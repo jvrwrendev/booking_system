@@ -24,11 +24,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useAgentCart } from "@/hooks/use-agent-cart";
 import { listCustomersForAgent } from "@/services/customer.service";
 import { listProducts } from "@/services/product.service";
-import {
-  createBookingForAgent,
-  listBookingBranches,
-  type BookingBranchOption,
-} from "@/services/booking.service";
+import { createBookingForAgent } from "@/services/booking.service";
 import type { Customer } from "@/types/customer";
 import type { Product } from "@/types/product";
 import { Text } from "@/components/ui/text";
@@ -70,8 +66,6 @@ export function BookingCreateScreen() {
   });
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [branches, setBranches] = useState<BookingBranchOption[]>([]);
-  const [selectedBranchId, setSelectedBranchId] = useState("");
   const [loading, setLoading] = useState(true);
   const [customerQuery, setCustomerQuery] = useState("");
   const [productQuery, setProductQuery] = useState("");
@@ -103,23 +97,13 @@ export function BookingCreateScreen() {
     let mounted = true;
     void (async () => {
       try {
-        const [c, p, availableBranches] = await Promise.all([
+        const [c, p] = await Promise.all([
           listCustomersForAgent(agentId),
           listProducts(),
-          listBookingBranches(),
         ]);
         if (!mounted) return;
         setCustomers(c);
         setProducts(p);
-        setBranches(availableBranches);
-        setSelectedBranchId((current) =>
-          current || availableBranches[0]?.id || "",
-        );
-        if (route.params?.customerId && !cart.customer) {
-          const found = c.find((x) => x.id === route.params?.customerId);
-          if (found) cart.setCustomer(found);
-          if (step === "customer") setStep("products");
-        }
       } catch {
         if (mounted) {
           setError("Failed to load your customers and products. Please try again.");
