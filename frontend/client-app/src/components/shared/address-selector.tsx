@@ -388,7 +388,7 @@ function OptionField({
         accessibilityRole="button"
         accessibilityLabel={label}
         disabled={disabled}
-        className={`min-h-[44px] flex-row items-center justify-between rounded-md border bg-background px-3 ${
+        className={`h-control flex-row items-center justify-between rounded-md border bg-background px-3 ${
           disabled ? "opacity-60" : ""
         } ${
           error
@@ -397,9 +397,8 @@ function OptionField({
         }`}
       >
         <Text
-          variant="small"
           tone={displayName ? "default" : "muted"}
-          className="flex-1 pr-2"
+          className="flex-1 pr-2 text-[15px]"
           numberOfLines={1}
         >
           {displayName || placeholder}
