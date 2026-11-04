@@ -1,5 +1,5 @@
 import { request } from "@/lib/api-client";
-import { emptyAddress, type AddressParts } from "@/lib/utils";
+import { normalizeAddress } from "@/lib/utils";
 import type {
   BranchDto,
   BranchStatusDto,
@@ -29,7 +29,7 @@ export function toBranch(dto: BranchDto): Branch {
     manager: dto.manager,
     contactNumber: dto.contactNumber,
     address: dto.address,
-    addressParts: (dto.addressParts as AddressParts | null) ?? emptyAddress(),
+    addressParts: normalizeAddress(dto.addressParts),
     totalProducts: dto.totalProducts,
     totalStock: dto.totalStock,
     status: dto.status,

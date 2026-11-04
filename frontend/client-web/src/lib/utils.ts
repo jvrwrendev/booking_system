@@ -55,6 +55,7 @@ export interface AddressRef {
 
 export interface AddressParts {
   street: string;
+  purok: string;
   barangay: AddressRef;
   city: AddressRef;
   province: AddressRef;
@@ -68,6 +69,7 @@ export function emptyAddressRef(): AddressRef {
 export function emptyAddress(): AddressParts {
   return {
     street: "",
+    purok: "",
     barangay: emptyAddressRef(),
     city: emptyAddressRef(),
     province: emptyAddressRef(),
@@ -75,10 +77,26 @@ export function emptyAddress(): AddressParts {
   };
 }
 
+export function normalizeAddress(
+  addr: Partial<AddressParts> | null | undefined,
+): AddressParts {
+  const base = emptyAddress();
+  if (!addr) return base;
+
+  return {
+    street: addr.street ?? "",
+    purok: addr.purok ?? "",
+    barangay: { ...base.barangay, ...(addr.barangay ?? {}) },
+    city: { ...base.city, ...(addr.city ?? {}) },
+    province: { ...base.province, ...(addr.province ?? {}) },
+    region: { ...base.region, ...(addr.region ?? {}) },
+  };
+}
+
 export function formatAddress(addr: AddressParts | string | undefined | null): string {
   if (!addr) return "";
   if (typeof addr === "string") return addr;
-  const parts = [addr.street, addr.barangay.name, addr.city.name, addr.province.name, addr.region.name]
+  const parts = [addr.street, addr.purok, addr.barangay.name, addr.city.name, addr.province.name, addr.region.name]
     .filter((p) => p && p.trim());
   return parts.join(", ");
 }

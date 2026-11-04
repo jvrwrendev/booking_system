@@ -29,6 +29,7 @@ const CONTACT_PATTERN = /^[0-9+()\-\s]{7,30}$/;
 
 const EMPTY_ADDRESS: AddressParts = {
   street: "",
+  purok: "",
   barangay: { code: "", name: "" },
   city: { code: "", name: "" },
   province: { code: "", name: "" },
@@ -68,6 +69,7 @@ export function CustomerAddScreen() {
 
   const addressComplete =
     Boolean(addressParts.street.trim()) &&
+    Boolean(addressParts.purok.trim()) &&
     Boolean(addressParts.barangay.name.trim()) &&
     Boolean(addressParts.city.name.trim()) &&
     Boolean(addressParts.province.name.trim()) &&
@@ -105,6 +107,7 @@ export function CustomerAddScreen() {
           addressParts: {
             ...addressParts,
             street: addressParts.street.trim(),
+            purok: addressParts.purok.trim(),
           },
         },
         user?.agentId ?? "",

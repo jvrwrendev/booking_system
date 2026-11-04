@@ -82,23 +82,6 @@ interface ApiBookingResponse {
   booking: ApiBooking;
 }
 
-interface ApiBranch {
-  id: string;
-  name: string;
-  code: string | null;
-  status: "ACTIVE" | "INACTIVE";
-}
-
-interface ApiBranchList {
-  branches: ApiBranch[];
-}
-
-export interface BookingBranchOption {
-  id: string;
-  name: string;
-  code: string | null;
-}
-
 const LIST_PAGE_SIZE = 100;
 
 function toBookingStatus(status: ApiBookingStatus): BookingStatus {
@@ -151,18 +134,6 @@ function toBooking(dto: ApiBooking): Booking {
   };
 }
 
-/** Active branches an agent can book against. */
-export async function listBookingBranches(): Promise<BookingBranchOption[]> {
-  const { branches } = await request<ApiBranchList>("/inventory/branches");
-  return branches
-    .filter((branch) => branch.status === "ACTIVE")
-    .map((branch) => ({
-      id: branch.id,
-      name: branch.name,
-      code: branch.code,
-    }));
-}
-
 export async function listBookingsForAgent(
   agentId?: string,
 ): Promise<Booking[]> {
@@ -204,7 +175,6 @@ export interface CreateBookingInput {
   customer: Customer;
   agentId: string;
   agentName: string;
-  branchId: string;
   items: BookingItem[];
   notes?: string;
 }
@@ -222,7 +192,6 @@ export async function createBookingForAgent(
       customerAddress: input.customer.address || undefined,
       agentId: input.agentId || undefined,
       agentName: input.agentName,
-      branchId: input.branchId,
       bookingDate: now,
       pickupDate: now,
       items: input.items.map((item) => ({

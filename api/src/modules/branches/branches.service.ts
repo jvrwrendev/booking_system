@@ -91,6 +91,7 @@ function hasAddress(parts: AddressPartsDto | null | undefined): boolean {
 
   return [
     parts.street,
+    parts.purok,
     parts.barangay.name,
     parts.city.name,
     parts.region.name,
@@ -102,6 +103,7 @@ function buildAddress(parts: AddressPartsDto | null | undefined): string {
 
   return [
     parts.street,
+    parts.purok,
     parts.barangay.name,
     parts.city.name,
     parts.province.name,

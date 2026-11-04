@@ -1,4 +1,5 @@
 import { randomBytes, randomInt } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { hashPassword, verifyPassword } from "../../lib/argon2.js";
 import { AppError, Errors } from "../../lib/app-error.js";
 import { signAccessToken, sessionTtlMs } from "../../lib/jwt.js";
@@ -103,6 +104,20 @@ function branchNameForUser(name: string): string {
   return /\bbranch\b/i.test(trimmed) ? trimmed : `${trimmed} Branch`;
 }
 
+function buildAddress(parts: RegisterDto["addressParts"]): string {
+  return [
+    parts.street,
+    parts.purok,
+    parts.barangay.name,
+    parts.city.name,
+    parts.province.name,
+    parts.region.name,
+  ]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
 export async function login(
   input: LoginDto,
   meta: LoginMeta,
@@ -176,6 +191,8 @@ export async function register(input: RegisterDto): Promise<RegisterResult> {
   const branchId = input.role === "BRANCH" ? generatePublicId("BR") : null;
   const ownerName =
     input.role === "BRANCH" ? (input.ownerName ?? null) : null;
+  const addressParts = input.addressParts;
+  const address = buildAddress(addressParts);
 
   const account = await prisma.$transaction(async (tx) => {
     // Branch accounts own a real branch record. Without this row, branch
@@ -186,6 +203,8 @@ export async function register(input: RegisterDto): Promise<RegisterResult> {
           id: branchId,
           name: branchNameForUser(input.name),
           manager: ownerName,
+          address,
+          addressParts: addressParts as Prisma.InputJsonValue,
         },
       });
     }
@@ -197,7 +216,8 @@ export async function register(input: RegisterDto): Promise<RegisterResult> {
         passwordHash,
         role: input.role,
         contactNumber: input.contactNumber,
-        address: input.address,
+        address,
+        addressParts: addressParts as Prisma.InputJsonValue,
         avatar: input.avatar,
         agentId,
         branchId,

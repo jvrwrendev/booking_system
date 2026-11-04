@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { AddressParts } from "@/types/auth";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -82,6 +83,48 @@ export function validateEmail(value: string): string | undefined {
   if (!trimmed) return "Email is required.";
   if (!EMAIL_PATTERN.test(trimmed)) return "Enter a valid email address.";
   return undefined;
+}
+
+export function normalizeAddress(
+  address: Partial<AddressParts> | null | undefined,
+): AddressParts {
+  const base: AddressParts = {
+    street: "",
+    purok: "",
+    barangay: { code: "", name: "" },
+    city: { code: "", name: "" },
+    province: { code: "", name: "" },
+    region: { code: "", name: "" },
+  };
+  if (!address) return base;
+
+  return {
+    street: address.street ?? "",
+    purok: address.purok ?? "",
+    barangay: { ...base.barangay, ...(address.barangay ?? {}) },
+    city: { ...base.city, ...(address.city ?? {}) },
+    province: { ...base.province, ...(address.province ?? {}) },
+    region: { ...base.region, ...(address.region ?? {}) },
+  };
+}
+
+export function formatAddress(
+  address: AddressParts | string | null | undefined,
+): string {
+  if (!address) return "";
+  if (typeof address === "string") return address;
+
+  return [
+    address.street,
+    address.purok,
+    address.barangay.name,
+    address.city.name,
+    address.province.name,
+    address.region.name,
+  ]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(", ");
 }
 
 export function computeFullName(

@@ -87,7 +87,7 @@ export async function registerRequest(
         password: credentials.password,
         role: credentials.role,
         contactNumber: credentials.contactNumber.trim() || undefined,
-        address: credentials.address.trim() || undefined,
+        addressParts: credentials.addressParts,
       },
     });
     return { success: true, user: toAuthUser(data.user) };

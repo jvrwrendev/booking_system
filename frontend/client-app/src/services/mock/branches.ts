@@ -12,6 +12,7 @@ export const mockBranches: Branch[] = [
     address: "123 EDSA, Maharlika, Quezon City, NCR",
     addressParts: {
       street: "123 EDSA",
+      purok: "Purok 1",
       barangay: { code: "1381300056", name: "Maharlika" },
       city: { code: "1381300000", name: "Quezon City" },
       province: { code: "", name: "" },
@@ -36,6 +37,7 @@ export const mockBranches: Branch[] = [
     address: "88 Mango Ave, Cebu City",
     addressParts: {
       street: "88 Mango Ave",
+      purok: "Purok 4",
       barangay: { code: "", name: "" },
       city: { code: "0730600000", name: "City of Cebu" },
       province: { code: "0702200000", name: "Cebu" },
@@ -57,6 +59,7 @@ export const mockBranches: Branch[] = [
     address: "45 Roxas Ave, Davao City",
     addressParts: {
       street: "45 Roxas Ave",
+      purok: "Purok 6",
       barangay: { code: "", name: "" },
       city: { code: "112402000", name: "Davao City" },
       province: { code: "1102400000", name: "Davao del Sur" },

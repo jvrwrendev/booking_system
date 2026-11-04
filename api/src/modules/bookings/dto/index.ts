@@ -65,7 +65,7 @@ export const createBookingDto = z
     customerAddress: z.string().trim().max(1000).optional(),
     agentId: z.string().trim().max(100).optional(),
     agentName: z.string().trim().min(1, "Agent name is required").max(255),
-    branchId: z.string().trim().min(1, "Branch is required").max(100),
+    branchId: z.string().trim().max(100).optional(),
     bookingDate: z.coerce.date(),
     pickupDate: z.coerce.date(),
     items: z.array(bookingItemDto).min(1, "At least one item is required"),

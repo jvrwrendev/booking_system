@@ -14,6 +14,7 @@ export const mockAgents: Agent[] = [
     address: "123 EDSA, San Agustin, Quezon City, NCR",
     addressParts: {
       street: "123 EDSA",
+      purok: "Purok 3",
       barangay: { code: "1381300095", name: "San Agustin" },
       city: { code: "1381300000", name: "Quezon City" },
       province: { code: "", name: "" },
@@ -39,6 +40,7 @@ export const mockAgents: Agent[] = [
     address: "88 Mango Ave, Cebu City",
     addressParts: {
       street: "88 Mango Ave",
+      purok: "Purok 2",
       barangay: { code: "", name: "" },
       city: { code: "0730600000", name: "City of Cebu" },
       province: { code: "0702200000", name: "Cebu" },

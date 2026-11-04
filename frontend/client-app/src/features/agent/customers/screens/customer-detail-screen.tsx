@@ -15,6 +15,7 @@ import {
 } from "@/services/customer.service";
 import { ApiError } from "@/lib/api-client";
 import { isMindanaoRegion } from "@/lib/psgc-api";
+import { formatAddress } from "@/lib/utils";
 import type { AddressParts } from "@/types/auth";
 import type { Customer } from "@/types/customer";
 import { AddressSelector } from "@/components/shared/address-selector";
@@ -29,6 +30,7 @@ import type { AgentStackParamList } from "@/app/navigation/types";
 
 const EMPTY_ADDRESS: AddressParts = {
   street: "",
+  purok: "",
   barangay: { code: "", name: "" },
   city: { code: "", name: "" },
   province: { code: "", name: "" },
@@ -85,6 +87,7 @@ export function CustomerDetailScreen() {
 
   const addressComplete =
     Boolean(form.addressParts.street.trim()) &&
+    Boolean(form.addressParts.purok.trim()) &&
     Boolean(form.addressParts.barangay.name.trim()) &&
     Boolean(form.addressParts.city.name.trim()) &&
     Boolean(form.addressParts.province.name.trim()) &&
@@ -111,6 +114,7 @@ export function CustomerDetailScreen() {
           addressParts: {
             ...form.addressParts,
             street: form.addressParts.street.trim(),
+            purok: form.addressParts.purok.trim(),
           },
         },
         agentId,
@@ -290,7 +294,14 @@ export function CustomerDetailScreen() {
               ) : null}
               <View className="flex-row items-start gap-3">
                 <MapPin size={16} color="#64748B" style={{ marginTop: 2 }} />
-                <Text className="flex-1">{customer.address}</Text>
+                <View className="flex-1">
+                  <Text variant="small" tone="muted">
+                    Address
+                  </Text>
+                  <Text className="mt-0.5">
+                    {formatAddress(customer.addressParts) || customer.address}
+                  </Text>
+                </View>
               </View>
             </Card>
 

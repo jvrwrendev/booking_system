@@ -7,6 +7,7 @@ const addressRefDto = z.object({
 
 const addressPartsDto = z.object({
   street: z.string().trim().max(220).default(""),
+  purok: z.string().trim().max(120).default(""),
   barangay: addressRefDto,
   city: addressRefDto,
   province: addressRefDto,

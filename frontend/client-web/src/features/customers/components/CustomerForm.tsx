@@ -92,8 +92,10 @@ export function CustomerForm({
     }
     if (
       isBlank(values.addressParts.street) ||
+      isBlank(values.addressParts.purok) ||
       isBlank(values.addressParts.barangay.name) ||
       isBlank(values.addressParts.city.name) ||
+      isBlank(values.addressParts.province.name) ||
       isBlank(values.addressParts.region.name)
     ) {
       nextErrors.address = "Complete the customer's address.";

@@ -23,6 +23,7 @@ const isSuperAdmin = (actor: UserActor): boolean =>
 
 type AddressPartsInput = {
   street: string;
+  purok: string;
   barangay: { name: string };
   city: { name: string };
   province: { name: string };
@@ -34,6 +35,7 @@ function hasAddress(parts: AddressPartsInput | null | undefined): boolean {
 
   return [
     parts.street,
+    parts.purok,
     parts.barangay.name,
     parts.city.name,
     parts.region.name,
@@ -45,6 +47,7 @@ function buildAddress(parts: AddressPartsInput | null | undefined): string {
 
   return [
     parts.street,
+    parts.purok,
     parts.barangay.name,
     parts.city.name,
     parts.province.name,

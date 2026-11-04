@@ -103,6 +103,7 @@ function toCustomerView(customer: CustomerRecord): CustomerView {
 function buildAddress(parts: AddressPartsDto): string {
   return [
     parts.street,
+    parts.purok,
     parts.barangay.name,
     parts.city.name,
     parts.province.name,

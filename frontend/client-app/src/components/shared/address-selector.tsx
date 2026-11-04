@@ -265,6 +265,7 @@ export function AddressSelector({
             province: EMPTY_REF,
             city: EMPTY_REF,
             barangay: EMPTY_REF,
+            purok: "",
           })
         }
       />
@@ -289,6 +290,7 @@ export function AddressSelector({
             province,
             city: EMPTY_REF,
             barangay: EMPTY_REF,
+            purok: "",
           })
         }
       />
@@ -312,6 +314,7 @@ export function AddressSelector({
             ...value,
             city,
             barangay: EMPTY_REF,
+            purok: "",
           })
         }
       />
@@ -330,7 +333,18 @@ export function AddressSelector({
         disabled={disabled || !value.city.code || barangaysLoading}
         loading={barangaysLoading}
         error={barangaysError}
-        onChange={(barangay) => onChange({ ...value, barangay })}
+        onChange={(barangay) =>
+          onChange({ ...value, barangay, purok: "" })
+        }
+      />
+
+      <Input
+        size="control"
+        label="Purok"
+        value={value.purok}
+        onChangeText={(purok) => onChange({ ...value, purok })}
+        placeholder="e.g., Purok 5"
+        editable={!disabled}
       />
     </View>
   );

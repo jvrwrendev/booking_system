@@ -88,6 +88,7 @@ export function AddressSelector({ value, onChange }: AddressSelectorProps) {
         province: emptyAddressRef(),
         city: emptyAddressRef(),
         barangay: emptyAddressRef(),
+        purok: "",
       });
       return;
     }
@@ -99,6 +100,7 @@ export function AddressSelector({ value, onChange }: AddressSelectorProps) {
       province: emptyAddressRef(),
       city: emptyAddressRef(),
       barangay: emptyAddressRef(),
+      purok: "",
     });
   };
 
@@ -109,6 +111,7 @@ export function AddressSelector({ value, onChange }: AddressSelectorProps) {
         province: emptyAddressRef(),
         city: emptyAddressRef(),
         barangay: emptyAddressRef(),
+        purok: "",
       });
       return;
     }
@@ -119,6 +122,7 @@ export function AddressSelector({ value, onChange }: AddressSelectorProps) {
       province: { code: province.code, name: province.name },
       city: emptyAddressRef(),
       barangay: emptyAddressRef(),
+      purok: "",
     });
   };
 
@@ -128,6 +132,7 @@ export function AddressSelector({ value, onChange }: AddressSelectorProps) {
         ...value,
         city: emptyAddressRef(),
         barangay: emptyAddressRef(),
+        purok: "",
       });
       return;
     }
@@ -137,12 +142,13 @@ export function AddressSelector({ value, onChange }: AddressSelectorProps) {
       ...value,
       city: { code: city.code, name: city.name },
       barangay: emptyAddressRef(),
+      purok: "",
     });
   };
 
   const handleBarangayChange = (code: string) => {
     if (code === NONE) {
-      onChange({ ...value, barangay: emptyAddressRef() });
+      onChange({ ...value, barangay: emptyAddressRef(), purok: "" });
       return;
     }
     const barangay = barangays.data?.find((b) => b.code === code);
@@ -150,6 +156,7 @@ export function AddressSelector({ value, onChange }: AddressSelectorProps) {
     onChange({
       ...value,
       barangay: { code: barangay.code, name: barangay.name },
+      purok: "",
     });
   };
 
@@ -158,18 +165,32 @@ export function AddressSelector({ value, onChange }: AddressSelectorProps) {
 
   return (
     <div className="space-y-5">
-      <div className="space-y-1.5">
-        <Label htmlFor="address-street" className="text-[13px] font-medium">
-          Street, Purok, House No.
-        </Label>
-        <Input
-          id="address-street"
-          value={value.street}
-          onChange={(e) => onChange({ ...value, street: e.target.value })}
-          placeholder="e.g., 123 Mahogany St., Purok 5"
-          autoComplete="street-address"
-          className="h-10"
-        />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="address-street" className="text-[13px] font-medium">
+            Street / House No.
+          </Label>
+          <Input
+            id="address-street"
+            value={value.street}
+            onChange={(e) => onChange({ ...value, street: e.target.value })}
+            placeholder="e.g., 123 Mahogany St."
+            autoComplete="street-address"
+            className="h-10"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="address-purok" className="text-[13px] font-medium">
+            Purok
+          </Label>
+          <Input
+            id="address-purok"
+            value={value.purok}
+            onChange={(e) => onChange({ ...value, purok: e.target.value })}
+            placeholder="e.g., Purok 5"
+            className="h-10"
+          />
+        </div>
       </div>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Field

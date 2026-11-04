@@ -18,7 +18,6 @@ import {
   EyeOff,
   Lock,
   Mail,
-  MapPin,
   Phone,
   UserRound,
 } from "lucide-react-native";
@@ -26,16 +25,28 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "@/hooks/use-auth";
 import { cn, validateEmail } from "@/lib/utils";
+import { isMindanaoRegion } from "@/lib/psgc-api";
+import { AddressSelector } from "@/components/shared/address-selector";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { APP_FULL_NAME, BUSINESS_NAME } from "@/constants";
 import type { Role } from "@/types/role";
+import type { AddressParts } from "@/types/auth";
 import type { RootStackParamList } from "@/app/navigation/types";
 
 const MUTED_ICON = "#64748B";
 const PRIMARY_ICON = "#0F172A";
 const CONTENT_MAX_WIDTH = 420;
+
+const EMPTY_ADDRESS: AddressParts = {
+  street: "",
+  purok: "",
+  barangay: { code: "", name: "" },
+  city: { code: "", name: "" },
+  province: { code: "", name: "" },
+  region: { code: "", name: "" },
+};
 
 const roleOptions: { value: Role; label: string; description: string }[] = [
   {
@@ -61,7 +72,8 @@ export function RegisterScreen() {
   const [ownerName, setOwnerName] = useState("");
   const [email, setEmail] = useState("");
   const [contactNumber, setContactNumber] = useState("");
-  const [address, setAddress] = useState("");
+  const [addressParts, setAddressParts] =
+    useState<AddressParts>(EMPTY_ADDRESS);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -84,9 +96,17 @@ export function RegisterScreen() {
     submitted && !contactNumber.trim()
       ? "Contact number is required."
       : undefined;
+  const addressComplete =
+    Boolean(addressParts.street.trim()) &&
+    Boolean(addressParts.purok.trim()) &&
+    Boolean(addressParts.barangay.name.trim()) &&
+    Boolean(addressParts.city.name.trim()) &&
+    Boolean(addressParts.province.name.trim()) &&
+    Boolean(addressParts.region.name.trim()) &&
+    isMindanaoRegion(addressParts.region);
   const addressError =
-    submitted && role === "BRANCH" && !address.trim()
-      ? "Address is required."
+    submitted && !addressComplete
+      ? "Complete the address and select a region within Mindanao."
       : undefined;
   const passwordError =
     submitted && password.length < 8
@@ -102,7 +122,7 @@ export function RegisterScreen() {
     (role !== "BRANCH" || Boolean(ownerName.trim())) &&
     validateEmail(email) === undefined &&
     Boolean(contactNumber.trim()) &&
-    (role === "AGENT" || Boolean(address.trim())) &&
+    addressComplete &&
     password.length >= 8 &&
     confirmPassword === password &&
     !submitting;
@@ -132,7 +152,11 @@ export function RegisterScreen() {
       ownerName: role === "BRANCH" ? ownerName.trim() : undefined,
       email: email.trim(),
       contactNumber: contactNumber.trim(),
-      address: address.trim(),
+      addressParts: {
+        ...addressParts,
+        street: addressParts.street.trim(),
+        purok: addressParts.purok.trim(),
+      },
       password,
       confirmPassword,
     });
@@ -333,24 +357,21 @@ export function RegisterScreen() {
                 leftIcon={<Phone size={18} color={MUTED_ICON} />}
               />
 
-              {role === "BRANCH" && (
-                <Input
-                  size="control"
-                  label="Address"
-                  accessibilityLabel="Address"
-                  value={address}
-                  onChangeText={(value) => {
-                    setAddress(value);
+              <View className="gap-1">
+                <AddressSelector
+                  value={addressParts}
+                  onChange={(next) => {
+                    setAddressParts(next);
                     resetFeedback();
                   }}
-                  error={addressError}
-                  autoCapitalize="words"
-                  textContentType="fullStreetAddress"
-                  autoComplete="street-address"
-                  placeholder="123 EDSA, Quezon City"
-                  leftIcon={<MapPin size={18} color={MUTED_ICON} />}
+                  disabled={submitting}
                 />
-              )}
+                {addressError ? (
+                  <Text variant="small" tone="danger" className="mt-1">
+                    {addressError}
+                  </Text>
+                ) : null}
+              </View>
 
               <Input
                 size="control"

@@ -7,6 +7,7 @@ export interface AddressRef {
 
 export interface AddressParts {
   street: string;
+  purok: string;
   barangay: AddressRef;
   city: AddressRef;
   province: AddressRef;
@@ -42,7 +43,7 @@ export interface RegisterCredentials {
   ownerName?: string;
   email: string;
   contactNumber: string;
-  address: string;
+  addressParts: AddressParts;
   password: string;
   confirmPassword: string;
 }

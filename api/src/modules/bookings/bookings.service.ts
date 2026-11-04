@@ -244,13 +244,27 @@ function normalizeItems(items: { productId: string; quantity: number }[]) {
 
 async function resolveBranch(
   tx: Prisma.TransactionClient,
-  branchId: string,
+  branchId?: string | null,
 ): Promise<{ id: string; name: string }> {
-  const branch = await tx.branch.findUnique({
-    where: { id: branchId },
+  if (branchId) {
+    const branch = await tx.branch.findUnique({
+      where: { id: branchId },
+      select: { id: true, name: true },
+    });
+    if (!branch) throw Errors.badRequest("Branch not found");
+    return branch;
+  }
+
+  // Agent bookings no longer choose a branch, so default to the oldest active
+  // branch for stock and reporting while keeping the stored branch relation.
+  const branch = await tx.branch.findFirst({
+    where: { status: "ACTIVE" },
+    orderBy: { createdAt: "asc" },
     select: { id: true, name: true },
   });
-  if (!branch) throw Errors.badRequest("Branch not found");
+  if (!branch) {
+    throw Errors.badRequest("No active branch is available for this booking");
+  }
   return branch;
 }
 
@@ -542,7 +556,10 @@ export async function createBooking(
 
   try {
     const booking = await prisma.$transaction(async (tx) => {
-      const branch = await resolveBranch(tx, input.branchId);
+      const branch = await resolveBranch(
+        tx,
+        input.branchId ?? actor.branchId ?? undefined,
+      );
       const { items, subtotal } = await buildItems(tx, input.items);
       if (input.discount > subtotal) {
         throw Errors.badRequest("Discount cannot exceed the subtotal");

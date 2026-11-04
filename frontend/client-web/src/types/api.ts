@@ -32,6 +32,7 @@ export interface AddressRefDto {
 
 export interface AddressPartsDto {
   street: string;
+  purok: string;
   barangay: AddressRefDto;
   city: AddressRefDto;
   province: AddressRefDto;

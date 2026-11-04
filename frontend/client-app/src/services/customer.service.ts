@@ -1,4 +1,5 @@
 import { ApiError, request } from "@/lib/api-client";
+import { normalizeAddress } from "@/lib/utils";
 import type { AddressParts } from "@/types/auth";
 import type { Customer, CustomerFormValues } from "@/types/customer";
 
@@ -33,7 +34,7 @@ function toCustomer(customer: ApiCustomer): Customer {
     contactNumber: customer.contactNumber,
     gender: customer.gender ?? undefined,
     address: customer.address,
-    addressParts: customer.addressParts,
+    addressParts: normalizeAddress(customer.addressParts),
     assignedAgentId: customer.assignedAgentId,
     assignedAgentName: customer.assignedAgentName,
     totalBookings: customer.totalBookings,

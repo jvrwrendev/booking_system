@@ -164,12 +164,7 @@ export function BookingCreateScreen() {
   };
 
   const onConfirm = async () => {
-    if (
-      submitting ||
-      !cart.customer ||
-      cart.items.length === 0 ||
-      !selectedBranchId
-    ) {
+    if (submitting || !cart.customer || cart.items.length === 0) {
       return;
     }
     setSubmitting(true);
@@ -179,7 +174,6 @@ export function BookingCreateScreen() {
         customer: cart.customer,
         agentId,
         agentName: user?.fullName ?? "Agent",
-        branchId: selectedBranchId,
         items: cart.items,
         notes: notes.trim() || undefined,
       });
@@ -481,45 +475,6 @@ export function BookingCreateScreen() {
                 </View>
               </Card>
 
-              <Card className="mt-4">
-                <Text variant="label" tone="muted">
-                  FULFILLING BRANCH
-                </Text>
-                <Text variant="small" tone="muted" className="mt-1">
-                  This booking will be fulfilled from the selected branch.
-                </Text>
-                <View className="mt-3 gap-2">
-                  {branches.map((branch) => {
-                    const selected = branch.id === selectedBranchId;
-                    return (
-                      <Pressable
-                        key={branch.id}
-                        onPress={() => setSelectedBranchId(branch.id)}
-                        className={`rounded-md border px-3 py-2.5 ${
-                          selected
-                            ? "border-primary bg-primary/5"
-                            : "border-border bg-background"
-                        }`}
-                      >
-                        <Text weight={selected ? "semibold" : "medium"}>
-                          {branch.name}
-                        </Text>
-                        {branch.code ? (
-                          <Text variant="small" tone="muted">
-                            {branch.code}
-                          </Text>
-                        ) : null}
-                      </Pressable>
-                    );
-                  })}
-                  {branches.length === 0 ? (
-                    <Text variant="small" tone="danger">
-                      No active branch is available. Contact an administrator.
-                    </Text>
-                  ) : null}
-                </View>
-              </Card>
-
               <View className="mt-4">
                 <Input
                   size="control"
@@ -549,11 +504,7 @@ export function BookingCreateScreen() {
                 size="control"
                 fullWidth
                 loading={submitting}
-                disabled={
-                  !cart.customer ||
-                  cart.items.length === 0 ||
-                  !selectedBranchId
-                }
+                disabled={!cart.customer || cart.items.length === 0}
                 onPress={() => {
                   void onConfirm();
                 }}

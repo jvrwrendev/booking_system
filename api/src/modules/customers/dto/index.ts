@@ -7,6 +7,7 @@ const addressRefDto = z.object({
 
 const addressPartsDto = z.object({
   street: z.string().trim().min(1, "Street is required").max(220),
+  purok: z.string().trim().min(1, "Purok is required").max(120),
   barangay: addressRefDto,
   city: addressRefDto,
   province: addressRefDto,

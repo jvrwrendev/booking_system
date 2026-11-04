@@ -1,5 +1,5 @@
 import { request } from "@/lib/api-client";
-import { emptyAddress, type AddressParts } from "@/lib/utils";
+import { normalizeAddress } from "@/lib/utils";
 import type {
   CreateCustomerPayloadDto,
   CustomerDto,
@@ -28,7 +28,7 @@ export function toCustomer(dto: CustomerDto): Customer {
     contactNumber: dto.contactNumber,
     gender: dto.gender ?? "",
     address: dto.address,
-    addressParts: (dto.addressParts as AddressParts | undefined) ?? emptyAddress(),
+    addressParts: normalizeAddress(dto.addressParts),
     assignedAgentId: dto.assignedAgentId,
     assignedAgentName: dto.assignedAgentName,
     totalBookings: dto.totalBookings,

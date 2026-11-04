@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+const addressRefDto = z.object({
+  code: z.string().trim().max(40).default(""),
+  name: z.string().trim().min(1, "Address name is required").max(160),
+});
+
+const addressPartsDto = z.object({
+  street: z.string().trim().min(1, "Street is required").max(220),
+  purok: z.string().trim().min(1, "Purok is required").max(120),
+  barangay: addressRefDto,
+  city: addressRefDto,
+  province: addressRefDto,
+  region: addressRefDto,
+});
+
 export const registerDto = z
   .object({
     name: z
@@ -25,6 +39,7 @@ export const registerDto = z
       .max(128),
     contactNumber: z.string().trim().max(40).optional(),
     address: z.string().trim().max(500).optional(),
+    addressParts: addressPartsDto,
     avatar: z.string().trim().url("Avatar must be a valid URL").max(500).optional(),
     role: z.enum(["AGENT", "BRANCH"], {
       errorMap: () => ({ message: "Role must be AGENT or BRANCH" }),

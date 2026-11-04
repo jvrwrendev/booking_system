@@ -1,5 +1,5 @@
 import { request } from "@/lib/api-client";
-import { emptyAddress, type AddressParts } from "@/lib/utils";
+import { normalizeAddress } from "@/lib/utils";
 import type {
   AccountStatusDto,
   CreateUserPayloadDto,
@@ -28,7 +28,7 @@ export function toAgent(dto: PublicUserDto): Agent {
     email: dto.email,
     contactNumber: dto.contactNumber ?? "",
     address: dto.address ?? "",
-    addressParts: (dto.addressParts as AddressParts | undefined) ?? emptyAddress(),
+    addressParts: normalizeAddress(dto.addressParts),
     totalBookings: 0,
     status: STATUS_TO_UI[dto.status],
     dateJoined: dto.createdAt,
